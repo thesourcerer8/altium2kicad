@@ -18,14 +18,14 @@ Due to the huge differences between Altium and KiCad, the weak fileformat docume
 If this converter does not work for your files, feel free to provide your files and screenshots of how they do look like and how they should look like, and I will try to help.
 
 Currently known Limitations of KiCad:
-# Bezier curves for component symbols -> WONTFIX -> Workaround with linearization
-# Multi-line Text Frames
-# A GND symbol with multiple horizontal lines arranged as a triangle
-# Individual colors for single objects like lines, ...
-# Ellipse
-# Round Rectangle
-# Elliptical Arc
-# Bars over single characters in Text Lables
-# Rigid-Flex
-# STEP file support
+* Bezier curves for component symbols -> WONTFIX -> Workaround with linearization
+* Multi-line Text Frames
+* A GND symbol with multiple horizontal lines arranged as a triangle
+* Individual colors for single objects like lines, ...
+* Ellipse
+* Round Rectangle
+* Elliptical Arc
+* Bars over single characters in Text Lables
+* Rigid-Flex
+* STEP file support
 
