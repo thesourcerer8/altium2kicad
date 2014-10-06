@@ -7,12 +7,13 @@ System requirements: Perl
 
 To convert your Altium project to KiCad:
 
-Go to the directory with your .PcbDoc and .SchDoc files
-Run:
-unpack.pl (it unpacks the .PcbDoc and .SchDoc files into subdirectores)
-convertschema.pl (it converts the schematics from the subdirectories to .sch and -cache.lib files)
-convertpcb.pl (it converts the PCB to .kicad_pcb files)
-hopefully soon: convert3d.pl (converts the .step files to .wrl, this should be possible with http://gcad3d.org/ soon)
+Go to the directory with your .PcbDoc and .SchDoc files and run:
+
+* unpack.pl (it unpacks the .PcbDoc and .SchDoc files into subdirectores)
+* convertschema.pl (it converts the schematics from the subdirectories to .sch and -cache.lib files)
+* convertpcb.pl (it converts the PCB to .kicad_pcb files)
+
+Afterwards, please use GCad3D from http://gcad3d.org/ to convert the unpacked .step files to .wrl
 
 Due to the huge differences between Altium and KiCad, the weak fileformat documentation and the high complexity of the fileformats, this converter cannot guarantee the quality of the conversion. Please verify the output of the converter
 If this converter does not work for your files, feel free to provide your files and screenshots of how they do look like and how they should look like, and I will try to help.
