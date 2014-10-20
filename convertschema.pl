@@ -21,7 +21,7 @@ my $imagemagick=-d $searchimagemagick?$searchimagemagick:"";
 # Exporting to PDF only creates a single page, does not work for hierarchical schematics yet
 # Arcs with >=180 degrees angle. Workaround: Such arcs are splitted into 3 parts
 
-# Things that are mossing in Altium:
+# Things that are missing in Altium:
 # Altium does not differentiate between "Power-In" and "Power-Out", it only has "Power"
 # -> therefore the Input-Ouput connectivity between Power-In and Power-Out cannot be checked by the KiCad Design-Rules-Check
 # Possible workaround: Map Altium-Power to KiCad-Power-In or KiCad-Power-Out and disable the checks in KiCad by allowing Power-In <-> Power-In connections
