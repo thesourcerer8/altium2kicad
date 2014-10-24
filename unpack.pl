@@ -1,5 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
+use Compress::Zlib;
+
 # This tool unpacks Microsoft Composite Document File V2
 # It was developed based on the documentation from 
 # http://www.openoffice.org/sc/compdocfileformat.pdf
@@ -326,13 +328,41 @@ foreach my $file (@files)
      
     if(open(OUT,">$path/$name.dat"))
     {
+      binmode OUT;
       print OUT $bytes;
       close OUT;  
+      my $f=$bytes;
+      $f=~s/\r\n/\n/sg;
+      if(open(OUT,">$path/$name.bin"))
+      {
+        binmode OUT;
+        print OUT $f;
+        close OUT;
+      }
+      if(substr($f,0,2) eq "\x02\x78")
+      {
+        my $x = inflateInit();
+        my $dest = $x->inflate(substr($f,1));
+        open OUT,">$path/$name.unzip";
+        binmode OUT;
+        print OUT $dest;
+        close OUT;
+     } 
+     if(substr($f,0,1) eq "\x78")
+     {
+        my $x = inflateInit();
+        my $dest = $x->inflate($f);
+        open OUT,">$path/$name.unzip";
+        binmode OUT;
+        print OUT $dest;
+        close OUT;
+      } 
     }
     else
     {
       print "HandleColor() Error when writing $path/$name.dat: $!\n";
     }
+
     print "\n";
 
   }   
