@@ -8,6 +8,9 @@ use strict;
 
 my @files=<*.SchDoc>;
 push @files,<*.PcbDoc>;
+push @files,<*.IntLib>;
+push @files,<*.PcbLib>;
+push @files,<*.SchLib>;
 
 foreach my $file (@files)
 {
