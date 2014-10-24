@@ -26,7 +26,6 @@ Currently known Limitations of KiCad:
 * Ellipse
 * Round Rectangle
 * Elliptical Arc
-* Bars over single characters in Text Lables
 * Rigid-Flex
 * STEP file support
 
