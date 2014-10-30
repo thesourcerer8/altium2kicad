@@ -5,7 +5,7 @@ use Compress::Zlib;
 #use Math::Bezier;
 
 # Things that are missing in KiCad:
-# More than 32 layers!
+# More than 32 layers
 # Multi-line Text Frames (Workaround: The text can be rendered by the converter)
 # A GND symbol with multiple horizontal lines arranged as a triangle
 # Individual colors for single objects like lines, ...
@@ -42,18 +42,18 @@ ModelsNoEmbed.dat # Empty
 Nets6.dat # Needed
 Pads6.dat # Important
 Pin Swap Options6.dat # Only 1 line, likely not needed
-Polygons6.dat # 
-Regions6.dat
-Rules6.dat
-ShapeBasedComponentBodies6.dat
-ShapeBasedRegions6.dat
-SmartUnions.dat
-Texts.dat
-Texts6.dat
-Textures.dat
-Tracks6.dat
-Vias6.dat
-WideStrings6.dat
+Polygons6.dat # Done
+Regions6.dat #
+Rules6.dat # Not important
+ShapeBasedComponentBodies6.dat # HALF-Done, do we need more?
+ShapeBasedRegions6.dat # Not needed, I guess
+SmartUnions.dat # Empty
+Texts.dat # Warnings for older Altium versions, I think we don´t need to support those ;-)
+Texts6.dat # Partly done, NEEDED
+Textures.dat # Empty
+Tracks6.dat # Done
+Vias6.dat # Done
+WideStrings6.dat # Seems to be a copy of Texts6, just for Unicode?!?
 EOF
 ;
 
@@ -473,7 +473,7 @@ $layers
     (aux_axis_origin 0 0)
     (visible_elements FFFFFF7F)
     (pcbplotparams
-      (layerselection 0x00030_80000001)
+      (layerselection 30001)
       (usegerberextensions false)
       (excludeedgelayer true)
       (linewidth 0.100000)
@@ -621,7 +621,39 @@ EOF
   $xmove=50;$ymove=250; # Enable to move everything into the frame, or disable to move it to align to the Gerber-Imports
   
   my %layermap=("1"=>"F.Cu","3"=>"In2.Cu","4"=>"In3.Cu","11"=>"In6.Cu","12"=>"In7.Cu","32"=>"B.Cu","33"=>"F.SilkS","34"=>"B.SilkS","35"=>"F.Paste","36"=>"B.Paste","37"=>"F.Mask","38"=>"B.Mask","39"=>"In1.Cu","40"=>"In4.Cu","41"=>"In5.Cu","42"=>"In8.Cu","74"=>"Eco1.User");
-
+  
+  my @layerkeys=keys %layermap;
+  foreach(@layerkeys)
+  {
+    $layermap{$layername{$_}}=$layermap{$_};
+    $layermap{uc $layername{$_}}=$layermap{$_};
+	#print "$layername{$_}\n";
+	if($layername{$_}=~m/Internal\.Plane\.(\d+)/)
+	{
+	  print "Found plane $1\n";
+	  $layermap{"PLANE$1"}=$layermap{$_};
+	}
+	if($layername{$_}=~m/Mid-Layer\.(\d+)/)
+	{
+	  $layermap{"MID$1"}=$layermap{$_};
+	}
+  }
+  foreach(1..30)
+  {
+    $layermap{"MID$_"}=$layermap{$_+1};
+  }
+  foreach(1..16)
+  {
+    $layermap{"PLANE$_"}=$layermap{$_+38};
+  }
+  $layermap{"TOP"}=$layermap{1};
+  $layermap{"BOTTOM"}=$layermap{32};
+  $layermap{"TOPOVERLAY"}=$layermap{33};
+  foreach(sort keys %layermap)
+  {
+    #print "SORT: $_ -> $layermap{$_}\n";
+  }
+  
   HandleBinFile("$short/Root Entry/ComponentBodies6/Data.dat","",23,16, sub 
   { 
     my %d=%{$_[0]};
@@ -733,7 +765,6 @@ EOF
   @{$g[7]}=split"\n",readfile('novena_pvt1_e_gerbers\G4.kicad_pcb');
   @{$g[8]}=split"\n",readfile('novena_pvt1_e_gerbers\GP4.kicad_pcb');
   @{$g[9]}=split"\n",readfile('novena_pvt1_e_gerbers\GBL.kicad_pcb');
-
   
   my $count=0;
   HandleBinFile("$short/Root Entry/Vias6/Data.dat","\x03",0,0, sub 
@@ -811,23 +842,32 @@ EOF
   
   HandleBinFile("$short/Root Entry/Polygons6/Data.dat","",0,0, sub 
   { 
-    my $value=$_[1];
-	
-    my $x1=unpack("l",substr($value,13,4))/$faktor/10000-$xmove;
-	my $y1=unpack("l",substr($value,17,4))/$faktor/10000;$y1=$ymove-$y1;
-	my $x2=unpack("l",substr($value,21,4))/$faktor/10000-$xmove;
-	my $y2=unpack("l",substr($value,25,4))/$faktor/10000;$y2=$ymove-$y2;
-	my $width=unpack("l",substr($value,29,4))/$faktor/10000;
-	my $layer=$layermap{unpack("C",substr($value,0,1))} || "Cmts.User";
-	#print "Koordinaten:\n";
+    my %d=%{$_[0]};
+	my $width=$d{'TRACKWIDTH'}||1;$width=~s/mil$//; #/$faktor/10000;
+	my $layer=$layermap{$d{'LAYER'}} || "F.Paste";
+	print "NOT FOUND: ".$d{'LAYER'}."\n" if(!defined($layermap{$d{'LAYER'}}));
+	my $maxpoints=0;
+	foreach(keys %d)
+	{
+	  if(m/^SA(\d+)/)
+	  {
+	    $maxpoints=$1 if($1>$maxpoints);
+      }
+	}
+	foreach(0 .. $maxpoints-2)
+	{
+	  my $sx=$d{'VX'.$_};$sx=~s/mil$//;$sx/=$faktor;$sx-=$xmove;
+	  my $sy=$d{'VY'.$_};$sy=~s/mil$//;$sy/=$faktor;$sy=$ymove-$sy;
+	  my $ex=$d{'VX'.($_+1)};$ex=~s/mil$//;$ex/=$faktor;$ex-=$xmove;
+	  my $ey=$d{'VY'.($_+1)};$ey=~s/mil$//;$ey/=$faktor;$ey=$ymove-$ey;
+	  print OUT "(gr_line (start $sx $sy) (end $ex $ey) (angle 90) (layer $layer) (width 0.2))\n";
+	}
    });
-  
   
 
   HandleBinFile("$short/Root Entry/Tracks6/Data.dat","\x04",0,0, sub 
   { 
     my $value=$_[1];
-	
     my $x1=unpack("l",substr($value,13,4))/$faktor/10000-$xmove;
 	my $y1=unpack("l",substr($value,17,4))/$faktor/10000;$y1=$ymove-$y1;
 	my $x2=unpack("l",substr($value,21,4))/$faktor/10000-$xmove;
@@ -926,11 +966,26 @@ EOF
 	  print AOUT bin2hex(substr($value,$pos,5))." ";
 	  print AOUT sprintf("%10s",bin2hex(substr($value,$pos+5,$len)))." ";
 	  $pos+=5+$len;
+	  
+      my $x1=unpack("l",substr($value,$pos+36,4))/$faktor/10000-$xmove;
+	  my $y1=unpack("l",substr($value,$pos+40,4))/$faktor/10000;$y1=$ymove-$y1;
+	  	  
 	  print AOUT bin2hex(substr($value,$pos,143))." ";
 	  my $len2=unpack("l",substr($value,$pos+143,4));
 	  $pos+=147;
   	  print AOUT bin2hex(substr($value,$pos,$len2))."\n";
       $pos+=$len2;
+	  
+	  my $width=0.5;
+	  
+ 	  print OUT <<EOF
+ (gr_text "PAD" (at $x1 $y1) (layer F.Cu)
+    (effects (font (size $width $width) (thickness 0.1)))
+  )
+EOF
+;
+
+	  
 	}
     close AOUT;
   
@@ -975,6 +1030,109 @@ EOF
 ;
   });
 
+  
+  HandleBinFile("$short/Root Entry/Regions6/Data.dat","\x0b",0,0, sub 
+  { 
+    my $value=$_[1];
+    #print bin2hex($value)."\n"; # if($debug);
+	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
+    my $textlen=unpack("l",substr($value,18,4));
+	my $text=substr($value,22,$textlen);$text=~s/\x00$//;
+	my @a=split '\|',$text;
+	my %d=();
+	foreach my $c(@a)
+	{
+	  #print "*$c*\n";
+      if($c=~m/^([^=]*)=(.*)$/)
+	  {
+	    $d{$1}=$2;
+	  }
+	}
+	my $layer=$layermap{$d{'V7_LAYER'}};
+	print "Please define mapping for layer $d{V7_LAYER}\n" if(!defined($layer));
+	#print "Layer: $layer\n";
+	
+	my $datalen=unpack("l",substr($value,22+$textlen,4))*16;
+	my $data=substr($value,22+$textlen+4,$datalen);
+	#print bin2hex($data)."\n";
+	#print "text: $text\n";
+	
+  });
+  
+  
+  
+  HandleBinFile("$short/Root Entry/ShapeBasedComponentBodies6/Data.dat","\x0c",0,0, sub 
+  { 
+    my $value=$_[1];
+    #print bin2hex($value)."\n"; # if($debug);
+	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
+    #print "  ".bin2hex($unknownheader)."\n";
+    my $textlen=unpack("l",substr($value,18,4));
+	my $text=substr($value,22,$textlen);$text=~s/\x00$//;
+	my @a=split '\|',$text;
+	my %d=();
+	foreach my $c(@a)
+	{
+	  #print " * $c\n";
+      if($c=~m/^([^=]*)=(.*)$/)
+	  {
+	    $d{$1}=$2;
+	  }
+	}
+	#my $layer=$layermap{$d{'V7_LAYER'}};
+	#print "Please define mapping for layer $d{V7_LAYER}\n" if(!defined($layer));
+	#print "Layer: $layer\n";
+	my $datalen=(unpack("l",substr($value,22+$textlen,4))+1)*37;
+	my $data=substr($value,22+$textlen+4,$datalen);
+	foreach(0 .. unpack("l",substr($value,22+$textlen,4))-1)
+	{
+      my $x1=unpack("l",substr($data,$_*37+1,4))/$faktor/10000-$xmove;
+	  my $y1=unpack("l",substr($data,$_*37+5,4))/$faktor/10000;$y1=$ymove-$y1;
+      my $x2=unpack("l",substr($data,$_*37+37+1,4))/$faktor/10000-$xmove;
+	  my $y2=unpack("l",substr($data,$_*37+37+5,4))/$faktor/10000;$y2=$ymove-$y2;
+	  print OUT "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer F.Adhes) (width 0.2))\n";
+	  #print "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer F.Adhes) (width 0.2))\n";
+	}
+	#print "  ".bin2hex($data)."\n";
+	#print "text: $text\n";
+	#print "\n";
+  });
+  
+  sub ucs2utf($)
+  {
+    my $r=$_[0]; $r=~s/\x00//gs;
+	return $r;
+  }
+  
+  if(1)
+  {
+    print "Texts6...\n";
+    my $content=readfile("$short/Root Entry/Texts6/Data.dat"); $content=~s/\r\n/\n/sg;
+	my $pos=0;
+	my %seen=();
+	while($pos<length($content))
+	{
+	  last if(substr($content,$pos,1) ne "\x05"); $pos++;
+      my $fontlen=unpack("l",substr($content,$pos,4)); $pos+=4;
+      my $layer=$layermap{unpack("C",substr($content,$pos,1))} || "Cmts.User";
+	  my $x1=unpack("l",substr($content,$pos+13,4))/$faktor/10000-$xmove;
+	  my $y1=unpack("l",substr($content,$pos+17,4))/$faktor/10000;$y1=$ymove-$y1;
+      my $width=unpack("l",substr($content,$pos+21,4))/$faktor/10000;
+	  my $dir=unpack("d",substr($content,$pos+27,8)); 
+	  my $font=substr($content,$pos,$fontlen); $pos+=$fontlen;
+	  my $fontname=ucs2utf(substr($font,46,64));
+      my $textlen=unpack("l",substr($content,$pos,4)); $pos+=4;
+	  my $text=substr($content,$pos+1,$textlen-1); $pos+=$textlen;
+	  #print  bin2hex($font)." $fontname"."   $text $dir\n";
+	  $text=~s/"/''/g;
+	  print OUT <<EOF
+ (gr_text "$text" (at $x1 $y1 $dir) (layer $layer)
+    (effects (font (size $width $width) (thickness 0.1)))
+  )
+EOF
+;
+	}
+  } 
   
   print OUT ")\n";
 }
