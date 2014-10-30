@@ -31,7 +31,7 @@ my $imagemagick=-d $searchimagemagick?$searchimagemagick:"";
 # Automatic layer assignment, at the moment this converter is specialized for Novena, it might not work correctly for other projects with different layer definitions
 # Worksheet definitions
 
-# Documentation for the Schematic Fileformat can be found at 
+# Documentation for the Altium Schematic Fileformat can be found at 
 # https://github.com/vadmium/python-altium/blob/master/format.md
 
 # Security considerations
@@ -601,7 +601,7 @@ EOF
       }
 	  elsif($d{'RECORD'} eq '33') # Sheet Symbol
 	  {
-        $prevfilename=$d{'TEXT'} if($d{'RECORD'} eq '33'); $prevfilename=~s/\.SchDoc/\.SCH/;	
+        $prevfilename=$d{'TEXT'} if($d{'RECORD'} eq '33'); $prevfilename=~s/\.SchDoc/\.sch/;	
 	    $dat="$symbol\nF0 \"$prevname\" 60\nF1 \"$prevfilename\" 60\n\$EndSheet\n";
 		$rootlibraries{"$short-cache.lib"}=1;
 	  }	  
