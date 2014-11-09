@@ -16,7 +16,6 @@ use Compress::Zlib;
 # Board regions for Rigid-Flex
 # Support for STEP files
 
-
 my $current_status=<<EOF
 Advanced Placer Options6.dat # Not needed
 Arcs6.dat # NEEDED
@@ -868,6 +867,7 @@ EOF
   HandleBinFile("$short/Root Entry/Tracks6/Data.dat","\x04",0,0, sub 
   { 
     my $value=$_[1];
+	my $component=unpack("s",substr($value,7,2));
     my $x1=unpack("l",substr($value,13,4))/$faktor/10000-$xmove;
 	my $y1=unpack("l",substr($value,17,4))/$faktor/10000;$y1=$ymove-$y1;
 	my $x2=unpack("l",substr($value,21,4))/$faktor/10000-$xmove;
@@ -964,12 +964,29 @@ EOF
 	{
 	  my $len=unpack("l",substr($value,$pos+1,4));
 	  print AOUT bin2hex(substr($value,$pos,5))." ";
-	  print AOUT sprintf("%10s",bin2hex(substr($value,$pos+5,$len)))." ";
+	  print AOUT sprintf("A:%10s",bin2hex(substr($value,$pos+5,$len)))." ";
 	  $pos+=5+$len;
 	  
       my $x1=unpack("l",substr($value,$pos+36,4))/$faktor/10000-$xmove;
 	  my $y1=unpack("l",substr($value,$pos+40,4))/$faktor/10000;$y1=$ymove-$y1;
-	  	  
+      my $layer=$layermap{unpack("C",substr($value,$pos+23,1))};	  
+
+	  my $sx=unpack("l",substr($value,$pos+44,4))/$faktor/10000;
+	  my $sy=unpack("l",substr($value,$pos+48,4))/$faktor/10000;
+	  my $hs=unpack("l",substr($value,$pos+68,4))/$faktor/10000;
+
+	  my $dir=unpack("d",substr($value,$pos+75,8)); 
+	  
+	  
+	  my %typemap=("2"=>"RECTANGLE","1"=>"ROUND");
+      my $type=$typemap{unpack("C",substr($value,$pos+72,1))};	  
+      my %platemap=("0"=>"FALSE","1"=>"TRUE");
+      my $plated=$platemap{unpack("C",substr($value,$pos+83,1))};	  
+
+	  
+      my $net=unpack("s",substr($value,$pos+26,2));	  
+      my $component=unpack("s",substr($value,$pos+30,2));	  
+	  print "layer:$layer net:$net component=$component type:$type dir:$dir \n";
 	  print AOUT bin2hex(substr($value,$pos,143))." ";
 	  my $len2=unpack("l",substr($value,$pos+143,4));
 	  $pos+=147;
