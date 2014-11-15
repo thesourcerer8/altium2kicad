@@ -672,7 +672,7 @@ EOF
   HandleBinFile("$short/Root Entry/Components6/Data.dat","",0,0, sub 
   { 
     my %d=%{$_[0]};
-	my $atx=$d{'X'};$atx=~s/mil$//;$atx/=$faktor-$xmove;
+	my $atx=$d{'X'};$atx=~s/mil$//;$atx/=$faktor;$atx-=$xmove;
 	$componentatx{$componentid}=$atx;
 	#print "\$componentatx{$componentid}=$atx\n";
 	my $aty=$d{'Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
