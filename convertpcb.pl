@@ -112,10 +112,12 @@ sub HandleBinFile
   print "Writing to $filename.txt\n";
   open HBOUT,">$filename.txt";
   my $line=0;
-  my $pos=$headerlen;
+  my $pos=0;
   
   while($pos<length($content)-4)
   {
+    my $header=substr($content,$pos,$headerlen);
+    $pos+=$headerlen;
     my $rtyp=substr($content,$pos,length($recordtype));
 	last if($rtyp ne $recordtype);
 	$pos+=length($recordtype);
@@ -149,7 +151,7 @@ sub HandleBinFile
 		  $h{$name}{$value}=1 if($model);
 	    }
 	  }
-	  $piped->(\%d,$data);
+	  $piped->(\%d,$data,$header);
     }
 	
     push @a,"|LINENO=$line|".$data;
@@ -162,11 +164,7 @@ sub HandleBinFile
 	  #print "nskip: $nskip nskiptimes: $nskiptimes\n";
 	  $pos+=4+$nskiptimes*$nskip;
 	}
-	
-	
-	
-    $pos+=$headerlen;
-	$line++;
+ 	$line++;
   }
   if($model)
   {
@@ -180,7 +178,6 @@ sub HandleBinFile
 	}
   }
   close HBOUT;
-  
 }
 
 
@@ -193,10 +190,9 @@ sub MarkPoint($$)
   my $y=$_[1];
   my $size=10;
   print OUT "(gr_line (start ".($x-$size)." ".($y-$size).") (end ".($x+$size)." ".($y+$size).") (layer F.SilkS) (width 0.2032))\n";
-  print OUT "(gr_line (start ".($x+$size)." ".($y+$size).") (end ".($x-$size)." ".($y-$size).") (layer F.SilkS) (width 0.2032))\n";
+  print OUT "(gr_line (start ".($x+$size)." ".($y-$size).") (end ".($x-$size)." ".($y+$size).") (layer F.SilkS) (width 0.2032))\n";
   print OUT "(gr_line (start ".($x)." ".($y-$size).") (end ".($x)." ".($y+$size).") (layer F.SilkS) (width 0.2032))\n";
-  print OUT "(gr_line (start ".($x+$size)." ".($y).") (end ".($x-$size)." ".($y).") (layer F.SilkS) (width 0.2032))\n";
- 
+  print OUT "(gr_line (start ".($x-$size)." ".($y).") (end ".($x+$size)." ".($y).") (layer F.SilkS) (width 0.2032))\n";
 }
 
 my $USELOGGING=0;
@@ -204,7 +200,6 @@ my $USELOGGING=0;
 foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
 {
   print "Handling $filename\n";
-  
   my $short=$filename; $short=~s/\/Root Entry\/Board6\/Data\.dat$//;
 
   foreach my $dat(glob("\"$short/Root Entry/Models/*.dat\""))
@@ -220,7 +215,6 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
     print OUT $dest;
     close OUT;
   }
-  
   
   my %layername=();
   my %dieltype=();
@@ -245,10 +239,8 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
 		#print "$1 -> $d{$_}\n";
 	  }
 	}
-  
   }); # Board
 
-    
   my $layers="";
   
   foreach(sort {$a <=> $b} keys %layername)
@@ -702,10 +694,11 @@ EOF
 
       my $component=unpack("s",substr($value,$pos+30,2));	
 
-	  print "component:$component\n";
+	  #print "component:$component\n";
       my $x1=unpack("l",substr($value,$pos+36,4))/$faktor/10000-$xmove; 
-	  $x1-=$componentatx{$component} if($component>=0);
 	  my $y1=unpack("l",substr($value,$pos+40,4))/$faktor/10000;$y1=$ymove-$y1;
+  	  MarkPoint($x1,$y1) if($counter eq 2);
+	  $x1-=$componentatx{$component} if($component>=0);
 	  $y1-=$componentaty{$component} if($component>=0);
 	 
       my $layer=$layermap{unpack("C",substr($value,$pos+23,1))};	  
@@ -726,7 +719,7 @@ EOF
 	  
       my $net=unpack("s",substr($value,$pos+26,2));	  
 	  
-	  print "layer:$layer net:$net component=$component type:$type dir:$dir \n";
+	  #print "layer:$layer net:$net component=$component type:$type dir:$dir \n";
 	  print AOUT bin2hex(substr($value,$pos,143))." ";
 	  my $len2=unpack("l",substr($value,$pos+143,4));
 	  $pos+=147;
@@ -734,10 +727,9 @@ EOF
       $pos+=$len2;
 	  
 	  my $width=0.5;
-	  MarkPoint($x1,$y1) if($counter eq 2);
 
 	  print OUT "  (via (at $x1 $y1) (size $holesize) (layers $layer $layer) (net $net))\n" if($type eq "ROUND");
-      if($type eq "RECTANGLE")
+      if($type eq "RECTANGLE" && 0)
       {
  	    print OUT <<EOF
  (gr_text "PAD" (at $x1 $y1) (layer F.Cu)
@@ -791,6 +783,9 @@ EOF
   HandleBinFile("$short/Root Entry/ComponentBodies6/Data.dat","",23,16, sub 
   { 
     my %d=%{$_[0]};
+	my $header=$_[2];
+	my $component=unpack("s",substr($header,12,2));
+	print "Component:$component\n";
 	my $id=$d{'MODELID'};
 	my $atx=$d{'MODEL.2D.X'};$atx=~s/mil$//;$atx/=$faktor;$atx-=$xmove;
 	my $aty=$d{'MODEL.2D.Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
