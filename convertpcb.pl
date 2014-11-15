@@ -697,9 +697,9 @@ EOF
 	  #print "component:$component\n";
       my $x1=unpack("l",substr($value,$pos+36,4))/$faktor/10000-$xmove; 
 	  my $y1=unpack("l",substr($value,$pos+40,4))/$faktor/10000;$y1=$ymove-$y1;
-  	  MarkPoint($x1,$y1) if($counter eq 2);
-	  $x1-=$componentatx{$component} if($component>=0);
-	  $y1-=$componentaty{$component} if($component>=0);
+  	  #MarkPoint($x1,$y1) if($counter eq 2);
+	  $x1-=$componentatx{$component} if($component>=0 && defined($componentatx{$component}));
+	  $y1-=$componentaty{$component} if($component>=0 && defined($componentaty{$component}));
 	 
       my $layer=$layermap{unpack("C",substr($value,$pos+23,1))};	  
 
@@ -753,42 +753,19 @@ EOF
   }#);
 
 
-  $componentid=0;
-  HandleBinFile("$short/Root Entry/Components6/Data.dat","",0,0, sub 
-  { 
-    my %d=%{$_[0]};
-	
-	my $atx=$d{'X'};$atx=~s/mil$//;$atx/=$faktor;$atx-=$xmove;
-	my $aty=$d{'Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
-	my $layer=$layermap{$d{'LAYER'}} || "F.Paste";
-    my $stp=$d{'SOURCEDESIGNATOR'};
-    print OUT <<EOF
- (module $stp (layer $layer) (tedit 4289BEAB) (tstamp 539EEDBF)
-    (at $atx $aty)
-    (path /539EEC0F)
-    (attr smd)
-	$pads{$componentid}
-  )
-EOF
-;
-
-    $componentid++;
-  });
-
-  
-
-
-
- 
   HandleBinFile("$short/Root Entry/ComponentBodies6/Data.dat","",23,16, sub 
   { 
     my %d=%{$_[0]};
 	my $header=$_[2];
 	my $component=unpack("s",substr($header,12,2));
-	print "Component:$component\n";
+	#print "Component:$component\n";
 	my $id=$d{'MODELID'};
 	my $atx=$d{'MODEL.2D.X'};$atx=~s/mil$//;$atx/=$faktor;$atx-=$xmove;
 	my $aty=$d{'MODEL.2D.Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
+	
+    $atx-=$componentatx{$component} if($component>=0 && defined($componentatx{$component}));
+	$aty-=$componentaty{$component} if($component>=0 && defined($componentaty{$component}));
+	
 	#print $d{'MODELID'}."\n";
 	if(!defined($modelname{$d{'MODELID'}}))
 	{
@@ -811,6 +788,22 @@ EOF
 	my $dz=$d{'MODEL.3D.DZ'}; $dz=~s/mil//; $dz+=$mdz; $dz/=$faktor; $dz/=1000;
     if(-r "wrl/$stp.wrl")
 	{
+	
+	  if($component>=0)
+	  {
+	    $pads{$component}.=<<EOF
+	(model ./wrl/$stp.wrl
+      (at (xyz 0 0 0))
+      (scale (xyz $fak $fak $fak))
+      (rotate (xyz $rot))
+    )
+EOF
+;
+	  
+	  }
+	  else
+	  {
+	
 	  #print "Found $stp.wrl\n";
 print OUT <<EOF
  (module $stp (layer $layer) (tedit 4289BEAB) (tstamp 539EEDBF)
@@ -844,14 +837,46 @@ print OUT <<EOF
   )
 EOF
 ;
+
+      }
     }
 	else
 	{
-	  #print "NOT FOUND: $stp.wrl\n" if($stp ne "X");
+	  print "NOT FOUND: $stp.wrl\n" if($stp ne "X");
 	}
 
 
   });
+  
+  
+  $componentid=0;
+  HandleBinFile("$short/Root Entry/Components6/Data.dat","",0,0, sub 
+  { 
+    my %d=%{$_[0]};
+	
+	my $atx=$d{'X'};$atx=~s/mil$//;$atx/=$faktor;$atx-=$xmove;
+	my $aty=$d{'Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
+	my $layer=$layermap{$d{'LAYER'}} || "F.Paste";
+    my $stp=$d{'SOURCEDESIGNATOR'};
+    print OUT <<EOF
+ (module $stp (layer $layer) (tedit 4289BEAB) (tstamp 539EEDBF)
+    (at $atx $aty)
+    (path /539EEC0F)
+    (attr smd)
+	$pads{$componentid}
+  )
+EOF
+;
+
+    $componentid++;
+  });
+
+  
+
+
+
+ 
+
 
 
 
