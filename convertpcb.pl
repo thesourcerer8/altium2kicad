@@ -187,7 +187,17 @@ sub HandleBinFile
 
 
 
-
+sub MarkPoint($$)
+{
+  my $x=$_[0];
+  my $y=$_[1];
+  my $size=10;
+  print OUT "(gr_line (start ".($x-$size)." ".($y-$size).") (end ".($x+$size)." ".($y+$size).") (layer F.SilkS) (width 0.2032))\n";
+  print OUT "(gr_line (start ".($x+$size)." ".($y+$size).") (end ".($x-$size)." ".($y-$size).") (layer F.SilkS) (width 0.2032))\n";
+  print OUT "(gr_line (start ".($x)." ".($y-$size).") (end ".($x)." ".($y+$size).") (layer F.SilkS) (width 0.2032))\n";
+  print OUT "(gr_line (start ".($x+$size)." ".($y).") (end ".($x-$size)." ".($y).") (layer F.SilkS) (width 0.2032))\n";
+ 
+}
 
 my $USELOGGING=0;
 
@@ -617,7 +627,7 @@ EOF
   my $fak="0.3937007";
   my $xmove=95.3; 
   my $ymove=79.6; 
-  $xmove=50;$ymove=250; # Enable to move everything into the frame, or disable to move it to align to the Gerber-Imports
+  #$xmove=50;$ymove=250; # Enable to move everything into the frame, or disable to move it to align to the Gerber-Imports
   
   my %layermap=("1"=>"F.Cu","3"=>"In2.Cu","4"=>"In3.Cu","11"=>"In6.Cu","12"=>"In7.Cu","32"=>"B.Cu","33"=>"F.SilkS","34"=>"B.SilkS","35"=>"F.Paste","36"=>"B.Paste","37"=>"F.Mask","38"=>"B.Mask","39"=>"In1.Cu","40"=>"In4.Cu","41"=>"In5.Cu","42"=>"In8.Cu","74"=>"Eco1.User");
   
@@ -652,7 +662,132 @@ EOF
   {
     #print "SORT: $_ -> $layermap{$_}\n";
   }
+ 
+  my %pads=();
   
+  
+  our $componentid=0;
+  our %componentatx=();
+  our %componentaty=();
+  HandleBinFile("$short/Root Entry/Components6/Data.dat","",0,0, sub 
+  { 
+    my %d=%{$_[0]};
+	my $atx=$d{'X'};$atx=~s/mil$//;$atx/=$faktor-$xmove;
+	$componentatx{$componentid}=$atx;
+	#print "\$componentatx{$componentid}=$atx\n";
+	my $aty=$d{'Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
+	$componentaty{$componentid}=$aty;
+
+    $componentid++;
+  });
+
+  
+  
+   
+  #HandleBinFile("$short/Root Entry/Pads6/Data.dat","\x02",0,0, sub 
+  {
+    my $value=readfile("$short/Root Entry/Pads6/Data.dat");
+	$value=~s/\r\n/\n/gs;
+	open AOUT,">$short/Root Entry/Pads6/Data.dat.txt";
+	my $pos=0;
+	my $counter=0;
+	while($pos<length($value))
+	{
+	  my $len=unpack("l",substr($value,$pos+1,4));
+	  print AOUT bin2hex(substr($value,$pos,5))." ";
+	  print AOUT sprintf("A:%10s",bin2hex(substr($value,$pos+5,$len)))." ";
+	  my $name=substr($value,$pos+6,$len-1);
+	  $pos+=5+$len;
+
+
+      my $component=unpack("s",substr($value,$pos+30,2));	
+
+	  print "component:$component\n";
+      my $x1=unpack("l",substr($value,$pos+36,4))/$faktor/10000-$xmove; 
+	  $x1-=$componentatx{$component} if($component>=0);
+	  my $y1=unpack("l",substr($value,$pos+40,4))/$faktor/10000;$y1=$ymove-$y1;
+	  $y1-=$componentaty{$component} if($component>=0);
+	 
+      my $layer=$layermap{unpack("C",substr($value,$pos+23,1))};	  
+
+	  my $sx=unpack("l",substr($value,$pos+44,4))/$faktor/10000;
+	  my $sy=unpack("l",substr($value,$pos+48,4))/$faktor/10000;
+	  my $holesize=unpack("l",substr($value,$pos+68,4))/$faktor/10000;
+
+	  
+	  my $dir=unpack("d",substr($value,$pos+75,8)); 
+	  
+	  
+	  my %typemap=("2"=>"rect","1"=>"circle");
+      my $type=$typemap{unpack("C",substr($value,$pos+72,1))};	  
+      my %platemap=("0"=>"FALSE","1"=>"TRUE");
+      my $plated=$platemap{unpack("C",substr($value,$pos+83,1))};	  
+
+	  
+      my $net=unpack("s",substr($value,$pos+26,2));	  
+	  
+	  print "layer:$layer net:$net component=$component type:$type dir:$dir \n";
+	  print AOUT bin2hex(substr($value,$pos,143))." ";
+	  my $len2=unpack("l",substr($value,$pos+143,4));
+	  $pos+=147;
+  	  print AOUT bin2hex(substr($value,$pos,$len2))."\n";
+      $pos+=$len2;
+	  
+	  my $width=0.5;
+	  MarkPoint($x1,$y1) if($counter eq 2);
+
+	  print OUT "  (via (at $x1 $y1) (size $holesize) (layers $layer $layer) (net $net))\n" if($type eq "ROUND");
+      if($type eq "RECTANGLE")
+      {
+ 	    print OUT <<EOF
+ (gr_text "PAD" (at $x1 $y1) (layer F.Cu)
+    (effects (font (size $width $width) (thickness 0.1)))
+  )
+EOF
+;
+      }
+
+$pads{$component}.=<<EOF
+    (pad $name smd $type (at $x1 $y1) (size $sx $sy)
+      (layers $layer F.Paste F.Mask)
+    )
+EOF
+;
+	  $counter++;
+	  
+	}
+    close AOUT;
+  
+  }#);
+
+
+  $componentid=0;
+  HandleBinFile("$short/Root Entry/Components6/Data.dat","",0,0, sub 
+  { 
+    my %d=%{$_[0]};
+	
+	my $atx=$d{'X'};$atx=~s/mil$//;$atx/=$faktor;$atx-=$xmove;
+	my $aty=$d{'Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
+	my $layer=$layermap{$d{'LAYER'}} || "F.Paste";
+    my $stp=$d{'SOURCEDESIGNATOR'};
+    print OUT <<EOF
+ (module $stp (layer $layer) (tedit 4289BEAB) (tstamp 539EEDBF)
+    (at $atx $aty)
+    (path /539EEC0F)
+    (attr smd)
+	$pads{$componentid}
+  )
+EOF
+;
+
+    $componentid++;
+  });
+
+  
+
+
+
+ 
   HandleBinFile("$short/Root Entry/ComponentBodies6/Data.dat","",23,16, sub 
   { 
     my %d=%{$_[0]};
@@ -721,10 +856,6 @@ EOF
 	}
 
 
-  });
-
-  HandleBinFile("$short/Root Entry/Components6/Data.dat","",0,0, sub 
-  { 
   });
 
 
@@ -954,59 +1085,6 @@ EOF
   });
 
 
-  #HandleBinFile("$short/Root Entry/Pads6/Data.dat","\x02",0,0, sub 
-  {
-    my $value=readfile("$short/Root Entry/Pads6/Data.dat");
-	$value=~s/\r\n/\n/gs;
-	open AOUT,">$short/Root Entry/Pads6/Data.dat.txt";
-	my $pos=0;
-	while($pos<length($value))
-	{
-	  my $len=unpack("l",substr($value,$pos+1,4));
-	  print AOUT bin2hex(substr($value,$pos,5))." ";
-	  print AOUT sprintf("A:%10s",bin2hex(substr($value,$pos+5,$len)))." ";
-	  $pos+=5+$len;
-	  
-      my $x1=unpack("l",substr($value,$pos+36,4))/$faktor/10000-$xmove;
-	  my $y1=unpack("l",substr($value,$pos+40,4))/$faktor/10000;$y1=$ymove-$y1;
-      my $layer=$layermap{unpack("C",substr($value,$pos+23,1))};	  
-
-	  my $sx=unpack("l",substr($value,$pos+44,4))/$faktor/10000;
-	  my $sy=unpack("l",substr($value,$pos+48,4))/$faktor/10000;
-	  my $hs=unpack("l",substr($value,$pos+68,4))/$faktor/10000;
-
-	  my $dir=unpack("d",substr($value,$pos+75,8)); 
-	  
-	  
-	  my %typemap=("2"=>"RECTANGLE","1"=>"ROUND");
-      my $type=$typemap{unpack("C",substr($value,$pos+72,1))};	  
-      my %platemap=("0"=>"FALSE","1"=>"TRUE");
-      my $plated=$platemap{unpack("C",substr($value,$pos+83,1))};	  
-
-	  
-      my $net=unpack("s",substr($value,$pos+26,2));	  
-      my $component=unpack("s",substr($value,$pos+30,2));	  
-	  print "layer:$layer net:$net component=$component type:$type dir:$dir \n";
-	  print AOUT bin2hex(substr($value,$pos,143))." ";
-	  my $len2=unpack("l",substr($value,$pos+143,4));
-	  $pos+=147;
-  	  print AOUT bin2hex(substr($value,$pos,$len2))."\n";
-      $pos+=$len2;
-	  
-	  my $width=0.5;
-	  
- 	  print OUT <<EOF
- (gr_text "PAD" (at $x1 $y1) (layer F.Cu)
-    (effects (font (size $width $width) (thickness 0.1)))
-  )
-EOF
-;
-
-	  
-	}
-    close AOUT;
-  
-  }#);
   
 	
   HandleBinFile("$short/Root Entry/FileVersionInfo/Data.dat","",0,0, sub 
@@ -1144,7 +1222,7 @@ EOF
 	  $text=~s/"/''/g;
 	  print OUT <<EOF
  (gr_text "$text" (at $x1 $y1 $dir) (layer $layer)
-    (effects (font (size $width $width) (thickness 0.1)))
+    (effects (font (size $width $width) (thickness 0.1)) (justify left))
   )
 EOF
 ;
