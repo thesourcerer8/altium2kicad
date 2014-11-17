@@ -1,0 +1,18 @@
+#This is a FreeCAD macro, adapt the path to the .step files when necessary and run it from within FreeCAD.
+import FreeCAD
+import ImportGui
+import FreeCADGui
+import os,glob
+from PySide import QtGui
+
+for filename in glob.glob("Root Entry/Models/*.dat.step"):
+	ImportGui.open(filename)
+	App.setActiveDocument("Unnamed")
+	# If you have different filenames than .dat.step, you have to adapt the -9 length here:
+	wrl = filename[:-9]+".wrl"
+	Gui.export(App.ActiveDocument.findObjects("Part::Feature"),wrl)
+	#QtGui.QMessageBox.information(None,"step2wrl","Written: "+wrl)
+	App.closeDocument(App.ActiveDocument.Name)
+	App.setActiveDocument("")
+	App.ActiveDocument=None
+	Gui.ActiveDocument=None
