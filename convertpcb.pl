@@ -97,7 +97,7 @@ sub HandleBinFile
   # recordtype is a string that is checked at the beginning of every record
   # headerlen is the length of the header to skip once on the beginning of the file
   # nskip
-  # piped is whether there are pipe symbols to be split up
+  # piped is a callback function that gets called with the parameters $piped->(\%d,$data,$header,$line);
   my $model=1;
   my $content=readfile($filename);
 
@@ -151,7 +151,8 @@ sub HandleBinFile
 		  $h{$name}{$value}=1 if($model);
 	    }
 	  }
-	  $piped->(\%d,$data,$header);
+	  # CALLING THE CALLBACK FUNCTION TO HANDLE A RECORD:
+	  $piped->(\%d,$data,$header,$line);
     }
 	
     push @a,"|LINENO=$line|".$data;
@@ -377,7 +378,9 @@ EOF
   our %modelroty=();
   our %modelrotz=();
   our %modeldz=();
-
+  our %modelwrl=();
+  
+  our $modelid="";
   
   HandleBinFile("$short/Root Entry/Models/Data.dat","",0,0,sub 
   { 
@@ -386,11 +389,11 @@ EOF
 	$fn=~s/\.STEP$//i;$fn=~s/\.stp$//i;
 	#print "R:".$_[0]{'ID'}."->$fn\n";
     $modelname{$_[0]{'ID'}}=$fn;
-	$modelrotx{$_[0]{'ID'}}=$_[0]{'ROTX'};
-	$modelroty{$_[0]{'ID'}}=$_[0]{'ROTY'};
-	$modelrotz{$_[0]{'ID'}}=$_[0]{'ROTZ'};
+	$modelrotx{$_[0]{'ID'}}=360-$_[0]{'ROTX'}; # I think those (ROT*, DZ) are the default values for new placements of the same device, but they can be overridden on specific instances, so we don´t need them
+	$modelroty{$_[0]{'ID'}}=360-$_[0]{'ROTY'};
+	$modelrotz{$_[0]{'ID'}}=360-$_[0]{'ROTZ'};
 	$modeldz{$_[0]{'ID'}}=$_[0]{'DZ'};
-	
+	$modelwrl{$_[0]{'ID'}}="$short/Root Entry/Models/$_[3].wrl";
   });
   
   
@@ -615,11 +618,11 @@ EOF
 ;
 }
   
-  my $faktor=39.3700787402;
-  my $fak="0.3937007";
+  my $faktor=39.370078740158;
+  my $fak="0.39370078740158";
   my $xmove=95.3; 
   my $ymove=79.6; 
-  #$xmove=50;$ymove=250; # Enable to move everything into the frame, or disable to move it to align to the Gerber-Imports
+  $xmove=50;$ymove=250; # Enable to move everything into the frame, or disable to move it to align to the Gerber-Imports
   
   my %layermap=("1"=>"F.Cu","3"=>"In2.Cu","4"=>"In3.Cu","11"=>"In6.Cu","12"=>"In7.Cu","32"=>"B.Cu","33"=>"F.SilkS","34"=>"B.SilkS","35"=>"F.Paste","36"=>"B.Paste","37"=>"F.Mask","38"=>"B.Mask","39"=>"In1.Cu","40"=>"In4.Cu","41"=>"In5.Cu","42"=>"In8.Cu","74"=>"Eco1.User");
   
@@ -661,6 +664,7 @@ EOF
   our $componentid=0;
   our %componentatx=();
   our %componentaty=();
+  our %componentlayer=();
   HandleBinFile("$short/Root Entry/Components6/Data.dat","",0,0, sub 
   { 
     my %d=%{$_[0]};
@@ -669,7 +673,7 @@ EOF
 	#print "\$componentatx{$componentid}=$atx\n";
 	my $aty=$d{'Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
 	$componentaty{$componentid}=$aty;
-
+    $componentlayer{$componentid}=$d{'LAYER'};
     $componentid++;
   });
 
@@ -763,6 +767,9 @@ EOF
 	my $atx=$d{'MODEL.2D.X'};$atx=~s/mil$//;$atx/=$faktor;$atx-=$xmove;
 	my $aty=$d{'MODEL.2D.Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
 	
+	my $catx=$componentatx{$component};
+	
+	
     $atx-=$componentatx{$component} if($component>=0 && defined($componentatx{$component}));
 	$aty-=$componentaty{$component} if($component>=0 && defined($componentaty{$component}));
 	
@@ -782,18 +789,33 @@ EOF
 	my $ident=""; $ident.=pack("C",$_) foreach(split(",",$d{'IDENTIFIER'}));
 	
 	#my $rot=(($modelrotx{$id}||0)+$d{'MODEL.3D.ROTX'})." ".(($modelroty{$id}||0)+$d{'MODEL.3D.ROTY'})." ".(($modelrotz{$id}||0)+$d{'MODEL.3D.ROTZ'});
-	#my $rot=(($modelrotx{$id}||0)+$d{'MODEL.3D.ROTX'})." ".(($modelroty{$id}||0)+$d{'MODEL.3D.ROTY'})." ".(($modelrotz{$id}||0)+$d{'MODEL.3D.ROTZ'});
-	my $rot=(($modelrotx{$id}||0))." ".(($modelroty{$id}||0))." ".(($modelrotz{$id}||0));
-	my $mdz=$modeldz{$id}||0; $mdz=~s/mil//; 
-	my $dz=$d{'MODEL.3D.DZ'}; $dz=~s/mil//; $dz+=$mdz; $dz/=$faktor; $dz/=1000;
-    if(-r "wrl/$stp.wrl")
-	{
+	my $rot=((360-$d{'MODEL.3D.ROTX'})." ".(360-$d{'MODEL.3D.ROTY'})." ".(360-$d{'MODEL.3D.ROTZ'}));
+	#my $rot=(($modelrotx{$id}||0))." ".(($modelroty{$id}||0))." ".(($modelrotz{$id}||0));
+	my $mdz=$modeldz{$id}||0; $mdz=~s/mil//; $mdz/=10000000; 
+	#my $dz=$d{'MODEL.3D.DZ'}; $dz=~s/mil//; $dz=$mdz; #+
+	#$dz/=$faktor; $dz/=1000;
+	my $dz=$mdz;
+	my $wrl=(defined($modelwrl{$id}) && -f $modelwrl{$id}) ? $modelwrl{$id} : "wrl/$stp.wrl";
+	#print "wrl: $wrl\n" if(defined($modelwrl{$id}));
 	
+    if(-r $wrl)
+	{
 	  if($component>=0)
 	  {
+	    #print "Component: $component\n";
+		#print "MODEL.2D.X:$d{'MODEL.2D.X'} atx: $atx componentatx: $componentatx{$component}\n";
+		#print "MODEL.2D.Y:$d{'MODEL.2D.Y'} aty: $aty componentaty: $componentaty{$component}\n";
+		#print "V7_LAYER: $d{'V7_LAYER'}\n";
+		#print "componentlayer: $componentlayer{$component}\n";
+		#print "".(360-$d{'MODEL.3D.ROTX'})." ".(360-$d{'MODEL.3D.ROTY'})." ".(360-$d{'MODEL.3D.ROTZ'})." vs. ".$modelrotx{$id}." ".$modelroty{$id}." ".$modelrotz{$id}."\n";
+		
+		my $dx=$atx/25.4;
+		my $dy=-$aty/25.4; 
+		$dy=-$dy if(defined($componentlayer{$component}) && $componentlayer{$component} eq "BOTTOM"); # The Y axis seems to be mirrored on bottom elements
+		
 	    $pads{$component}.=<<EOF
-	(model ./wrl/$stp.wrl
-      (at (xyz 0 0 0))
+	(model "./$wrl"
+      (at (xyz $dx $dy $dz))
       (scale (xyz $fak $fak $fak))
       (rotate (xyz $rot))
     )
@@ -804,7 +826,7 @@ EOF
 	  else
 	  {
 	
-	  #print "Found $stp.wrl\n";
+	    print "Found $stp.wrl (component:$component)\n";
 print OUT <<EOF
  (module $stp (layer $layer) (tedit 4289BEAB) (tstamp 539EEDBF)
     (at $atx $aty)
