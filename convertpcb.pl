@@ -16,6 +16,9 @@ use Compress::Zlib;
 # Board regions for Rigid-Flex
 # Support for STEP files
 
+# Things that are missing in Altium:
+# The Zone-Fill-Polygons are not saved in the file. Workaround: In KiCad, select the zone tool, right-click on an empty area, then "Fill all zones"
+
 my $current_status=<<EOF
 Advanced Placer Options6.dat # Not needed
 Arcs6.dat # NEEDED
@@ -477,7 +480,7 @@ $layers
     (aux_axis_origin 0 0)
     (visible_elements FFFFFF7F)
     (pcbplotparams
-      (layerselection 30001)
+      (layerselection 0x3ffff_800001ff)
       (usegerberextensions false)
       (excludeedgelayer true)
       (linewidth 0.100000)
@@ -498,9 +501,9 @@ $layers
       (subtractmaskfromsilk false)
       (outputformat 1)
       (mirror false)
-      (drillshape 1)
+      (drillshape 0)
       (scaleselection 1)
-      (outputdirectory ""))
+      (outputdirectory "GerberOutput/"))
   )
 
   (net 0 "")
@@ -622,7 +625,7 @@ EOF
   my $fak="0.39370078740158";
   my $xmove=95.3; 
   my $ymove=79.6; 
-  $xmove=50;$ymove=250; # Enable to move everything into the frame, or disable to move it to align to the Gerber-Imports
+  #$xmove=50;$ymove=250; # Enable to move everything into the frame, or disable to move it to align to the Gerber-Imports
   
   my %layermap=("1"=>"F.Cu","3"=>"In2.Cu","4"=>"In3.Cu","11"=>"In6.Cu","12"=>"In7.Cu","32"=>"B.Cu","33"=>"F.SilkS","34"=>"B.SilkS","35"=>"F.Paste","36"=>"B.Paste","37"=>"F.Mask","38"=>"B.Mask","39"=>"In1.Cu","40"=>"In4.Cu","41"=>"In5.Cu","42"=>"In8.Cu","74"=>"Eco1.User");
   
@@ -714,9 +717,13 @@ EOF
 	  
 	  my $dir=unpack("d",substr($value,$pos+75,8)); 
 	  
+	  my $mdir=($dir==0)?"":" $dir";
 	  
 	  my %typemap=("2"=>"rect","1"=>"circle");
       my $type=$typemap{unpack("C",substr($value,$pos+72,1))};	  
+	  
+	  $type="oval" if($type eq "circle" && $sx != $sy);
+	  
       my %platemap=("0"=>"FALSE","1"=>"TRUE");
       my $plated=$platemap{unpack("C",substr($value,$pos+83,1))};	  
 
@@ -736,19 +743,23 @@ EOF
       if($type eq "RECTANGLE" && 0)
       {
  	    print OUT <<EOF
- (gr_text "PAD" (at $x1 $y1) (layer F.Cu)
+ (gr_text "PAD" (at $x1 $y1$mdir) (layer F.Cu)
     (effects (font (size $width $width) (thickness 0.1)))
   )
 EOF
 ;
       }
 
-$pads{$component}.=<<EOF
-    (pad $name smd $type (at $x1 $y1) (size $sx $sy)
+	  my $tp=($holesize==0)?"smd":$plated eq "TRUE"?"thru_hole":"np_thru_hole";
+	  my $drill=($holesize==0)?"":" (drill $holesize) ";
+	  
+	  $pads{$component}.=<<EOF
+    (pad "$name" $tp $type (at $x1 $y1$mdir) (size $sx $sy) $drill
       (layers $layer F.Paste F.Mask)
     )
 EOF
 ;
+	  
 	  $counter++;
 	  
 	}
@@ -785,7 +796,9 @@ EOF
     (effects (font (size 1.0 1.0) (thickness 0.2)) )
   )
 EOF
-;
+if($stp ne "X"); 
+
+
 	my $ident=""; $ident.=pack("C",$_) foreach(split(",",$d{'IDENTIFIER'}));
 	
 	#my $rot=(($modelrotx{$id}||0)+$d{'MODEL.3D.ROTX'})." ".(($modelroty{$id}||0)+$d{'MODEL.3D.ROTY'})." ".(($modelrotz{$id}||0)+$d{'MODEL.3D.ROTZ'});
@@ -1015,6 +1028,9 @@ EOF
   HandleBinFile("$short/Root Entry/Polygons6/Data.dat","",0,0, sub 
   { 
     my %d=%{$_[0]};
+	
+	
+	my $counter=$_[3];
 	my $width=$d{'TRACKWIDTH'}||1;$width=~s/mil$//; #/$faktor/10000;
 	my $layer=$layermap{$d{'LAYER'}} || "F.Paste";
 	print "NOT FOUND: ".$d{'LAYER'}."\n" if(!defined($layermap{$d{'LAYER'}}));
@@ -1026,14 +1042,52 @@ EOF
 	    $maxpoints=$1 if($1>$maxpoints);
       }
 	}
-	foreach(0 .. $maxpoints-2)
+	
+	print "Polygontype: $d{'POLYGONTYPE'} maxpoints:$maxpoints\n";
+
+	#return if($d{'POLYGONTYPE'} eq "Polygon");
+
+	
+	if($d{'POLYGONTYPE'} eq "Split Plane" || $d{'HATCHSTYLE'} eq "Solid")
+	{
+	print "Split Plane 1\n";
+	  print OUT <<EOF
+(zone (net 0) (net_name "") (layer $layer) (tstamp 547BA6E6) (hatch edge 0.508)
+    (connect_pads thru_hole_only (clearance 0.508))
+    (min_thickness 0.254)
+    (fill (mode segment) (arc_segments 16) (thermal_gap 0.508) (thermal_bridge_width 0.508))
+    (polygon
+      (pts
+	      
+EOF
+;
+	
+	}
+	
+	foreach(0 .. $maxpoints-(($d{'POLYGONTYPE'} eq "Polygon" && $d{'HATCHSTYLE'} eq "Solid")?1:0))
 	{
 	  my $sx=$d{'VX'.$_};$sx=~s/mil$//;$sx/=$faktor;$sx-=$xmove;
 	  my $sy=$d{'VY'.$_};$sy=~s/mil$//;$sy/=$faktor;$sy=$ymove-$sy;
-	  my $ex=$d{'VX'.($_+1)};$ex=~s/mil$//;$ex/=$faktor;$ex-=$xmove;
-	  my $ey=$d{'VY'.($_+1)};$ey=~s/mil$//;$ey/=$faktor;$ey=$ymove-$ey;
-	  print OUT "(gr_line (start $sx $sy) (end $ex $ey) (angle 90) (layer $layer) (width 0.2))\n";
+	  my $ex=$d{'VX'.($_+1)}||0;$ex=~s/mil$//;$ex/=$faktor;$ex-=$xmove;
+	  my $ey=$d{'VY'.($_+1)}||0;$ey=~s/mil$//;$ey/=$faktor;$ey=$ymove-$ey;
+
+      MarkPoint($sx,$sy) if($d{'POLYGONTYPE'} eq "Split Plane" && $counter eq 1);
+	  
+	  print OUT "(gr_line (start $sx $sy) (end $ex $ey) (angle 90) (layer $layer) (width 0.2))\n" if($d{'POLYGONTYPE'} eq "Polygon" && $d{'POLYGONOUTLINE'} eq "TRUE");
+	  print OUT "(xy $sx $sy) " if($d{'POLYGONTYPE'} eq "Split Plane" || $d{'HATCHSTYLE'} eq "Solid");
 	}
+	
+	if($d{'POLYGONTYPE'} eq "Split Plane" || $d{'HATCHSTYLE'} eq "Solid")
+	{
+	  print "Split Plane2\n";
+	  print OUT <<EOF
+      )
+    )
+  )
+EOF
+;
+    }
+	
    });
   
 
@@ -1150,8 +1204,11 @@ EOF
 	my $y1=unpack("l",substr($value,17,4))/$faktor/10000;$y1=$ymove-$y1;
 	my $x2=unpack("l",substr($value,21,4))/$faktor/10000-$xmove;
 	my $y2=unpack("l",substr($value,25,4))/$faktor/10000;$y2=$ymove-$y2;
+    my $dir=unpack("d",substr($value,29,8)); 
+    my $dir2=unpack("d",substr($value,38,8)); 
+
 	#print "Koordinaten:\n";
-	#print "x:$x y:$y\n";
+	#print "x:$x1 y:$y1 dir:$dir dir2:$dir2\n";
 	print OUT <<EOF
 	  (zone (net 0) (net_name "") (layer $layer) (tstamp 53EB93DD) (hatch edge 0.508)
     (connect_pads (clearance 0.508))
