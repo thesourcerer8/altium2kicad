@@ -75,6 +75,19 @@ sub readfile($)
   return "";
 }
 
+#Writes a complete file
+sub writefile($$)
+{
+  #print "Writing $_[1] in file $_[0]";
+  if(open(MYOUT,">$_[0]"))
+  {
+    print MYOUT $_[1];
+    close MYOUT;
+  }
+  chmod 0666,$_[0];
+}
+
+
 sub bin2hex($)
 {
   my $orig=$_[0];
@@ -126,7 +139,7 @@ sub HandleBinFile
 	$pos+=length($recordtype);
 	
 	#print "Pos: $pos\n";
-    my $len=unpack("l",substr($content,$pos,4)); 
+    my $len=sprintf("%.5f",unpack("l",substr($content,$pos,4))); 
 	$pos+=4;
     #print "len: $len\n";
     my $data=substr($content,$pos,$len);  
@@ -183,9 +196,6 @@ sub HandleBinFile
   }
   close HBOUT;
 }
-
-
-
 
 
 sub MarkPoint($$)
@@ -404,6 +414,8 @@ EOF
   print "Writing PCB to $short.kicad_pcb\n";
   open OUT,">$short.kicad_pcb";
 
+  #_800001ff
+  
   print OUT <<EOF
 (kicad_pcb (version 4) (host pcbnew "(2014-07-21 BZR 5016)-product")
 
@@ -480,7 +492,7 @@ $layers
     (aux_axis_origin 0 0)
     (visible_elements FFFFFF7F)
     (pcbplotparams
-      (layerselection 0x3ffff_800001ff)
+      (layerselection 0x3ffff)
       (usegerberextensions false)
       (excludeedgelayer true)
       (linewidth 0.100000)
@@ -519,107 +531,6 @@ $layers
   
 EOF
 ;
-
-if(0) {
-print OUT <<EOF
- (module SOIC24 (layer F.Cu) (tedit 4289BEAB) (tstamp 539EEDBF)
-    (at 84.328 56.769)
-    (path /539EEC0F)
-    (attr smd)
-    (fp_text reference U3 (at 0 -1.524) (layer F.SilkS)
-      (effects (font (size 1.016 1.016) (thickness 0.2032)))
-    )
-    (fp_text value PGA4311 (at 0 1.143) (layer F.SilkS)
-      (effects (font (size 1.016 1.016) (thickness 0.2032)))
-    )
-    (fp_line (start 7.62 -2.794) (end 7.62 2.794) (layer F.SilkS) (width 0.2032))
-    (fp_line (start -7.62 -2.794) (end -7.62 2.794) (layer F.SilkS) (width 0.2032))
-    (fp_line (start 7.62 -2.794) (end -7.62 -2.794) (layer F.SilkS) (width 0.2032))
-    (fp_line (start -7.62 -0.635) (end -6.35 -0.635) (layer F.SilkS) (width 0.2032))
-    (fp_line (start -6.35 -0.635) (end -6.35 0.635) (layer F.SilkS) (width 0.2032))
-    (fp_line (start -6.35 0.635) (end -7.62 0.635) (layer F.SilkS) (width 0.2032))
-    (fp_line (start -7.62 2.794) (end 7.62 2.794) (layer F.SilkS) (width 0.2032))
-    (pad 1 smd rect (at -6.985 3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 2 smd rect (at -5.715 3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 3 smd rect (at -4.445 3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 4 smd rect (at -3.175 3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 5 smd rect (at -1.905 3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 6 smd rect (at -0.635 3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 7 smd rect (at 0.635 3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 8 smd rect (at 1.905 3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 9 smd rect (at 3.175 3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 10 smd rect (at 4.445 3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 11 smd rect (at 5.715 3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 12 smd rect (at 7.112 3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 24 smd rect (at -6.985 -3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 23 smd rect (at -5.715 -3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 22 smd rect (at -4.445 -3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 21 smd rect (at -3.175 -3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 20 smd rect (at -1.905 -3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 19 smd rect (at -0.635 -3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 18 smd rect (at 0.635 -3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 17 smd rect (at 1.905 -3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 16 smd rect (at 3.175 -3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 15 smd rect (at 4.445 -3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 14 smd rect (at 5.715 -3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 13 smd rect (at 6.985 -3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (model smd/cms_soj24.wrl
-      (at (xyz 0 0 0))
-      (scale (xyz 0.5 0.6 0.5))
-      (rotate (xyz 0 0 0))
-    )
-  )
-EOF
-;
-}
   
   my $faktor=39.370078740158;
   my $fak="0.39370078740158";
@@ -627,7 +538,11 @@ EOF
   my $ymove=79.6; 
   #$xmove=50;$ymove=250; # Enable to move everything into the frame, or disable to move it to align to the Gerber-Imports
   
-  my %layermap=("1"=>"F.Cu","3"=>"In2.Cu","4"=>"In3.Cu","11"=>"In6.Cu","12"=>"In7.Cu","32"=>"B.Cu","33"=>"F.SilkS","34"=>"B.SilkS","35"=>"F.Paste","36"=>"B.Paste","37"=>"F.Mask","38"=>"B.Mask","39"=>"In1.Cu","40"=>"In4.Cu","41"=>"In5.Cu","42"=>"In8.Cu","74"=>"Eco1.User");
+  my %layermap=("1"=>"F.Cu","3"=>"In2.Cu","4"=>"In3.Cu","11"=>"In6.Cu","12"=>"In7.Cu","32"=>"B.Cu","33"=>"F.SilkS","34"=>"B.SilkS",
+  "35"=>"F.Paste","36"=>"B.Paste","37"=>"Edge.Cuts","38"=>"B.Mask","39"=>"In1.Cu","40"=>"In4.Cu","41"=>"In5.Cu","42"=>"In8.Cu","74"=>"Eco1.User",
+  
+  "44"=>"In6.Cu","73"=>"Eco2.User","60"=>"In4.Cu","56"=>"Edge.Cuts","69"=>"Eco1.User","59"=>"Eco1.User","71"=>"Eco1.User",
+  "57"=>"Eco1.User","58"=>"Eco1.User");
   
   my @layerkeys=keys %layermap;
   foreach(@layerkeys)
@@ -662,7 +577,21 @@ EOF
   }
  
   my %pads=();
+  our %unmappedLayers=();
   
+  sub mapLayer($)
+  {
+    my $lay=$_[0];
+    if(!defined($layermap{$lay}))
+	{
+	  my $name="undefined"; $name=$1 if($layerdoku=~m/name: *$lay *([\w.]+)/);
+      $unmappedLayers{$_[0]}=$name ;
+	}
+    #print "No mapping for Layer ".$_[0]." defined!\n" if(!defined($layermap{$_[0]}));
+	return $layermap{$_[0]}; 
+  }
+
+
   
   our $componentid=0;
   our %componentatx=();
@@ -681,8 +610,6 @@ EOF
   });
 
   
-  
-   
   #HandleBinFile("$short/Root Entry/Pads6/Data.dat","\x02",0,0, sub 
   {
     my $value=readfile("$short/Root Entry/Pads6/Data.dat");
@@ -692,7 +619,7 @@ EOF
 	my $counter=0;
 	while($pos<length($value))
 	{
-	  my $len=unpack("l",substr($value,$pos+1,4));
+	  my $len=sprintf("%.5f",unpack("l",substr($value,$pos+1,4)));
 	  print AOUT bin2hex(substr($value,$pos,5))." ";
 	  print AOUT sprintf("A:%10s",bin2hex(substr($value,$pos+5,$len)))." ";
 	  my $name=substr($value,$pos+6,$len-1);
@@ -703,16 +630,19 @@ EOF
 
 	  #print "component:$component\n";
       my $x1=unpack("l",substr($value,$pos+36,4))/$faktor/10000-$xmove; 
-	  my $y1=unpack("l",substr($value,$pos+40,4))/$faktor/10000;$y1=$ymove-$y1;
+	  my $y1=$ymove-unpack("l",substr($value,$pos+40,4))/$faktor/10000;
   	  #MarkPoint($x1,$y1) if($counter eq 2);
 	  $x1-=$componentatx{$component} if($component>=0 && defined($componentatx{$component}));
 	  $y1-=$componentaty{$component} if($component>=0 && defined($componentaty{$component}));
-	 
-      my $layer=$layermap{unpack("C",substr($value,$pos+23,1))};	  
 
-	  my $sx=unpack("l",substr($value,$pos+44,4))/$faktor/10000;
-	  my $sy=unpack("l",substr($value,$pos+48,4))/$faktor/10000;
-	  my $holesize=unpack("l",substr($value,$pos+68,4))/$faktor/10000;
+      $x1=sprintf("%.5f",$x1);
+	  $y1=sprintf("%.5f",$y1);
+		  
+      my $layer=mapLayer(unpack("C",substr($value,$pos+23,1)));
+
+	  my $sx=sprintf("%.5f",unpack("l",substr($value,$pos+44,4))/$faktor/10000);
+	  my $sy=sprintf("%.5f",unpack("l",substr($value,$pos+48,4))/$faktor/10000);
+	  my $holesize=sprintf("%.5f",unpack("l",substr($value,$pos+68,4))/$faktor/10000);
 
 	  
 	  my $dir=unpack("d",substr($value,$pos+75,8)); 
@@ -784,19 +714,22 @@ EOF
     $atx-=$componentatx{$component} if($component>=0 && defined($componentatx{$component}));
 	$aty-=$componentaty{$component} if($component>=0 && defined($componentaty{$component}));
 	
+	$atx=sprintf("%.5f",$atx);
+	$aty=sprintf("%.5f",$aty);
+	
 	#print $d{'MODELID'}."\n";
 	if(!defined($modelname{$d{'MODELID'}}))
 	{
 	  #print "MODELID: $d{'MODELID'}\n";
 	}
-	my $stp=defined($modelname{$id})?$modelname{$id}:"X"; # $d{'IDENTIFIER'}."_". $stp=~s/\{//; $stp=~s/\}//; $stp=$d{'BODYPROJECTION'}; #substr($text,0,10);
+	my $stp=defined($modelname{$id})?$modelname{$id}:undef; # $d{'IDENTIFIER'}."_". $stp=~s/\{//; $stp=~s/\}//; $stp=$d{'BODYPROJECTION'}; #substr($text,0,10);
 	my $layer=defined($d{'V7_LAYER'})?($d{'V7_LAYER'} eq "MECHANICAL1"?"B.Cu":"F.Cu"):"F.Cu";
 	print OUT <<EOF
   (gr_text $stp (at $atx $aty) (layer $layer)
     (effects (font (size 1.0 1.0) (thickness 0.2)) )
   )
 EOF
-if($stp ne "X"); 
+if(defined($stp)); 
 
 
 	my $ident=""; $ident.=pack("C",$_) foreach(split(",",$d{'IDENTIFIER'}));
@@ -808,10 +741,14 @@ if($stp ne "X");
 	#my $dz=$d{'MODEL.3D.DZ'}; $dz=~s/mil//; $dz=$mdz; #+
 	#$dz/=$faktor; $dz/=1000;
 	my $dz=$mdz;
-	my $wrl=(defined($modelwrl{$id}) && -f $modelwrl{$id}) ? $modelwrl{$id} : "wrl/$stp.wrl";
+	my $wrl=(defined($modelwrl{$id}) && -f $modelwrl{$id}) ? $modelwrl{$id} : undef;
+	mkdir "wrl";
+	writefile("wrl/$stp.wrl",readfile($wrl)) if(defined($stp));
+	$wrl="wrl/$stp.wrl" if(defined($stp));
+	
 	#print "wrl: $wrl\n" if(defined($modelwrl{$id}));
 	
-    if(-r $wrl)
+    if(defined($stp) && -r $wrl)
 	{
 	  if($component>=0)
 	  {
@@ -822,8 +759,8 @@ if($stp ne "X");
 		#print "componentlayer: $componentlayer{$component}\n";
 		#print "".(360-$d{'MODEL.3D.ROTX'})." ".(360-$d{'MODEL.3D.ROTY'})." ".(360-$d{'MODEL.3D.ROTZ'})." vs. ".$modelrotx{$id}." ".$modelroty{$id}." ".$modelrotz{$id}."\n";
 		
-		my $dx=$atx/25.4;
-		my $dy=-$aty/25.4; 
+		my $dx=sprintf("%.5f",$atx/25.4);
+		my $dy=sprintf("%.5f",-$aty/25.4);
 		$dy=-$dy if(defined($componentlayer{$component}) && $componentlayer{$component} eq "BOTTOM"); # The Y axis seems to be mirrored on bottom elements
 		
 	    $pads{$component}.=<<EOF
@@ -834,55 +771,13 @@ if($stp ne "X");
     )
 EOF
 ;
-	  
 	  }
-	  else
-	  {
-	
-	    print "Found $stp.wrl (component:$component)\n";
-print OUT <<EOF
- (module $stp (layer $layer) (tedit 4289BEAB) (tstamp 539EEDBF)
-    (at $atx $aty)
-    (path /539EEC0F)
-    (attr smd)
-    (fp_text reference U$ident (at 0 -1.524) (layer F.SilkS)
-      (effects (font (size 1.016 1.016) (thickness 0.2032)))
-    )
-    (fp_text value $stp	(at 0 1.143) (layer F.SilkS)
-      (effects (font (size 1.016 1.016) (thickness 0.2032)))
-    )
-    (fp_line (start 7.62 -2.794) (end 7.62 2.794) (layer F.SilkS) (width 0.2032))
-    (fp_line (start -7.62 -2.794) (end -7.62 2.794) (layer F.SilkS) (width 0.2032))
-    (fp_line (start 7.62 -2.794) (end -7.62 -2.794) (layer F.SilkS) (width 0.2032))
-    (fp_line (start -7.62 -0.635) (end -6.35 -0.635) (layer F.SilkS) (width 0.2032))
-    (fp_line (start -6.35 -0.635) (end -6.35 0.635) (layer F.SilkS) (width 0.2032))
-    (fp_line (start -6.35 0.635) (end -7.62 0.635) (layer F.SilkS) (width 0.2032))
-    (fp_line (start -7.62 2.794) (end 7.62 2.794) (layer F.SilkS) (width 0.2032))
-    (pad 1 smd rect (at -6.985 3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (pad 2 smd rect (at -5.715 3.81) (size 0.762 1.524)
-      (layers F.Cu F.Paste F.Mask)
-    )
-    (model ./wrl/$stp.wrl
-      (at (xyz 0 0 0))
-      (scale (xyz $fak $fak $fak))
-      (rotate (xyz $rot))
-    )
-  )
-EOF
-;
-
-      }
     }
 	else
 	{
-	  print "NOT FOUND: $stp.wrl\n" if($stp ne "X");
+	  print "NOT FOUND: $stp.wrl\n" if(defined($stp));
 	}
-
-
   });
-  
   
   $componentid=0;
   HandleBinFile("$short/Root Entry/Components6/Data.dat","",0,0, sub 
@@ -891,7 +786,7 @@ EOF
 	
 	my $atx=$d{'X'};$atx=~s/mil$//;$atx/=$faktor;$atx-=$xmove;
 	my $aty=$d{'Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
-	my $layer=$layermap{$d{'LAYER'}} || "F.Paste";
+	my $layer=mapLayer($d{'LAYER'}) || "F.Paste";
     my $stp=$d{'SOURCEDESIGNATOR'};
     print OUT <<EOF
  (module $stp (layer $layer) (tedit 4289BEAB) (tstamp 539EEDBF)
@@ -902,17 +797,8 @@ EOF
   )
 EOF
 ;
-
     $componentid++;
   });
-
-  
-
-
-
- 
-
-
 
 
   HandleBinFile("$short/Root Entry/Nets6/Data.dat","",0,0, sub 
@@ -924,13 +810,12 @@ EOF
   { 
     my $fn=$_[0]{'NAME'};
     my $value=$_[1];
-  	my $x=unpack("l",substr($value,13,4))/$faktor/10000-$xmove;
-	my $y=unpack("l",substr($value,17,4))/$faktor/10000;$y=$ymove-$y;
-	my $width=unpack("l",substr($value,21,4))/$faktor/10000;
-	my $layer=$layermap{unpack("C",substr($value,0,1))} || "F.Cu";
+  	my $x=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
+	my $y=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
+	my $width=sprintf("%.5f",unpack("l",substr($value,21,4))/$faktor/10000);
+	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "F.Cu";
 	#print "layer:$layer x:$x y:$y width:$width\n";
-	#my $layer2=$layermap{unpack("C",substr($value,1,1))} || "B.Cu";
-
+	#my $layer2=mapLayer(unpack("C",substr($value,1,1))) || "B.Cu";
 	#print "".((-f "$short/Root Entry/Models/$fn")?"File exists.\n":"File $fn does NOT EXIST!\n");
 	#$fn=~s/\.STEP$//i;$fn=~s/\.stp$//i;
 	#print "R:".$_[0]{'ID'}."->$fn\n";
@@ -957,15 +842,12 @@ EOF
     my $value=$_[1];
     my $debug=($count<100);
     #print bin2hex($value)."\n"; # if($debug);
-  	my $x=unpack("l",substr($value,13,4))/$faktor/10000-$xmove;
-	my $y=unpack("l",substr($value,17,4))/$faktor/10000;$y=$ymove-$y;
-	my $width=unpack("l",substr($value,21,4))/$faktor/10000;
-	my $layer1=$layermap{unpack("C",substr($value,0,1))} || "F.Cu";
-	my $layer2=$layermap{unpack("C",substr($value,1,1))} || "B.Cu";
+  	my $x=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
+	my $y=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
+	my $width=sprintf("%.5f",unpack("l",substr($value,21,4))/$faktor/10000);
+	my $layer1=mapLayer(unpack("C",substr($value,0,1))) || "F.Cu";
+	my $layer2=mapLayer(unpack("C",substr($value,1,1))) || "B.Cu";
 	#print "Layer: $layer1 -> $layer2\n";
-	print "Unknown layer: ".unpack("C",substr($value,0,1))."\n" if(!defined($layermap{unpack("C",substr($value,0,1))}));
-#	print "Unknown layer: ".unpack("C",substr($value,1,1))."\n" if(!defined($layermap{unpack("C",substr($value,1,1))}));
-
 	#print "Koordinaten:\n" if($debug);
 	#print "x:$x y:$y width:$width\n" if($debug);
 	print OUT "  (via (at $x $y) (size $width) (layers $layer1 $layer2) (net 0))\n";
@@ -985,12 +867,12 @@ EOF
 		 #(via (at 57.09996 -56.09996) (size 0.4572) (layers F.Cu B.Cu))
   	      if($gerber=~m/\(via \(at (-?\d+\.?\d*) (-?\d+\.?\d*)\) \(size (-?\d+\.?\d*)\) \(layers (\w+\.?\w*) (\w+\.?\w*)\)\)/)
 		  { 
-		     my ($gx,$gy,$size,$glayer1,$glayer2)=($1,$2,$3,$4,$5);
-		     if(near($x,$gx) && near($y,$gy))
-		     {
-		        $foundpos=$gerber;
-				$founds++;
-		     }
+		    my ($gx,$gy,$size,$glayer1,$glayer2)=($1,$2,$3,$4,$5);
+		    if(near($x,$gx) && near($y,$gy))
+		    {
+		      $foundpos=$gerber;
+			  $founds++;
+		    }
 		  }
 		}
 		if($founds==1)
@@ -1006,7 +888,6 @@ EOF
 	  #if(scalar(@found)==1)
       {
         #print "$count: Exactly 1 match found for layer $foundlayer:\n";
-
 	    #if(!defined($widths{$foundlayer}) || scalar(@{$widths{$foundlayer}})<15)
 	    {
   	      #push @{$widths{$foundlayer}},bin2hex($value);
@@ -1029,11 +910,9 @@ EOF
   { 
     my %d=%{$_[0]};
 	
-	
 	my $counter=$_[3];
 	my $width=$d{'TRACKWIDTH'}||1;$width=~s/mil$//; #/$faktor/10000;
-	my $layer=$layermap{$d{'LAYER'}} || "F.Paste";
-	print "NOT FOUND: ".$d{'LAYER'}."\n" if(!defined($layermap{$d{'LAYER'}}));
+	my $layer=mapLayer($d{'LAYER'}) || "F.Paste";
 	my $maxpoints=0;
 	foreach(keys %d)
 	{
@@ -1043,22 +922,19 @@ EOF
       }
 	}
 	
-	print "Polygontype: $d{'POLYGONTYPE'} maxpoints:$maxpoints\n";
+	#print "Polygontype: $d{'POLYGONTYPE'} maxpoints:$maxpoints\n";
 
 	#return if($d{'POLYGONTYPE'} eq "Polygon");
 
-	
 	if($d{'POLYGONTYPE'} eq "Split Plane" || $d{'HATCHSTYLE'} eq "Solid")
 	{
-	print "Split Plane 1\n";
 	  print OUT <<EOF
 (zone (net 0) (net_name "") (layer $layer) (tstamp 547BA6E6) (hatch edge 0.508)
     (connect_pads thru_hole_only (clearance 0.508))
     (min_thickness 0.254)
     (fill (mode segment) (arc_segments 16) (thermal_gap 0.508) (thermal_bridge_width 0.508))
     (polygon
-      (pts
-	      
+      (pts     
 EOF
 ;
 	
@@ -1070,16 +946,13 @@ EOF
 	  my $sy=$d{'VY'.$_};$sy=~s/mil$//;$sy/=$faktor;$sy=$ymove-$sy;
 	  my $ex=$d{'VX'.($_+1)}||0;$ex=~s/mil$//;$ex/=$faktor;$ex-=$xmove;
 	  my $ey=$d{'VY'.($_+1)}||0;$ey=~s/mil$//;$ey/=$faktor;$ey=$ymove-$ey;
-
-      MarkPoint($sx,$sy) if($d{'POLYGONTYPE'} eq "Split Plane" && $counter eq 1);
-	  
+      #MarkPoint($sx,$sy) if($d{'POLYGONTYPE'} eq "Split Plane" && $counter eq 1);
 	  print OUT "(gr_line (start $sx $sy) (end $ex $ey) (angle 90) (layer $layer) (width 0.2))\n" if($d{'POLYGONTYPE'} eq "Polygon" && $d{'POLYGONOUTLINE'} eq "TRUE");
 	  print OUT "(xy $sx $sy) " if($d{'POLYGONTYPE'} eq "Split Plane" || $d{'HATCHSTYLE'} eq "Solid");
 	}
 	
 	if($d{'POLYGONTYPE'} eq "Split Plane" || $d{'HATCHSTYLE'} eq "Solid")
 	{
-	  print "Split Plane2\n";
 	  print OUT <<EOF
       )
     )
@@ -1087,23 +960,31 @@ EOF
 EOF
 ;
     }
-	
    });
   
-
+  our $cutcounter=0;
   HandleBinFile("$short/Root Entry/Tracks6/Data.dat","\x04",0,0, sub 
   { 
     my $value=$_[1];
 	my $component=unpack("s",substr($value,7,2));
-    my $x1=unpack("l",substr($value,13,4))/$faktor/10000-$xmove;
-	my $y1=unpack("l",substr($value,17,4))/$faktor/10000;$y1=$ymove-$y1;
-	my $x2=unpack("l",substr($value,21,4))/$faktor/10000-$xmove;
-	my $y2=unpack("l",substr($value,25,4))/$faktor/10000;$y2=$ymove-$y2;
-	my $width=unpack("l",substr($value,29,4))/$faktor/10000;
-	my $layer=$layermap{unpack("C",substr($value,0,1))} || "Cmts.User";
-	#print "Koordinaten:\n";
-	#print "x:$x y:$y\n";
-	print OUT "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer $layer) (net 0))\n";
+    my $x1=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
+	my $y1=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
+	my $x2=sprintf("%.5f",unpack("l",substr($value,21,4))/$faktor/10000-$xmove);
+	my $y2=sprintf("%.5f",$ymove-unpack("l",substr($value,25,4))/$faktor/10000);
+	my $width=sprintf("%.5f",unpack("l",substr($value,29,4))/$faktor/10000);
+	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "Cmts.User";
+	
+	if($layer =~m/Edge.Cuts/i)
+	{
+	  $cutcounter++;
+	  #$width="0.$cutcounter";
+	  #print "  (gr_line (start $x1 $y1) (end $x2 $y2) (layer $layer) (width $width))\n";
+	  print OUT "  (gr_line (start $x1 $y1) (end $x2 $y2) (layer $layer) (width $width))\n"; #(angle 45) 
+	}
+	else
+	{
+	  print OUT "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer $layer) (net 0))\n";
+	}
 	if(0) # $count>19000 && !($count%50))
 	{
 	  #print OUT "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer $layer) (net 0))\n";
@@ -1139,9 +1020,7 @@ EOF
 	      print "DEBUG: ".bin2hex($value)."\n\n";
 		}
 	  }
-
 	}
-	
 	$count++;
   });
   
@@ -1180,9 +1059,6 @@ EOF
 ;
   });
 
-
-  
-	
   HandleBinFile("$short/Root Entry/FileVersionInfo/Data.dat","",0,0, sub 
   { 
     my %d=%{$_[0]};
@@ -1199,13 +1075,13 @@ EOF
   HandleBinFile("$short/Root Entry/Fills6/Data.dat","\x06",0,0, sub 
   { 
     my $value=$_[1];
-	my $layer=$layermap{unpack("C",substr($value,0,1))} || "Cmts.User";
-    my $x1=unpack("l",substr($value,13,4))/$faktor/10000-$xmove;
-	my $y1=unpack("l",substr($value,17,4))/$faktor/10000;$y1=$ymove-$y1;
-	my $x2=unpack("l",substr($value,21,4))/$faktor/10000-$xmove;
-	my $y2=unpack("l",substr($value,25,4))/$faktor/10000;$y2=$ymove-$y2;
-    my $dir=unpack("d",substr($value,29,8)); 
-    my $dir2=unpack("d",substr($value,38,8)); 
+	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "Cmts.User";
+    my $x1=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
+	my $y1=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
+	my $x2=sprintf("%.5f",unpack("l",substr($value,21,4))/$faktor/10000-$xmove);
+	my $y2=sprintf("%.5f",$ymove-unpack("l",substr($value,25,4))/$faktor/10000);
+    my $dir=sprintf("%.5f",unpack("d",substr($value,29,8))); 
+    my $dir2=sprintf("%.5f",unpack("d",substr($value,38,8))); 
 
 	#print "Koordinaten:\n";
 	#print "x:$x1 y:$y1 dir:$dir dir2:$dir2\n";
@@ -1242,10 +1118,7 @@ EOF
 	    $d{$1}=$2;
 	  }
 	}
-	my $layer=$layermap{$d{'V7_LAYER'}};
-	print "Please define mapping for layer $d{V7_LAYER}\n" if(!defined($layer));
-	#print "Layer: $layer\n";
-	
+	my $layer=mapLayer($d{'V7_LAYER'});
 	my $datalen=unpack("l",substr($value,22+$textlen,4))*16;
 	my $data=substr($value,22+$textlen+4,$datalen);
 	#print bin2hex($data)."\n";
@@ -1273,17 +1146,16 @@ EOF
 	    $d{$1}=$2;
 	  }
 	}
-	#my $layer=$layermap{$d{'V7_LAYER'}};
-	#print "Please define mapping for layer $d{V7_LAYER}\n" if(!defined($layer));
+	#my $layer=mapLayer($d{'V7_LAYER'});
 	#print "Layer: $layer\n";
 	my $datalen=(unpack("l",substr($value,22+$textlen,4))+1)*37;
 	my $data=substr($value,22+$textlen+4,$datalen);
 	foreach(0 .. unpack("l",substr($value,22+$textlen,4))-1)
 	{
-      my $x1=unpack("l",substr($data,$_*37+1,4))/$faktor/10000-$xmove;
-	  my $y1=unpack("l",substr($data,$_*37+5,4))/$faktor/10000;$y1=$ymove-$y1;
-      my $x2=unpack("l",substr($data,$_*37+37+1,4))/$faktor/10000-$xmove;
-	  my $y2=unpack("l",substr($data,$_*37+37+5,4))/$faktor/10000;$y2=$ymove-$y2;
+      my $x1=sprintf("%.5f",unpack("l",substr($data,$_*37+1,4))/$faktor/10000-$xmove);
+	  my $y1=sprintf("%.5f",$ymove-unpack("l",substr($data,$_*37+5,4))/$faktor/10000);
+      my $x2=sprintf("%.5f",unpack("l",substr($data,$_*37+37+1,4))/$faktor/10000-$xmove);
+	  my $y2=sprintf("%.5f",$ymove-unpack("l",substr($data,$_*37+37+5,4))/$faktor/10000);
 	  print OUT "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer F.Adhes) (width 0.2))\n";
 	  #print "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer F.Adhes) (width 0.2))\n";
 	}
@@ -1308,10 +1180,10 @@ EOF
 	{
 	  last if(substr($content,$pos,1) ne "\x05"); $pos++;
       my $fontlen=unpack("l",substr($content,$pos,4)); $pos+=4;
-      my $layer=$layermap{unpack("C",substr($content,$pos,1))} || "Cmts.User";
-	  my $x1=unpack("l",substr($content,$pos+13,4))/$faktor/10000-$xmove;
-	  my $y1=unpack("l",substr($content,$pos+17,4))/$faktor/10000;$y1=$ymove-$y1;
-      my $width=unpack("l",substr($content,$pos+21,4))/$faktor/10000;
+      my $layer=mapLayer(unpack("C",substr($content,$pos,1))) || "Cmts.User";
+	  my $x1=sprintf("%.5f",unpack("l",substr($content,$pos+13,4))/$faktor/10000-$xmove);
+	  my $y1=sprintf("%.5f",$ymove-unpack("l",substr($content,$pos+17,4))/$faktor/10000);
+      my $width=sprintf("%.5f",unpack("l",substr($content,$pos+21,4))/$faktor/10000);
 	  my $dir=unpack("d",substr($content,$pos+27,8)); 
 	  my $font=substr($content,$pos,$fontlen); $pos+=$fontlen;
 	  my $fontname=ucs2utf(substr($font,46,64));
@@ -1328,6 +1200,13 @@ EOF
 	}
   } 
   
+  
+  if(keys %unmappedLayers)
+  {
+    print "Unmapped Layers:\n";
+    print join ",",map { "\"$_\"=>\"$unmappedLayers{$_}\""} keys %unmappedLayers;
+    print "\n";
+  }
+  
   print OUT ")\n";
 }
-
