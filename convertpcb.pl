@@ -492,7 +492,7 @@ $layers
     (aux_axis_origin 0 0)
     (visible_elements FFFFFF7F)
     (pcbplotparams
-      (layerselection 0x3ffff)
+      (layerselection 262143)
       (usegerberextensions false)
       (excludeedgelayer true)
       (linewidth 0.100000)
