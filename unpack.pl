@@ -344,7 +344,7 @@ foreach my $file (@files)
       if(substr($f,0,2) eq "\x02\x78")
       {
         my $x = inflateInit();
-        my $dest = $x->inflate(substr($f,1));
+        my $dest = $x->inflate(substr($bytes,1));
         open OUT,">$path/$name.unzip";
         binmode OUT;
         print OUT $dest;
@@ -353,7 +353,7 @@ foreach my $file (@files)
      if(substr($f,0,1) eq "\x78")
      {
         my $x = inflateInit();
-        my $dest = $x->inflate($f);
+        my $dest = $x->inflate($bytes);
         open OUT,">$path/$name.unzip";
         binmode OUT;
         print OUT $dest;
