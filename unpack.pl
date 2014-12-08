@@ -17,6 +17,7 @@ push @files,<*.SchLib>;
 foreach my $file (@files)
 {
   next if($file=~m/^ASCII/i); # We have to skip ASCII formatted PCB Files
+  next if(-d $file); # We only handle files, no directories.
   print "Loading $file\n";
   my $short=$file; $short=~s/\.\w+$//;
   mkdir $short;
