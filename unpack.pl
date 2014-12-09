@@ -202,14 +202,14 @@ foreach my $file (@files)
       $seen{$nextsec}=1;
       #print "nextsec: $nextsec\n";
     }
-    print "getShortFile() retrieved ".length($filecontent)." of $_[1] requested bytes\n";
+    #print "getShortFile() retrieved ".length($filecontent)." of $_[1] requested bytes\n";
 
     return $_[1]>0?substr($filecontent,0,$_[1]):$filecontent;
   }
 
 
 
-  print "Collecting the whole ShortSAT Table:\n";
+  #print "Collecting the whole ShortSAT Table:\n";
   my $SSAT="";
   if($totalSectorsSSAT>0)
   {
