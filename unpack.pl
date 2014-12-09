@@ -25,7 +25,7 @@ foreach my $file (@files)
   binmode IN;
   undef $/;
   my $content=<IN>;
-  print "filelength: ".length($content)."\n";
+  #print "filelength: ".length($content)."\n";
   
   close IN;
 
@@ -55,8 +55,9 @@ foreach my $file (@files)
   my $firstpartMSAT=substr($header,76,436);
 
   my $MSAT=$firstpartMSAT;
+  if(0)
+  {
   print "maximum number of blocks: ".((length($content)-512)/$sectorsize)."\n";
-
   #print "header: $header\n";
   #print "CDFident: $CDFident\n";
   #print "uid: $uid\n";
@@ -79,7 +80,7 @@ foreach my $file (@files)
   #print "firstpartMSAT: $firstpartMSAT\n";
   print "filelength: ".length($content)."\n";
   print "maximum number of blocks: ".((length($content)-512)/$sectorsize)."\n";
- 
+  } 
   # Collecting the whole MSAT Table:
   if($totalSectorsMSAT)
   {
@@ -97,7 +98,7 @@ foreach my $file (@files)
         print "CollectingMSAT(): Error in file $file: next sector in MSAT goes beyond end of file!\n";
         last;
       }
-	  print "Adding a MSAT block at $nextsec->".(512+$nextsec*$sectorsize)." ($sectorsize)\n";
+      #print "Adding a MSAT block at $nextsec->".(512+$nextsec*$sectorsize)." ($sectorsize)\n";
       my $sec=substr($content,512+$nextsec*$sectorsize,$sectorsize);
       $MSAT.=substr($sec,0,$sectorsize-4);
       $nextsec=unpack($v,substr($sec,-4,4));
@@ -227,13 +228,13 @@ foreach my $file (@files)
       }
       my $sec=substr($content,512+$nextsec*$sectorsize,$sectorsize);
       $SSAT.=substr($sec,0,$sectorsize);
-      print "SAT[$nextsec]=$SAT[$nextsec]\n";
+      #print "SAT[$nextsec]=$SAT[$nextsec]\n";
       $nextsec=$SAT[$nextsec];
       #print "nextsec: $nextsec\n";
     }
   }
-  print "Done with SSAT.\n";
-  print "Loading SSAT2 from $SecIdSSAT\n";
+  #print "Done with SSAT.\n";
+  #print "Loading SSAT2 from $SecIdSSAT\n";
   my $SSAT2=getLongFile($SecIdSSAT,0,\@SAT,$file,$content);
 
   if($SSAT ne $SSAT2)
@@ -293,27 +294,27 @@ foreach my $file (@files)
     my $totalbytes=unpack($v,substr($DirEntry,120,4));
     my $unused=substr($DirEntry,124,4);
 
-    print "DirStream[$_[1]]: name:$name t:$type c:$nodecolour left:$DirIdLeftChild right:$DirIdRightChild root:$DirIdRootNode flags:$flags start:$SecIdStream total:$totalbytes\n";
+    #print "DirStream[$_[1]]: name:$name t:$type c:$nodecolour left:$DirIdLeftChild right:$DirIdRightChild root:$DirIdRootNode flags:$flags start:$SecIdStream total:$totalbytes\n";
 
 
-    print "Making $path\n";
+    #print "Making $path\n";
     mkdir $path;
 
     my $bytes="";
     if($type==5)
     {
-      print "Short Stream in Root storage detected!\n";
+      #print "Short Stream in Root storage detected!\n";
       $ShortStream=getLongFile($SecIdStream,0,\@SAT,$file,$content); 
       $bytes=$ShortStream;
     }
     elsif($totalbytes>=$minByteSizeStdStream)
     {
-      print "Standard Stream detected\n";
+      #print "Standard Stream detected\n";
       $bytes=getLongFile($SecIdStream,$totalbytes,\@SAT,$file,$content);
     }
     else
     {
-      print "Short Stream detected\n";
+      #print "Short Stream detected\n";
       $bytes=getShortFile($SecIdStream,$totalbytes,\@SSAT,$file,$ShortStream);
     }
     #print "Bytes: $bytes\n";
