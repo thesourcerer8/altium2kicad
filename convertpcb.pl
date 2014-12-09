@@ -1210,3 +1210,127 @@ EOF
   
   print OUT ")\n";
 }
+
+sub rem0($)
+{
+  my $d=$_[0]; $d=~s/\x00//g;
+  return $d;
+}
+
+sub decodeLib($)
+{
+  my $content=readfile($_[0]);
+  print "Decoding $_[0] (".length($content)."Bytes)...\n";
+  my $typelen=unpack("C",substr($content,0,1));
+  my $type=substr($content,1,$typelen);
+  print "typelen: $typelen\n";
+  print "type: *$type*\n";
+  my $pos=1+$typelen;
+  # The rest of the first block looks like garbage
+  $pos=256;
+  while($pos<length($content))
+  {
+    print "pos: ".sprintf("%02X",$pos)." ";
+    my $recordtype=unpack("C",substr($content,$pos,1));
+    if($recordtype==4)
+	{
+	  if(substr($content,$pos+4,1)ne"\x7C")
+	  {
+	    my $len=unpack("S",substr($content,$pos+12,2));
+	    print "Record 4a with len $len found: ".bin2hex(substr($content,$pos+1,11))."   ".rem0(substr($content,$pos+14,$len))."\n";
+	    $pos+=12+2+$len;
+      }
+	  else
+	  {
+        my $len=unpack("S",substr($content,$pos+2,2));
+        print "Record 4b with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
+	    $pos+=2+2+$len;
+	  }
+	}
+    elsif($recordtype==5)
+	{
+	  if(unpack("C",substr($content,$pos+1,1))==0)
+	  {
+  	    my $len=unpack("S",substr($content,$pos+2,2));
+	    print "Record 5b with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
+	    $pos+=2+2+$len;
+	  }
+	  else
+	  {
+	    my $len=2*unpack("S",substr($content,$pos+8,2));
+	    print "Record 5a with len $len found ".bin2hex(substr($content,$pos+1,7))." ".bin2hex(substr($content,$pos+8,2))." ".rem0(substr($content,$pos+10,$len))."\n";
+	    $pos+=8+2+$len;
+      }
+	}
+    elsif($recordtype==2)
+	{
+	  my $len=unpack("S",substr($content,$pos+2,2));
+	  print "Record $recordtype with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
+	  $pos+=2+2+$len;
+	}
+    elsif($recordtype==3)
+	{
+	  my $len=unpack("S",substr($content,$pos+2,2));
+	  print "Record $recordtype with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
+	  $pos+=2+2+$len;
+	}
+    elsif($recordtype==1)
+	{
+	  my $len=unpack("S",substr($content,$pos+2,2));
+	  print "Record 1 with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
+	  $pos+=2+2+$len;
+	}
+	elsif($recordtype==6)
+	{
+      if(unpack("C",substr($content,$pos+1,1))==0)
+	  {
+  	    my $len=unpack("S",substr($content,$pos+2,2));
+	    print "Record 6b with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
+	    $pos+=2+2+$len;
+	  }
+	  else
+	  {
+        print "Record 6a with len 266 found ".(substr($content,$pos+1,$recordtype))."\n";
+	    $pos+=266;
+	  }	
+	}
+	elsif($recordtype>=7 && $recordtype<=40)
+	{
+	  print "Record $recordtype with len 256 found: ".substr($content,$pos+1,$recordtype)."\n";
+	  $pos+=256;
+	  # Rest is garbage, but often just zeroed
+	}
+	else
+	{
+	  print "Unknown recordtype $recordtype\n";
+	  last;
+	}
+  }
+  
+  
+  
+}
+decodeLib("commonpcb.lib");
+
+#decodeLib("commonpcb.PcbLib"); -> Decoded by unpack.pl
+print "Done.\n";
+
+
+
+
+sub decodeSchLib($)
+{
+  my $content=readfile($_[0]);
+  print "Decoding $_[0] (".length($content)."Bytes)...\n";
+  my $typelen=unpack("C",substr($content,0,1));
+  my $type=substr($content,1,$typelen);
+  print "typelen: $typelen\n";
+#  print "type: *$type*\n";
+  
+}
+
+foreach(glob("library/Miscellaneous Devices/Root Entry/SchLib/0.schlib.unzip/Root Entry/*/Data.dat"))
+{
+  #decodeSchLib($_);
+}
+
