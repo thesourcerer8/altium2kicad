@@ -328,33 +328,38 @@ foreach my $file (@files)
 
 
      
-    if(open(OUT,">$path/$name.dat"))
+    my $fname="$path/$name.dat";
+     
+    if(open(OUT,">$fname"))
     {
       binmode OUT;
       print OUT $bytes;
       close OUT;  
       my $f=$bytes;
       $f=~s/\r\n/\n/sg;
-      if(open(OUT,">$path/$name.bin"))
+      if(open(OUT,">$fname.bin"))
       {
         binmode OUT;
         print OUT $f;
         close OUT;
       }
+      $fname.=".unzip";
+      $fname=~s/\.unzip$/.step/ if($fname=~m/\/Models\/\d+\.dat/);
+      
       if(substr($f,0,2) eq "\x02\x78")
       {
         my $x = inflateInit();
         my $dest = $x->inflate(substr($bytes,1));
-        open OUT,">$path/$name.unzip";
+        open OUT,">$fname";
         binmode OUT;
         print OUT $dest;
         close OUT;
-     } 
-     if(substr($f,0,1) eq "\x78")
-     {
+      } 
+      if(substr($f,0,1) eq "\x78")
+      {
         my $x = inflateInit();
-        my $dest = $x->inflate($bytes);
-        open OUT,">$path/$name.unzip";
+        my $dest = $x->inflate($f);
+        open OUT,">$fname";
         binmode OUT;
         print OUT $dest;
         close OUT;
@@ -362,10 +367,9 @@ foreach my $file (@files)
     }
     else
     {
-      print "HandleColor() Error when writing $path/$name.dat: $!\n";
+      print "HandleColor() Error when writing $fname: $!\n";
     }
-
-    print "\n";
+    #print "\n";
 
   }   
 
