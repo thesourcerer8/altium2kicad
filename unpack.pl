@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 use strict;
 use Compress::Zlib;
+use Cwd qw();
 
 # This tool unpacks Microsoft Composite Document File V2
 # It was developed based on the documentation from 
@@ -346,7 +347,8 @@ foreach my $file (@files)
       }
       $fname.=".unzip";
       $fname=~s/\.unzip$/.step/ if($fname=~m/\/Models\/\d+\.dat/);
-      
+      $fname=~s/0\.pcblib\.dat\.unzip$/0.PcbLib/;
+      $fname=~s/0\.schlib\.dat\.unzip$/0.SchLib/;
       if(substr($f,0,2) eq "\x02\x78")
       {
         my $x = inflateInit();
@@ -359,12 +361,22 @@ foreach my $file (@files)
       if(substr($f,0,1) eq "\x78")
       {
         my $x = inflateInit();
-        my $dest = $x->inflate($f);
+        my $dest = $x->inflate($bytes);
         open OUT,">$fname";
         binmode OUT;
         print OUT $dest;
         close OUT;
-      } 
+      }
+	  if($fname=~m/^(.*)0\.(Pcb|Sch)Lib$/)
+	  {
+	    my $newpath=$1;
+        my $path = Cwd::cwd();
+		chdir $newpath;
+        my $newerpath = Cwd::cwd();
+	    print "Path: $path Newpath: $newpath Newerpath: $newerpath 0: $0\n";
+        system "\"$0\"";
+		chdir $path;
+	  }
     }
     else
     {
