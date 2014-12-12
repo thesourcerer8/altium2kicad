@@ -147,7 +147,7 @@ sub HandleBinFile
 	
     if($data=~m/\n/s)
     {
-      print "Warning: data contains newline!\n";
+      #print "Warning: $filename contains newline in record $line!\n";
     }
     $data=~s/\x00$//;
 
@@ -216,19 +216,19 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
   print "Handling $filename\n";
   my $short=$filename; $short=~s/\/Root Entry\/Board6\/Data\.dat$//;
 
-  foreach my $dat(glob("\"$short/Root Entry/Models/*.dat\""))
-  {
-    next unless($dat=~m/\d+\.dat/);
-    #print "Uncompressing STEP File $dat\n";
-    my $f=readfile($dat);
-	$f=~s/\r\n/\n/sg;
-    my $x = inflateInit();
-    my $dest = $x->inflate($f);
-    open OUT,">$dat.step";
-	binmode OUT;
-    print OUT $dest;
-    close OUT;
-  }
+  #foreach my $dat(glob("\"$short/Root Entry/Models/*.dat\""))
+  #{
+  #  next unless($dat=~m/\d+\.dat/);
+  #  #print "Uncompressing STEP File $dat\n";
+  #  my $f=readfile($dat);
+  #	 $f=~s/\r\n/\n/sg;
+  #  my $x = inflateInit();
+  #  my $dest = $x->inflate($f);
+  #  open OUT,">$dat.step";
+  #  binmode OUT;
+  #  print OUT $dest;
+  #  close OUT;
+  #}
   
   my %layername=();
   my %dieltype=();
@@ -587,7 +587,7 @@ EOF
 	  my $name="undefined"; $name=$1 if($layerdoku=~m/name: *$lay *([\w.]+)/);
       $unmappedLayers{$_[0]}=$name ;
 	}
-    #print "No mapping for Layer ".$_[0]." defined!\n" if(!defined($layermap{$_[0]}));
+    print "No mapping for Layer ".$_[0]." defined!\n" if(!defined($layermap{$_[0]}));
 	return $layermap{$_[0]}; 
   }
 
@@ -743,7 +743,7 @@ if(defined($stp));
 	my $dz=$mdz;
 	my $wrl=(defined($modelwrl{$id}) && -f $modelwrl{$id}) ? $modelwrl{$id} : undef;
 	mkdir "wrl";
-	writefile("wrl/$stp.wrl",readfile($wrl)) if(defined($stp));
+	writefile("wrl/$stp.wrl",readfile($wrl)) if(defined($stp)&& defined($wrl));
 	$wrl="wrl/$stp.wrl" if(defined($stp));
 	
 	#print "wrl: $wrl\n" if(defined($modelwrl{$id}));
@@ -845,8 +845,8 @@ EOF
   	my $x=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
 	my $y=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
 	my $width=sprintf("%.5f",unpack("l",substr($value,21,4))/$faktor/10000);
-	my $layer1=mapLayer(unpack("C",substr($value,0,1))) || "F.Cu";
-	my $layer2=mapLayer(unpack("C",substr($value,1,1))) || "B.Cu";
+	my $layer1="F.Cu"; # mapLayer(unpack("C",substr($value,0,1))); # || "F.Cu"; # Since Novena does not have any Blind or Buried Vias
+	my $layer2="B.Cu"; # mapLayer(unpack("C",substr($value,1,1))); # || "B.Cu";
 	#print "Layer: $layer1 -> $layer2\n";
 	#print "Koordinaten:\n" if($debug);
 	#print "x:$x y:$y width:$width\n" if($debug);
@@ -1217,6 +1217,9 @@ sub rem0($)
   return $d;
 }
 
+
+#exit;
+
 sub decodeLib($)
 {
   my $content=readfile($_[0]);
@@ -1310,27 +1313,32 @@ sub decodeLib($)
   
   
 }
-decodeLib("commonpcb.lib");
-
-#decodeLib("commonpcb.PcbLib"); -> Decoded by unpack.pl
-print "Done.\n";
-
-
+#decodeLib("commonpcb.lib");
 
 
 sub decodeSchLib($)
 {
   my $content=readfile($_[0]);
-  print "Decoding $_[0] (".length($content)."Bytes)...\n";
-  my $typelen=unpack("C",substr($content,0,1));
-  my $type=substr($content,1,$typelen);
-  print "typelen: $typelen\n";
-#  print "type: *$type*\n";
-  
+  print "Decoding $_[0] (".length($content)." Bytes)...\n";
+  my $pos=0;
+  while($pos<length($content))
+  {
+    my $typelen=unpack("S",substr($content,$pos,2));
+    my $type=substr($content,$pos+4,$typelen);
+	if(substr($type,0,1)eq "|")
+	{
+      print "pos: $pos typelen: $typelen type: $type\n";
+	}
+	else
+	{
+      print "pos: $pos typelen: $typelen type: ".bin2hex(substr($content,$pos+2,$typelen+2))."\n";	
+	}
+    $pos+=$typelen+4;
+  }
 }
 
-foreach(glob("library/Miscellaneous Devices/Root Entry/SchLib/0.schlib.unzip/Root Entry/*/Data.dat"))
+foreach(glob("'library/Miscellaneous Devices/Root Entry/SchLib/0/Root Entry/*/Data.dat'"))
 {
-  #decodeSchLib($_);
+  decodeSchLib($_);
 }
 
