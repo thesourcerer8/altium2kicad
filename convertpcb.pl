@@ -1123,10 +1123,7 @@ EOF
 	my $data=substr($value,22+$textlen+4,$datalen);
 	#print bin2hex($data)."\n";
 	#print "text: $text\n";
-	
   });
-  
-  
   
   HandleBinFile("$short/Root Entry/ShapeBasedComponentBodies6/Data.dat","\x0c",0,0, sub 
   { 
@@ -1200,7 +1197,6 @@ EOF
 	}
   } 
   
-  
   if(keys %unmappedLayers)
   {
     print "Unmapped Layers:\n";
@@ -1216,9 +1212,6 @@ sub rem0($)
   my $d=$_[0]; $d=~s/\x00//g;
   return $d;
 }
-
-
-#exit;
 
 sub decodeLib($)
 {
@@ -1308,13 +1301,9 @@ sub decodeLib($)
 	  print "Unknown recordtype $recordtype\n";
 	  last;
 	}
-  }
-  
-  
-  
+  }  
 }
 #decodeLib("commonpcb.lib");
-
 
 sub decodeSchLib($)
 {
@@ -1342,3 +1331,60 @@ foreach(glob("'library/Miscellaneous Devices/Root Entry/SchLib/0/Root Entry/*/Da
   decodeSchLib($_);
 }
 
+sub decodePcbLib($)
+{
+  my $content=readfile($_[0]);
+  print "Decoding $_[0] (".length($content)." Bytes)...\n";
+  my $namelen=unpack("S",substr($content,0,2));
+  print "Name: ".substr($content,5,$namelen-1)."\n";
+  
+  my $pos=4+$namelen;
+  my $prevtype=-1;
+  while($pos<length($content))
+  {
+    my $type=unpack("C",substr($content,$pos,1));
+    my $typelen=unpack("S",substr($content,$pos+1,2));
+	$typelen=147+unpack("C",substr($content,$pos+1,1)) if($type==2);
+	print "Searching on pos ".sprintf("%X",$pos+$typelen+5)."\n" if($type==5);
+	$typelen+=4+unpack("C",substr($content,$pos+$typelen+5,1)) if($type==5);
+	#$typelen=138 if($type==5);
+	$typelen=17 if($type==12);
+	if($prevtype==0)
+	{
+	  $pos+=4;
+	  print "Pos: ".sprintf("%5d",$pos)." Number: $type\n";
+	  foreach(0 .. $type-1)
+	  {
+	    if($pos>length($content))
+		{
+		  print "Error in file!\n";
+		  last;
+		}
+	    print "* ".bin2hex(substr($content,$pos,16))."\n";
+		$pos+=16;
+	  }
+	  $prevtype=-1;
+	}
+	else
+	{
+	  print "type: $type ";
+      my $value=substr($content,$pos+5,$typelen);
+	  if(substr($value,0,2)eq "V7")
+	  {
+        print "pos: ".sprintf("%5d",$pos)." typelen: $typelen value: $value\n";
+  	  }
+ 	  else
+	  {
+        print "pos: ".sprintf("%5d",$pos)." typelen: $typelen value: ".bin2hex(substr($content,$pos,5))." ".bin2hex(substr($content,$pos+5,$typelen))."\n";	
+  	  }
+      $pos+=$typelen+5;
+	  print "Error in decoding!\n" if($pos>length($content));
+	  $prevtype=$type;
+	}
+  }
+}
+
+foreach(glob("'library/Miscellaneous Devices/Root Entry/PcbLib/0/Root Entry/*/Data.dat.bin'"))
+{
+  decodePcbLib($_);
+}
