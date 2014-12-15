@@ -19,6 +19,8 @@ use Compress::Zlib;
 # Things that are missing in Altium:
 # The Zone-Fill-Polygons are not saved in the file. Workaround: In KiCad, select the zone tool, right-click on an empty area, then "Fill all zones"
 
+my $annotate=1;
+
 my $current_status=<<EOF
 Advanced Placer Options6.dat # Not needed
 Arcs6.dat # NEEDED
@@ -643,7 +645,7 @@ EOF
   #HandleBinFile("$short/Root Entry/Pads6/Data.dat","\x02",0,0, sub 
   {
     my $value=readfile("$short/Root Entry/Pads6/Data.dat");
-	$value=~s/\r\n/\n/gs;
+    $value=~s/\r\n/\n/gs;
 	open AOUT,">$short/Root Entry/Pads6/Data.dat.txt";
 	my $pos=0;
 	my $counter=0;
@@ -730,6 +732,8 @@ EOF
 
   HandleBinFile("$short/Root Entry/ComponentBodies6/Data.dat","",23,16, sub 
   { 
+    print OUT "#Fills#".$_[3].": ".$_[1]."\n" if($annotate);
+
     my %d=%{$_[0]};
 	my $header=$_[2];
 	my $component=unpack("s",substr($header,12,2));
@@ -823,6 +827,7 @@ EOF
   HandleBinFile("$short/Root Entry/Components6/Data.dat","",0,0, sub 
   { 
     my %d=%{$_[0]};
+    print OUT "#Components#".$_[3].": ".$_[1]."\n" if($annotate);
 	
 	my $atx=$d{'X'};$atx=~s/mil$//;$atx/=$faktor;$atx-=$xmove;
 	my $aty=$d{'Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
@@ -880,9 +885,9 @@ EOF
   HandleBinFile("$short/Root Entry/Vias6/Data.dat","\x03",0,0, sub 
   { 
     my $value=$_[1];
+	print OUT "#Vias#".$_[3].": ".bin2hex($value)."\n" if($annotate);
     my $debug=($count<100);
-    #print bin2hex($value)."\n"; # if($debug);
-  	my $x=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
+    my $x=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
 	my $y=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
 	my $width=sprintf("%.5f",unpack("l",substr($value,21,4))/$faktor/10000);
 	my $layer1="F.Cu"; # mapLayer(unpack("C",substr($value,0,1))); # || "F.Cu"; # Since Novena does not have any Blind or Buried Vias
@@ -949,7 +954,7 @@ EOF
   HandleBinFile("$short/Root Entry/Polygons6/Data.dat","",0,0, sub 
   { 
     my %d=%{$_[0]};
-	
+	print OUT "#Polygons#".$_[3].": ".$_[1]."\n" if($annotate);
 	my $counter=$_[3];
 	my $width=$d{'TRACKWIDTH'}||1;$width=~s/mil$//; #/$faktor/10000;
 	my $layer=mapLayer($d{'LAYER'}) || "F.Paste";
@@ -1006,6 +1011,8 @@ EOF
   HandleBinFile("$short/Root Entry/Tracks6/Data.dat","\x04",0,0, sub 
   { 
     my $value=$_[1];
+	print OUT "#Tracks#".$_[3].": ".bin2hex($value)."\n" if($annotate);
+
 	my $component=unpack("s",substr($value,7,2));
     my $x1=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
 	my $y1=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
@@ -1117,6 +1124,8 @@ EOF
   HandleBinFile("$short/Root Entry/Fills6/Data.dat","\x06",0,0, sub 
   { 
     my $value=$_[1];
+    print OUT "#Fills#".$_[3].": ".bin2hex($value)."\n" if($annotate);
+
 	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "Cmts.User";
     my $x1=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
 	my $y1=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
@@ -1146,10 +1155,11 @@ EOF
   HandleBinFile("$short/Root Entry/Regions6/Data.dat","\x0b",0,0, sub 
   { 
     my $value=$_[1];
-    #print bin2hex($value)."\n"; # if($debug);
+    print OUT "#Regions#".$_[3].": ".bin2hex($value)."\n" if($annotate);
 	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
     my $textlen=unpack("l",substr($value,18,4));
 	my $text=substr($value,22,$textlen);$text=~s/\x00$//;
+	print OUT "#$text\n";
 	my @a=split '\|',$text;
 	my %d=();
 	foreach my $c(@a)
@@ -1170,7 +1180,7 @@ EOF
   HandleBinFile("$short/Root Entry/ShapeBasedComponentBodies6/Data.dat","\x0c",0,0, sub 
   { 
     my $value=$_[1];
-    #print bin2hex($value)."\n"; # if($debug);
+    print OUT "#ShapeBasedComponentBodies#".$_[3].": ".bin2hex($value)."\n" if($annotate);
 	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
     #print "  ".bin2hex($unknownheader)."\n";
     my $textlen=unpack("l",substr($value,18,4));
@@ -1196,7 +1206,7 @@ EOF
       my $x2=sprintf("%.5f",unpack("l",substr($data,$_*37+37+1,4))/$faktor/10000-$xmove);
 	  my $y2=sprintf("%.5f",$ymove-unpack("l",substr($data,$_*37+37+5,4))/$faktor/10000);
 	  print OUT "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer F.Adhes) (width 0.2))\n";
-	  #print "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer F.Adhes) (width 0.2))\n";
+	     #print "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer F.Adhes) (width 0.2))\n";
 	}
 	#print "  ".bin2hex($data)."\n";
 	#print "text: $text\n";
@@ -1218,17 +1228,24 @@ EOF
 	while($pos<length($content))
 	{
 	  last if(substr($content,$pos,1) ne "\x05"); $pos++;
-      my $fontlen=unpack("l",substr($content,$pos,4)); $pos+=4;
+      my $fontlen=unpack("l",substr($content,$pos,4)); 
+	  my $opos=$pos;
+	  $pos+=4;
       my $layer=mapLayer(unpack("C",substr($content,$pos,1))) || "Cmts.User";
+	  my $olayer=unpack("C",substr($content,$pos,1));
 	  my $x1=sprintf("%.5f",unpack("l",substr($content,$pos+13,4))/$faktor/10000-$xmove);
 	  my $y1=sprintf("%.5f",$ymove-unpack("l",substr($content,$pos+17,4))/$faktor/10000);
       my $width=sprintf("%.5f",unpack("l",substr($content,$pos+21,4))/$faktor/10000);
 	  my $dir=unpack("d",substr($content,$pos+27,8)); 
-	  my $font=substr($content,$pos,$fontlen); $pos+=$fontlen;
+	  my $font=substr($content,$pos,$fontlen); 
+	  $pos+=$fontlen;
 	  my $fontname=ucs2utf(substr($font,46,64));
-      my $textlen=unpack("l",substr($content,$pos,4)); $pos+=4;
-	  my $text=substr($content,$pos+1,$textlen-1); $pos+=$textlen;
-	  #print  bin2hex($font)." $fontname"."   $text $dir\n";
+      my $textlen=unpack("l",substr($content,$pos,4)); 
+	  $pos+=4;
+	  my $text=substr($content,$pos+1,$textlen-1); 
+	  $pos+=$textlen;
+	  print OUT "#Texts#".$opos.": ".bin2hex(substr($content,$opos,$pos-$opos))."\n" if($annotate);
+	  print OUT "#Layer: $olayer\n";
 	  $text=~s/"/''/g;
 	  print OUT <<EOF
  (gr_text "$text" (at $x1 $y1 $dir) (layer $layer)
