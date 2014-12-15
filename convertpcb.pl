@@ -428,7 +428,7 @@ EOF
     (tracks 0)
     (zones 0)
     (modules 42)
-    (nets 43)
+    (nets 2)
   )
 
   (page A4)
@@ -519,14 +519,16 @@ $layers
   )
 
   (net 0 "")
+  (net 1 "Net1")
 
-  (net_class Default "Dies ist die voreingestellte Netzklasse."
+  (net_class Default "This is the default net class."
     (clearance 0.254)
     (trace_width 0.254)
     (via_dia 0.889)
     (via_drill 0.635)
     (uvia_dia 0.508)
     (uvia_drill 0.127)
+	(add_net Net1)
   )
   
 EOF
@@ -539,9 +541,11 @@ EOF
   #$xmove=50;$ymove=250; # Enable to move everything into the frame, or disable to move it to align to the Gerber-Imports
   
   my %layermap=("1"=>"F.Cu","3"=>"In2.Cu","4"=>"In3.Cu","11"=>"In6.Cu","12"=>"In7.Cu","32"=>"B.Cu","33"=>"F.SilkS","34"=>"B.SilkS",
-  "35"=>"F.Paste","36"=>"B.Paste","37"=>"Edge.Cuts","38"=>"B.Mask","39"=>"In1.Cu","40"=>"In4.Cu","41"=>"In5.Cu","42"=>"In8.Cu","74"=>"Eco1.User",
+  "35"=>"F.Paste","36"=>"B.Paste","37"=>"F.Mask",
+  "38"=>"B.Mask","39"=>"In1.Cu","40"=>"In4.Cu","41"=>"In5.Cu","42"=>"In8.Cu","74"=>"Eco1.User",
   
-  "44"=>"In6.Cu","73"=>"Eco2.User","60"=>"In4.Cu","56"=>"Edge.Cuts","69"=>"Eco1.User","59"=>"Eco1.User","71"=>"Eco1.User",
+  "44"=>"In6.Cu","73"=>"Eco2.User","60"=>"In4.Cu","56"=>"Edge.Cuts",
+  ,"69"=>"Eco1.User","59"=>"Eco1.User","71"=>"Eco1.User",
   "57"=>"Eco1.User","58"=>"Eco1.User");
   
   my @layerkeys=keys %layermap;
@@ -578,10 +582,12 @@ EOF
  
   my %pads=();
   our %unmappedLayers=();
+  our %usedlayers=();
   
   sub mapLayer($)
   {
     my $lay=$_[0];
+	$usedlayers{$lay}++;
     if(!defined($layermap{$lay}))
 	{
 	  my $name="undefined"; $name=$1 if($layerdoku=~m/name: *$lay *([\w.]+)/);
@@ -591,12 +597,26 @@ EOF
 	return $layermap{$_[0]}; 
   }
 
-
-  
+  our %A2Kwrl=(
+    "Chip_Capacitor_N.PcbLib/Cap Semi"=>"smd/Capacitors/c_1206.wrl",
+	"commonpcb.lib/Cap Semi"=>"smd/Capacitors/c_1206.wrl",
+    "Miscellaneous Connectors.IntLib/Header 20X2"=>"Pin_Headers/Pin_Header_Straight_2x20.wrl",
+	"SOP_65P_N.PcbLib/ADCxx8Sxx2"=>"smd/smd_dil/ssop-16.wrl",
+    "TSOP_65P_N.PcbLib/SN74LVC8T245PWR"=>"smd/smd_dil/tssop-24.wrl",
+	"Chip_Resistor_N.PcbLib/Res1"=>"smd/resistors/r_1206.wrl",
+    "SOT23_5-6Lead_N.PcbLib/RT9706"=>"smt/SOT223.wrl",
+	"SOT23_5-6Lead_N.PcbLib/LP2980M5"=>"smt/SOT223.wrl",
+	"Chip Diode - 2 Contacts.PcbLib/LED2"=>"Dioden_SMD_Wings3d_RevA_06Sep2012/Dioden_SMD_RevA_31May2013.wrl");
+	
+  our %A2Kfak=(
+    "Miscellaneous Connectors.IntLib/Header 20X2"=>"0.395"
+  );  
+	
   our $componentid=0;
   our %componentatx=();
   our %componentaty=();
   our %componentlayer=();
+  our %kicadwrl=();
   HandleBinFile("$short/Root Entry/Components6/Data.dat","",0,0, sub 
   { 
     my %d=%{$_[0]};
@@ -606,6 +626,16 @@ EOF
 	my $aty=$d{'Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
 	$componentaty{$componentid}=$aty;
     $componentlayer{$componentid}=$d{'LAYER'};
+	
+	$kicadwrl{$componentid}=$A2Kwrl{$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'}};
+	if(defined($kicadwrl{$componentid}))
+	{
+	  #print "A2K: ".$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'}." -> ".$A2Kwrl{$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'}}."\n";
+	}
+	else
+	{
+	  print "No Mapping for: ".$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'}."\n";
+	}
     $componentid++;
   });
 
@@ -673,7 +703,7 @@ EOF
       if($type eq "RECTANGLE" && 0)
       {
  	    print OUT <<EOF
- (gr_text "PAD" (at $x1 $y1$mdir) (layer F.Cu)
+ (gr_text "PAD" (at $x1 $y1$mdir) (layer $layer)
     (effects (font (size $width $width) (thickness 0.1)))
   )
 EOF
@@ -748,7 +778,7 @@ if(defined($stp));
 	
 	#print "wrl: $wrl\n" if(defined($modelwrl{$id}));
 	
-    if(defined($stp) && -r $wrl)
+    if((defined($stp) && -r $wrl) || defined($kicadwrl{$component}))
 	{
 	  if($component>=0)
 	  {
@@ -762,11 +792,21 @@ if(defined($stp));
 		my $dx=sprintf("%.5f",$atx/25.4);
 		my $dy=sprintf("%.5f",-$aty/25.4);
 		$dy=-$dy if(defined($componentlayer{$component}) && $componentlayer{$component} eq "BOTTOM"); # The Y axis seems to be mirrored on bottom elements
+		my $lfak=$fak;
+		if(defined($stp) && -r $wrl)
+		{
+		  $wrl="./$wrl";
+		}
+		else
+		{
+		  $wrl=$kicadwrl{$component};
+		  $fak=1;
+		}
 		
 	    $pads{$component}.=<<EOF
-	(model "./$wrl"
+	(model "$wrl"
       (at (xyz $dx $dy $dz))
-      (scale (xyz $fak $fak $fak))
+      (scale (xyz $lfak $lfak $lfak))
       (rotate (xyz $rot))
     )
 EOF
@@ -813,7 +853,7 @@ EOF
   	my $x=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
 	my $y=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
 	my $width=sprintf("%.5f",unpack("l",substr($value,21,4))/$faktor/10000);
-	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "F.Cu";
+	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "Undefined";
 	#print "layer:$layer x:$x y:$y width:$width\n";
 	#my $layer2=mapLayer(unpack("C",substr($value,1,1))) || "B.Cu";
 	#print "".((-f "$short/Root Entry/Models/$fn")?"File exists.\n":"File $fn does NOT EXIST!\n");
@@ -850,11 +890,11 @@ EOF
 	#print "Layer: $layer1 -> $layer2\n";
 	#print "Koordinaten:\n" if($debug);
 	#print "x:$x y:$y width:$width\n" if($debug);
-	print OUT "  (via (at $x $y) (size $width) (layers $layer1 $layer2) (net 0))\n";
+	print OUT "  (via (at $x $y) (size $width) (layers $layer1 $layer2) (net 1))\n";
 	
 	if(0) # $count>19000 && !($count%50))
 	{
-	  #print OUT "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer $layer) (net 0))\n";	  
+	  #print OUT "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer $layer) (net 1))\n";	  
 	  my @foundlayers=();
 	  my $firstlayer="";
 	  my $lastlayer="";
@@ -892,9 +932,9 @@ EOF
 	    {
   	      #push @{$widths{$foundlayer}},bin2hex($value);
 		  #print "Gerber: $found[0]\n";
- 	      #print "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer B.Paste) (net 0))\n";
-     	  #print OUT "  (segment (start $x1 $y1) (end $x1 2000) (width $width) (layer B.Paste) (net 0))\n";
-	      #print OUT "  (segment (start $x2 $y2) (end $x2 2000) (width $width) (layer B.Paste) (net 0))\n";
+ 	      #print "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer B.Paste) (net 1))\n";
+     	  #print OUT "  (segment (start $x1 $y1) (end $x1 2000) (width $width) (layer B.Paste) (net 1))\n";
+	      #print OUT "  (segment (start $x2 $y2) (end $x2 2000) (width $width) (layer B.Paste) (net 1))\n";
 	      #print "DEBUG: ".bin2hex($value)."\n\n";
 		}
 	  }
@@ -929,7 +969,7 @@ EOF
 	if($d{'POLYGONTYPE'} eq "Split Plane" || $d{'HATCHSTYLE'} eq "Solid")
 	{
 	  print OUT <<EOF
-(zone (net 0) (net_name "") (layer $layer) (tstamp 547BA6E6) (hatch edge 0.508)
+(zone (net 1) (net_name "Net1") (layer $layer) (tstamp 547BA6E6) (hatch edge 0.508)
     (connect_pads thru_hole_only (clearance 0.508))
     (min_thickness 0.254)
     (fill (mode segment) (arc_segments 16) (thermal_gap 0.508) (thermal_bridge_width 0.508))
@@ -979,15 +1019,17 @@ EOF
 	  $cutcounter++;
 	  #$width="0.$cutcounter";
 	  #print "  (gr_line (start $x1 $y1) (end $x2 $y2) (layer $layer) (width $width))\n";
+	  
+	  
 	  print OUT "  (gr_line (start $x1 $y1) (end $x2 $y2) (layer $layer) (width $width))\n"; #(angle 45) 
 	}
 	else
 	{
-	  print OUT "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer $layer) (net 0))\n";
+	  print OUT "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer $layer) (net 1))\n";
 	}
 	if(0) # $count>19000 && !($count%50))
 	{
-	  #print OUT "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer $layer) (net 0))\n";
+	  #print OUT "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer $layer) (net 1))\n";
 	  my @found=();
 	  my $foundlayer="";
 	  foreach my $layer(1 .. 8)
@@ -1014,9 +1056,9 @@ EOF
 	    {
   	      push @{$widths{$foundlayer}},bin2hex($value);
 		  print "Gerber: $found[0]\n";
- 	      #print "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer B.Paste) (net 0))\n";
-     	  #print OUT "  (segment (start $x1 $y1) (end $x1 2000) (width $width) (layer B.Paste) (net 0))\n";
-	      #print OUT "  (segment (start $x2 $y2) (end $x2 2000) (width $width) (layer B.Paste) (net 0))\n";
+ 	      #print "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer B.Paste) (net 1))\n";
+     	  #print OUT "  (segment (start $x1 $y1) (end $x1 2000) (width $width) (layer B.Paste) (net 1))\n";
+	      #print OUT "  (segment (start $x2 $y2) (end $x2 2000) (width $width) (layer B.Paste) (net 1))\n";
 	      print "DEBUG: ".bin2hex($value)."\n\n";
 		}
 	  }
@@ -1086,7 +1128,7 @@ EOF
 	#print "Koordinaten:\n";
 	#print "x:$x1 y:$y1 dir:$dir dir2:$dir2\n";
 	print OUT <<EOF
-	  (zone (net 0) (net_name "") (layer $layer) (tstamp 53EB93DD) (hatch edge 0.508)
+	  (zone (net 1) (net_name "Net1") (layer $layer) (tstamp 53EB93DD) (hatch edge 0.508)
     (connect_pads (clearance 0.508))
     (min_thickness 0.254)
     (fill (arc_segments 16) (thermal_gap 0.508) (thermal_bridge_width 0.508))
@@ -1202,6 +1244,13 @@ EOF
     print "Unmapped Layers:\n";
     print join ",",map { "\"$_\"=>\"$unmappedLayers{$_}\""} keys %unmappedLayers;
     print "\n";
+  }
+  
+  foreach(sort keys %usedlayers)
+  {
+    my $name="undefined"; $name=$1 if($layerdoku=~m/name: *$_ *([\w.]+)/);
+	my $kic=$layermap{$_};
+    print "Used layer: $_ $layername{$_}/$name -> $kic\n";
   }
   
   print OUT ")\n";
@@ -1345,7 +1394,7 @@ sub decodePcbLib($)
     my $type=unpack("C",substr($content,$pos,1));
     my $typelen=unpack("S",substr($content,$pos+1,2));
 	$typelen=147+unpack("C",substr($content,$pos+1,1)) if($type==2);
-	print "Searching on pos ".sprintf("%X",$pos+$typelen+5)."\n" if($type==5);
+	#print "Searching on pos ".sprintf("%X",$pos+$typelen+5)."\n" if($type==5);
 	$typelen+=4+unpack("C",substr($content,$pos+$typelen+5,1)) if($type==5);
 	#$typelen=138 if($type==5);
 	$typelen=17 if($type==12);
@@ -1371,11 +1420,11 @@ sub decodePcbLib($)
       my $value=substr($content,$pos+5,$typelen);
 	  if(substr($value,0,2)eq "V7")
 	  {
-        print "pos: ".sprintf("%5d",$pos)." typelen: $typelen value: $value\n";
+        print "pos: ".sprintf("%5d",$pos)." typelen: ".sprintf("%5d",$typelen)." value: $value\n";
   	  }
  	  else
 	  {
-        print "pos: ".sprintf("%5d",$pos)." typelen: $typelen value: ".bin2hex(substr($content,$pos,5))." ".bin2hex(substr($content,$pos+5,$typelen))."\n";	
+        print "pos: ".sprintf("%5d",$pos)." typelen: ".sprintf("%5d",$typelen)." value: ".bin2hex(substr($content,$pos,5))." ".bin2hex(substr($content,$pos+5,$typelen))."\n";	
   	  }
       $pos+=$typelen+5;
 	  print "Error in decoding!\n" if($pos>length($content));
