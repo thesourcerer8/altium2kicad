@@ -18,6 +18,7 @@ use Compress::Zlib;
 
 # Things that are missing in Altium:
 # The Zone-Fill-Polygons are not saved in the file. Workaround: In KiCad, select the zone tool, right-click on an empty area, then "Fill all zones"
+# Annotations in the fileformat
 
 my $annotate=1;
 
@@ -89,7 +90,7 @@ sub writefile($$)
   chmod 0666,$_[0];
 }
 
-
+# This function converts a binary string to its hex representation for debugging
 sub bin2hex($)
 {
   my $orig=$_[0];
@@ -101,6 +102,7 @@ sub bin2hex($)
   return $value;
 }
 
+# This function returns, whether 2 values are near each other
 sub near($$)
 {
   my $d=0.01;
@@ -108,6 +110,7 @@ sub near($$)
 }
 
 
+# This is the main handling function that parses most of the binary files inside a .PcbDoc
 sub HandleBinFile 
 {
   my ($filename,$recordtype,$headerlen,$nskip,$piped)=@_;
@@ -199,7 +202,7 @@ sub HandleBinFile
   close HBOUT;
 }
 
-
+# This marks a specific point for debugging and adds additionial lines around the point that look like a star
 sub MarkPoint($$)
 {
   my $x=$_[0];
@@ -397,6 +400,7 @@ EOF
   
   our $modelid="";
   
+   
   HandleBinFile("$short/Root Entry/Models/Data.dat","",0,0,sub 
   { 
     my $fn=$_[0]{'NAME'};
@@ -416,8 +420,8 @@ EOF
   print "Writing PCB to $short.kicad_pcb\n";
   open OUT,">$short.kicad_pcb";
 
-  #_800001ff
-  
+    
+  # This is the standard Header for the .kicad_pcb file
   print OUT <<EOF
 (kicad_pcb (version 4) (host pcbnew "(2014-07-21 BZR 5016)-product")
 
@@ -586,6 +590,7 @@ EOF
   our %unmappedLayers=();
   our %usedlayers=();
   
+  # This function maps the Layer numbers or names to KiCad Layernames
   sub mapLayer($)
   {
     my $lay=$_[0];
@@ -599,6 +604,7 @@ EOF
 	return $layermap{$_[0]}; 
   }
 
+  #Mapping the Standard components to KiCad Standard Components:
   our %A2Kwrl=(
     "Chip_Capacitor_N.PcbLib/Cap Semi"=>"smd/Capacitors/c_1206.wrl",
 	"commonpcb.lib/Cap Semi"=>"smd/Capacitors/c_1206.wrl",
@@ -867,7 +873,7 @@ EOF
     #$modelname{$_[0]{'ID'}}=$fn;
   });
 
-  
+  # The following code reads Gerber Files that were converted to .kicad_pcb for automated reverse engineering below:
   my @gerbers=split"\n",readfile('novena_pvt1_e_gerbers\Gerbers.kicad_pcb');
   my @g=();
   @{$g[0]}=split"\n",readfile('novena_pvt1_e_gerbers\GTL.kicad_pcb');
@@ -897,6 +903,9 @@ EOF
 	#print "x:$x y:$y width:$width\n" if($debug);
 	print OUT "  (via (at $x $y) (size $width) (layers $layer1 $layer2) (net 1))\n";
 	
+	
+	
+	# The following was an experimental automatic reverse-engineering try. The code is disabled now.
 	if(0) # $count>19000 && !($count%50))
 	{
 	  #print OUT "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer $layer) (net 1))\n";	  
@@ -1255,7 +1264,8 @@ EOF
 ;
 	}
   } 
-  
+
+  # We are done with converting a .PcbDoc file, now we print some statistical information: 
   if(keys %unmappedLayers)
   {
     print "Unmapped Layers:\n";
@@ -1279,6 +1289,7 @@ sub rem0($)
   return $d;
 }
 
+# The following function decodes an old Alitum version 9? .lib file
 sub decodeLib($)
 {
   my $content=readfile($_[0]);
@@ -1371,6 +1382,8 @@ sub decodeLib($)
 }
 #decodeLib("commonpcb.lib");
 
+
+# This function opens the given filename and decodes a .SchLib file
 sub decodeSchLib($)
 {
   my $content=readfile($_[0]);
@@ -1397,6 +1410,7 @@ foreach(glob("'library/Miscellaneous Devices/Root Entry/SchLib/0/Root Entry/*/Da
   decodeSchLib($_);
 }
 
+# This function decodes a new Altium .PcbLib file
 sub decodePcbLib($)
 {
   my $content=readfile($_[0]);
