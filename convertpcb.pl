@@ -1164,7 +1164,7 @@ EOF
   HandleBinFile("$short/Root Entry/Regions6/Data.dat","\x0b",0,0, sub 
   { 
     my $value=$_[1];
-    print OUT "#Regions#".$_[3].": ".bin2hex($value)."\n" if($annotate);
+    print OUT "#Regions#".$_[3].": ".bin2hex(substr($value,0,1000))."\n" if($annotate);
 	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
     my $textlen=unpack("l",substr($value,18,4));
 	my $text=substr($value,22,$textlen);$text=~s/\x00$//;
@@ -1276,8 +1276,9 @@ EOF
   foreach(sort keys %usedlayers)
   {
     my $name="undefined"; $name=$1 if($layerdoku=~m/name: *$_ *([\w.]+)/);
-	my $kic=$layermap{$_};
-    print "Used layer: $_ $layername{$_}/$name -> $kic\n";
+	my $kic=$layermap{$_} || "undefined";
+	my $lname=$layername{$_} || "undefined";
+    print "Used layer: $_ $lname/$name -> $kic\n";
   }
   
   print OUT ")\n";
@@ -1407,7 +1408,7 @@ sub decodeSchLib($)
 
 foreach(glob("'library/Miscellaneous Devices/Root Entry/SchLib/0/Root Entry/*/Data.dat'"))
 {
-  decodeSchLib($_);
+ # decodeSchLib($_);
 }
 
 # This function decodes a new Altium .PcbLib file
@@ -1457,6 +1458,22 @@ sub decodePcbLib($)
 	  {
         print "pos: ".sprintf("%5d",$pos)." typelen: ".sprintf("%5d",$typelen)." value: ".bin2hex(substr($content,$pos,5))." ".bin2hex(substr($content,$pos+5,$typelen))."\n";	
   	  }
+	  
+	  #type: 0 => Contains V7-|seperated|values| , afterwards a list of coordinates follow
+	  #type: 2 => Pad
+	  #type: 4 => Track
+	  #type: 12 => ShapeBasedComponentBodies6 - First byte seems to contain the layer, the rest has been always the same until now
+      #type: 6 => Fills
+	  
+	  #MODEL.MODELTYPE=0 => Box
+	  #MODEL.MODELTYPE=2 => Cylinder
+	  #MODEL.MODELTYPE=3 => Sphere
+	  #BODYOPACITY3D=1.000 => Opaque
+	  #BODYOPACITY3D=0.500 => Half-transparent
+	  #BODYOPACITY3D=0.000 => Invisible
+	  #BODYCOLOR3D=255 => Red
+	  #BODYCOLOR3D=65280 => Green
+	  
       $pos+=$typelen+5;
 	  print "Error in decoding!\n" if($pos>length($content));
 	  $prevtype=$type;
@@ -1468,3 +1485,9 @@ foreach(glob("'library/Miscellaneous Devices/Root Entry/PcbLib/0/Root Entry/*/Da
 {
   decodePcbLib($_);
 }
+foreach(glob("'TestsSrc/Root Entry/*/Data.dat.bin'"))
+{
+  #decodePcbLib($_);
+}
+
+
