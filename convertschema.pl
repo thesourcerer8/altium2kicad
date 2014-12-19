@@ -281,7 +281,7 @@ EOF
     # Now we have parsed key value pairs into %d
 	
 	my $o="";
-	my %ignore=("RECORD"=>1,"OWNERPARTID"=>1,"OWNERINDEX"=>1,"INDEXINSHEET"=>1,"COLOR"=>1,"READONLYSTATE"=>1,"FONTID"=>1,"ISNOTACCESIBLE"=>1,"LINENO"=>1);
+	my %ignore=("RECORD"=>1,"OWNERPARTID"=>1,"OWNERINDEX"=>1,"INDEXINSHEET"=>1,"COLOR"=>1,"READONLYSTATE"=>1,"ISNOTACCESIBLE"=>1,"LINENO"=>1);
 	foreach(sort keys %d)
 	{
 	  next if defined($ignore{$_});
@@ -581,7 +581,7 @@ EOF
 		my $size=$fontsize{$d{'FONTID'}}*6;
 		my $bold=$fontbold{$d{'FONTID'}}?"12":"0";
 		my %myrot=("0"=>"0","90"=>"1","270"=>"2");
-		my $rot=$myrot{$fontrotation{$d{'FONTID'}}};
+		my $rot=$d{'ORIENTATION'} || $myrot{$fontrotation{$d{'FONTID'}}};
 		#print "FONTROT: $fontrotation{$d{'FONTID'}}\n" if($text=~m/0xA/);
 		my $text=$d{'TEXT'}; $text=~s/\~/~~/g;
 	    $dat="Text Label ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." $rot    $size   ~ $bold\n$text\n";
@@ -817,6 +817,8 @@ EOF
         my $x=($d{'LOCATION.X'}*$f);
 		my $y=$sheety-($d{'LOCATION.Y'}*$f);
         my $orientation=$d{'ORIENTATION'} || 0;
+		$orientation=($orientation+$partorientation{$globalp})%4;
+		
 		my $desig="IC"; $desig=$1 if($d{'TEXT'}=~m/^([A-Z]*)/);
 		my $ref=uniquify($d{'TEXT'});
 		push @{$parts{$globalp}},"F 0 \"$ref\" ".$hvmap{$orientation}." $x $y 60  0000 L BNN\n";
@@ -824,7 +826,7 @@ EOF
 	    $x=($d{'LOCATION.X'}*$f)-$relx;
         $y=($d{'LOCATION.Y'}*$f)-$rely;
 		$globalreference{$globalp}=$ref;
-		$designatorpos{$LIBREFERENCE}="\"$desig\" $x $y 60 H V C CNN"; # $desig 70 H V L BNN
+		$designatorpos{$LIBREFERENCE}="\"$desig\" $x $y 60 H V L BNN"; # $desig 70 H V L BNN
       }
 	  elsif($d{'RECORD'} eq '41') #Parameter
 	  {
