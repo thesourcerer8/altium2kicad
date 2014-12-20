@@ -263,6 +263,34 @@ EOF
 	   return($m?$_[1]:-$_[1],$_[0]);
 	}
   }
+
+  sub rotatepivot($$$$$) # x,y,o,px,py
+  {
+    my $x=$_[0]-$_[3];
+	my $y=$_[1]-$_[4];
+    my $o=$_[2]; 
+	my $m=$_[2]&4;
+	$o&=3; # Perhaps mirroring needs something else?
+	#orient=("0"=>"1    0    0    -1","1"=>"0    1    1    0","2"=>"-1   0    0    1","3"=>"0    -1   -1   0");
+	if(!$o)
+	{
+	   return(($m?-$x:$x)+$_[3],$y+$_[4]);
+	}
+	elsif($o eq "1")
+	{
+	   return(($m?-$y:$y)+$_[3],-$x+$_[4]);
+	}
+	elsif($o eq "2")
+	{
+	   return(($m?$x:-$x)+$_[3],-$y+$_[4]);
+	}
+	elsif($o eq "3")
+	{
+	   #print "Drehe 3\n";
+	   return(($m?$y:-$y)+$_[3],$x+$_[4]);
+	}
+  }
+
   
   foreach my $b(@a)
   {
@@ -837,15 +865,21 @@ EOF
 		{
 		  my $x=($d{'LOCATION.X'}*$f)-$relx;
           my $y=($d{'LOCATION.Y'}*$f)-$rely;
+		  #($x,$y)=rotate($x,$y,$partorientation{$globalp});
       	  my $orientation=$d{'ORIENTATION'} || 0;
+          $orientation=($orientation+$partorientation{$globalp})%4;
 
 		  my $t=""; $t=$LIBREFERENCE; # If we put in $d{'TEXT'} instead then KiCad will load it, but it will break when saving or printing/plotting!, since $d{'TEXT'} is slightly different. 
 		  $commentpos{$LIBREFERENCE}="\"".$t."\" $x $y 60 ".$hvmap{$orientation}." V L BNN";
 		  $globalcomment{$globalp}=$d{'TEXT'};
-		  #print $d{'TEXT'}." -> $t -> $commentpos{$LIBREFERENCE}\n" if($d{'NAME'} eq "Rule");
+		  #print $d{'TEXT'}." -> $t -> $commentpos{$LIBREFERENCE}\n"; # if($d{'NAME'} eq "Rule");
 		  
           $x=($d{'LOCATION.X'}*$f);
 		  $y=$sheety-($d{'LOCATION.Y'}*$f);
+		  #print "LOC.X: ".($d{'LOCATION.X'}*$f)." relx: $relx\n";
+		  #print "LOC.Y: ".($d{'LOCATION.Y'}*$f)." rely: $rely sheety=$sheety\n";
+  		  #($x,$y)=rotatepivot($x,$y,$partorientation{$globalp},($d{'LOCATION.X'}*$f)-$relx,($d{'LOCATION.Y'}*$f)-$rely);
+
       	  #$dat.="Text Label $x $y $orientation 70 ~\n$d{TEXT}\n";
           push @{$parts{$globalp}},"F 1 \"".($d{'TEXT'}||"")."\" ".$hvmap{$orientation}." $x $y 60  0000 C BNN\n";
           push @{$parts{$globalp}},"F 2 \"\" H $x $y 60  0000 C CNN\n";
