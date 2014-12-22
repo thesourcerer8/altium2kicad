@@ -420,6 +420,18 @@ EOF
   print "Writing PCB to $short.kicad_pcb\n";
   open OUT,">$short.kicad_pcb";
 
+  our $nets="";
+  our $nnets=2;
+  our %netnames=("1"=>"Net1");
+  HandleBinFile("$short/Root Entry/Nets6/Data.dat","",0,0, sub 
+  { 
+    my $line=$_[3]+2;
+	$nnets=$line+1;
+    my $name=$_[0]{'NAME'};
+	$netnames{$line}=$name;
+    $nets.= "  (net $line \"$name\")\n";
+  });
+
     
   # This is the standard Header for the .kicad_pcb file
   print OUT <<EOF
@@ -434,7 +446,7 @@ EOF
     (tracks 0)
     (zones 0)
     (modules 42)
-    (nets 2)
+    (nets $nnets)
   )
 
   (page A4)
@@ -526,7 +538,8 @@ $layers
 
   (net 0 "")
   (net 1 "Net1")
-
+$nets
+  
   (net_class Default "This is the default net class."
     (clearance 0.254)
     (trace_width 0.254)
@@ -663,10 +676,9 @@ EOF
 	  my $name=substr($value,$pos+6,$len-1);
 	  $pos+=5+$len;
 
-
       my $component=unpack("s",substr($value,$pos+30,2));	
 
-	  #print "component:$component\n";
+	  #print AOUT "component:$component net:$net\n";
       my $x1=unpack("l",substr($value,$pos+36,4))/$faktor/10000-$xmove; 
 	  my $y1=$ymove-unpack("l",substr($value,$pos+40,4))/$faktor/10000;
   	  #MarkPoint($x1,$y1) if($counter eq 2);
@@ -696,7 +708,8 @@ EOF
       my $plated=$platemap{unpack("C",substr($value,$pos+83,1))};	  
 
 	  
-      my $net=unpack("s",substr($value,$pos+26,2));	  
+      my $net=unpack("s",substr($value,$pos+26,2))+2;	  
+	  my $netname=$netnames{$net};
 	  
 	  #print "layer:$layer net:$net component=$component type:$type dir:$dir \n";
 	  print AOUT bin2hex(substr($value,$pos,143))." ";
@@ -723,7 +736,7 @@ EOF
 	  
 	  $pads{$component}.=<<EOF
     (pad "$name" $tp $type (at $x1 $y1$mdir) (size $sx $sy) $drill
-      (layers $layer F.Paste F.Mask)
+      (layers $layer F.Paste F.Mask) (net $net "$netname")
     )
 EOF
 ;
@@ -852,9 +865,6 @@ EOF
   });
 
 
-  HandleBinFile("$short/Root Entry/Nets6/Data.dat","",0,0, sub 
-  { 
-  });
 
 
   HandleBinFile("$short/Root Entry/Arcs6/Data.dat","\x01",0,0,sub 
@@ -865,7 +875,9 @@ EOF
 	my $y=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
 	my $width=sprintf("%.5f",unpack("l",substr($value,21,4))/$faktor/10000);
 	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "Undefined";
-	#print "layer:$layer x:$x y:$y width:$width\n";
+	my $net=unpack("s",substr($value,3,2));
+	
+	#print "ARC layer:$layer x:$x y:$y width:$width net:$net\n";
 	#my $layer2=mapLayer(unpack("C",substr($value,1,1))) || "B.Cu";
 	#print "".((-f "$short/Root Entry/Models/$fn")?"File exists.\n":"File $fn does NOT EXIST!\n");
 	#$fn=~s/\.STEP$//i;$fn=~s/\.stp$//i;
@@ -898,13 +910,14 @@ EOF
 	my $width=sprintf("%.5f",unpack("l",substr($value,21,4))/$faktor/10000);
 	my $layer1="F.Cu"; # mapLayer(unpack("C",substr($value,0,1))); # || "F.Cu"; # Since Novena does not have any Blind or Buried Vias
 	my $layer2="B.Cu"; # mapLayer(unpack("C",substr($value,1,1))); # || "B.Cu";
+	my $net=unpack("s",substr($value,3,2))+2;
+	
 	#print "Layer: $layer1 -> $layer2\n";
 	#print "Koordinaten:\n" if($debug);
 	#print "x:$x y:$y width:$width\n" if($debug);
-	print OUT "  (via (at $x $y) (size $width) (layers $layer1 $layer2) (net 1))\n";
+	print OUT "  (via (at $x $y) (size $width) (layers $layer1 $layer2) (net $net))\n";
 	
-	
-	
+
 	# The following was an experimental automatic reverse-engineering try. The code is disabled now.
 	if(0) # $count>19000 && !($count%50))
 	{
@@ -967,6 +980,8 @@ EOF
 	my $counter=$_[3];
 	my $width=$d{'TRACKWIDTH'}||1;$width=~s/mil$//; #/$faktor/10000;
 	my $layer=mapLayer($d{'LAYER'}) || "F.Paste";
+	my $net=($d{'NET'}||-1)+2; my $netname=$netnames{$net};
+	#print "Polygon $_[3] has net $net\n";
 	my $maxpoints=0;
 	foreach(keys %d)
 	{
@@ -983,7 +998,7 @@ EOF
 	if($d{'POLYGONTYPE'} eq "Split Plane" || $d{'HATCHSTYLE'} eq "Solid")
 	{
 	  print OUT <<EOF
-(zone (net 1) (net_name "Net1") (layer $layer) (tstamp 547BA6E6) (hatch edge 0.508)
+(zone (net $net) (net_name "$netname") (layer $layer) (tstamp 547BA6E6) (hatch edge 0.508)
     (connect_pads thru_hole_only (clearance 0.508))
     (min_thickness 0.254)
     (fill (mode segment) (arc_segments 16) (thermal_gap 0.508) (thermal_bridge_width 0.508))
@@ -1022,6 +1037,8 @@ EOF
     my $value=$_[1];
 	print OUT "#Tracks#".$_[3].": ".bin2hex($value)."\n" if($annotate);
 
+    my $net=unpack("s",substr($value,3,2))+2;	  
+    my $netname=$netnames{$net};
 	my $component=unpack("s",substr($value,7,2));
     my $x1=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
 	my $y1=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
@@ -1136,6 +1153,8 @@ EOF
     print OUT "#Fills#".$_[3].": ".bin2hex($value)."\n" if($annotate);
 
 	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "Cmts.User";
+    my $net=unpack("s",substr($value,3,2))+2;	  
+    my $netname=$netnames{$net};
     my $x1=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
 	my $y1=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
 	my $x2=sprintf("%.5f",unpack("l",substr($value,21,4))/$faktor/10000-$xmove);
@@ -1146,7 +1165,7 @@ EOF
 	#print "Koordinaten:\n";
 	#print "x:$x1 y:$y1 dir:$dir dir2:$dir2\n";
 	print OUT <<EOF
-	  (zone (net 1) (net_name "Net1") (layer $layer) (tstamp 53EB93DD) (hatch edge 0.508)
+	  (zone (net $net) (net_name "$netname") (layer $layer) (tstamp 53EB93DD) (hatch edge 0.508)
     (connect_pads (clearance 0.508))
     (min_thickness 0.254)
     (fill (arc_segments 16) (thermal_gap 0.508) (thermal_bridge_width 0.508))
