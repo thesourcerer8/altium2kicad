@@ -268,17 +268,17 @@ EOF
   {
     my $x=$_[0]-$_[3];
 	my $y=$_[1]-$_[4];
+	$y=-$y;
     my $o=$_[2]; 
 	my $m=$_[2]&4;
-	$o&=3; # Perhaps mirroring needs something else?
-	#orient=("0"=>"1    0    0    -1","1"=>"0    1    1    0","2"=>"-1   0    0    1","3"=>"0    -1   -1   0");
+	$o&=3;
 	if(!$o)
 	{
 	   return(($m?-$x:$x)+$_[3],$y+$_[4]);
 	}
 	elsif($o eq "1")
 	{
-	   return(($m?-$y:$y)+$_[3],-$x+$_[4]);
+	   return(($m?$y:-$y)+$_[3],$x+$_[4]);
 	}
 	elsif($o eq "2")
 	{
@@ -286,11 +286,20 @@ EOF
 	}
 	elsif($o eq "3")
 	{
-	   #print "Drehe 3\n";
-	   return(($m?$y:-$y)+$_[3],$x+$_[4]);
+	   return(($m?-$y:$y)+$_[3],-$x+$_[4]);
 	}
   }
 
+  
+  sub mapDir($$$)
+  {
+    my $mirrored=defined($_[1])?$_[1]:0;
+	my $debug=$_[2];
+    my %dirmap=("0"=>"L BNN","1"=>"R TNN","2"=>"R TNN","3"=>"L BNN");
+    my %dirmapmirrored=("0"=>"R BNN","1"=>"L TNN","2"=>"L TNN","3"=>"R BNN");
+	print "Mapping $_[0] (Mirror: $mirrored) to: ".($mirrored? $dirmapmirrored{$_[0]}:$dirmap{$_[0]})."\n" if($debug);
+	return $mirrored?$dirmapmirrored{$_[0]}:$dirmap{$_[0]};
+  }
   
   foreach my $b(@a)
   {
@@ -843,14 +852,25 @@ EOF
 	  {
         #RECORD=34|OWNERPARTID=  -1|OWNERINDEX=  27|LINENO=146|LOCATION.X=600|LOCATION.Y=820|NAME=Designator|OWNERINDEX=27|TEXT=U200|
         my $x=($d{'LOCATION.X'}*$f);
-		my $y=$sheety-($d{'LOCATION.Y'}*$f);
+		my $y=($d{'LOCATION.Y'}*$f);
         my $orientation=$d{'ORIENTATION'} || 0;
 		$orientation=($orientation+$partorientation{$globalp})%4;
+        my $ownrot=(($partorientation{$globalp}||0)%4)+($d{'ISMIRRORED'}?4:0);
+		my $ownrot2=(($partorientation{$globalp}||0))%4; #$orientation+
+		#$ownrot2=(4-($partorientation{$globalp}||0))%4 if($d{'ORIENTATION'});
+		$ownrot2=($d{'ORIENTATION'})%4 if($d{'ORIENTATION'});
+		#next if($ownrot!=1);
+        #next unless($d{'ORIENTATION'});
+		#print "\n863: $d{TEXT} globalp:$globalp orient:$orientation partorient:".($partorientation{$globalp}||"")." ownrot:$ownrot ownrot2:$ownrot2\n"; # if(!defined($ownrot)); 
+		($x,$y)=rotatepivot($x,$y,$ownrot,$relx,$rely);
+		$y=$sheety-$y;
 		
 		my $desig="IC"; $desig=$1 if($d{'TEXT'}=~m/^([A-Z]*)/);
 		my $ref=uniquify($d{'TEXT'});
-		push @{$parts{$globalp}},"F 0 \"$ref\" ".$hvmap{$orientation}." $x $y 60  0000 L BNN\n";
-
+		
+		
+		push @{$parts{$globalp}},"F 0 \"$ref\" ".$hvmap{$orientation}." $x $y 60  0000 ".mapDir($ownrot2,$d{'ISMIRRORED'},1)."\n"; # L BNN\n";
+ 		
 	    $x=($d{'LOCATION.X'}*$f)-$relx;
         $y=($d{'LOCATION.Y'}*$f)-$rely;
 		$globalreference{$globalp}=$ref;
@@ -872,16 +892,29 @@ EOF
 		  my $t=""; $t=$LIBREFERENCE; # If we put in $d{'TEXT'} instead then KiCad will load it, but it will break when saving or printing/plotting!, since $d{'TEXT'} is slightly different. 
 		  $commentpos{$LIBREFERENCE}="\"".$t."\" $x $y 60 ".$hvmap{$orientation}." V L BNN";
 		  $globalcomment{$globalp}=$d{'TEXT'};
-		  #print $d{'TEXT'}." -> $t -> $commentpos{$LIBREFERENCE}\n"; # if($d{'NAME'} eq "Rule");
 		  
           $x=($d{'LOCATION.X'}*$f);
-		  $y=$sheety-($d{'LOCATION.Y'}*$f);
+		  $y=($d{'LOCATION.Y'}*$f);
+		  
+		  #print "d{ORIENTATION}: ".($d{ORIENTATION}||"")." orientation: $orientation\n";
 		  #print "LOC.X: ".($d{'LOCATION.X'}*$f)." relx: $relx\n";
 		  #print "LOC.Y: ".($d{'LOCATION.Y'}*$f)." rely: $rely sheety=$sheety\n";
-  		  #($x,$y)=rotatepivot($x,$y,$partorientation{$globalp},($d{'LOCATION.X'}*$f)-$relx,($d{'LOCATION.Y'}*$f)-$rely);
+		  my $ownrot=(($partorientation{$globalp}||0)%4)+($d{'ISMIRRORED'}?4:0);
+		  my $ownrot2=(($partorientation{$globalp}||0))%4; #$orientation+
+		  $ownrot2=($d{'ORIENTATION'})%4 if($d{'ORIENTATION'});
+		  #ext if($ownrot!=$ownrot2);
+		  #next unless($d{'ORIENTATION'});
+		  #next if($ownrot!=1);
 
+		  #print $d{'TEXT'}." -> $t -> $commentpos{$LIBREFERENCE}\n"; # if($d{'NAME'} eq "Rule");
+		  #print "906: $d{TEXT} globalp:$globalp orient:$orientation partorient:".($partorientation{$globalp}||"")." ownrot:$ownrot ownrot2:$ownrot2\n"; # if(!defined($ownrot)); 
+
+  		  ($x,$y)=rotatepivot($x,$y,$ownrot,$relx,$rely);
+		  #print "resultx: $x\nresulty: $y\n";
+          $y=$sheety-$y;
       	  #$dat.="Text Label $x $y $orientation 70 ~\n$d{TEXT}\n";
-          push @{$parts{$globalp}},"F 1 \"".($d{'TEXT'}||"")."\" ".$hvmap{$orientation}." $x $y 60  0000 C BNN\n";
+		  
+          push @{$parts{$globalp}},"F 1 \"".($d{'TEXT'}||"")."\" ".$hvmap{$orientation}." $x $y 60  0000 ".mapDir($ownrot2,$d{'ISMIRRORED'},0)."\n"; #L BNN
           push @{$parts{$globalp}},"F 2 \"\" H $x $y 60  0000 C CNN\n";
           push @{$parts{$globalp}},"F 3 \"\" H $x $y 60  0000 C CNN\n";
 
