@@ -62,6 +62,9 @@ WideStrings6.dat # Seems to be a copy of Texts6, just for Unicode?!?
 EOF
 ;
 
+my $pi=3.14159265359;
+
+
 #Reads a file with one function
 sub readfile($)
 {
@@ -561,11 +564,10 @@ EOF
   
   my %layermap=("1"=>"F.Cu","3"=>"In2.Cu","4"=>"In3.Cu","11"=>"In6.Cu","12"=>"In7.Cu","32"=>"B.Cu","33"=>"F.SilkS","34"=>"B.SilkS",
   "35"=>"F.Paste","36"=>"B.Paste","37"=>"F.Mask",
-  "38"=>"B.Mask","39"=>"In1.Cu","40"=>"In4.Cu","41"=>"In5.Cu","42"=>"In8.Cu","74"=>"Eco1.User",
-  
-  "44"=>"In6.Cu","73"=>"Eco2.User","60"=>"In4.Cu","56"=>"Edge.Cuts",
-  ,"69"=>"Eco1.User","59"=>"Eco1.User","71"=>"Eco1.User",
-  "57"=>"Eco1.User","58"=>"Eco1.User");
+  "38"=>"B.Mask","39"=>"In1.Cu","40"=>"In4.Cu","41"=>"In5.Cu","42"=>"In8.Cu","74"=>"Dwgs.User",
+    "44"=>"In6.Cu","73"=>"Eco2.User","60"=>"In4.Cu","56"=>"Edge.Cuts",
+  "69"=>"Dwgs.User","59"=>"Dwgs.User","71"=>"F.CrtYd","72"=>"B.CrtYd",
+  "57"=>"Edge.Cuts","58"=>"Dwgs.User");
   
   my @layerkeys=keys %layermap;
   foreach(@layerkeys)
@@ -687,8 +689,12 @@ EOF
 
       $x1=sprintf("%.5f",$x1);
 	  $y1=sprintf("%.5f",$y1);
-		  
-      my $layer=mapLayer(unpack("C",substr($value,$pos+23,1)));
+		
+      my $altlayer=unpack("C",substr($value,$pos+23,1));
+      my $layer=mapLayer($altlayer); $layer="F.Cu B.Cu" if($altlayer==74);
+	  
+	  $layer.=" F.Mask F.Paste" if($layer=~m/F\.Cu/);
+	  $layer.=" B.Mask B.Paste" if($layer=~m/B\.Cu/);
 
 	  my $sx=sprintf("%.5f",unpack("l",substr($value,$pos+44,4))/$faktor/10000);
 	  my $sy=sprintf("%.5f",unpack("l",substr($value,$pos+48,4))/$faktor/10000);
@@ -736,7 +742,7 @@ EOF
 	  
 	  $pads{$component}.=<<EOF
     (pad "$name" $tp $type (at $x1 $y1$mdir) (size $sx $sy) $drill
-      (layers $layer F.Paste F.Mask) (net $net "$netname")
+      (layers $layer) (net $net "$netname")
     )
 EOF
 ;
@@ -871,11 +877,28 @@ EOF
   { 
     my $fn=$_[0]{'NAME'};
     my $value=$_[1];
+	my $net=unpack("s",substr($value,3,2));
   	my $x=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
 	my $y=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
-	my $width=sprintf("%.5f",unpack("l",substr($value,21,4))/$faktor/10000);
+	my $r=sprintf("%.5f",unpack("l",substr($value,21,4))/$faktor/10000);
 	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "Undefined";
-	my $net=unpack("s",substr($value,3,2));
+    my $sa=unpack("d",substr($value,25,8)); 
+    my $ea=unpack("d",substr($value,33,8)); 
+	#($sa,$ea)=($ea,$sa) if($sa>$ea);
+    my $sarad=$sa/180*$pi;
+	my $earad=$ea/180*$pi;
+	my $width=sprintf("%.5f",unpack("l",substr($value,41,4))/$faktor/10000);
+	
+    my $x1=sprintf("%.5f",$x+cos($sarad)*$r);
+	my $y1=sprintf("%.5f",$y+sin($sarad)*$r);
+	my $x2=sprintf("%.5f",$x+cos($earad)*$r);
+	my $y2=sprintf("%.5f",$y+sin($earad)*$r);
+    my $angle=$ea-$sa;
+	print OUT "#Arc#$_[3]: ".bin2hex($value)."\n" if($annotate);
+	print OUT "#Arc#$_[3]: x:$x y:$y radius:$r layer:$layer sa:$sa ea:$ea sarad:$sarad earad:$earad width:$width x1:$x1 x2:$x2 y1:$y1 y2:$y2\n" if($annotate);
+
+    print OUT "  (gr_arc (start $x $y) (end $x2 $y2) (angle $angle) (layer $layer) (width $width))\n";
+
 	
 	#print "ARC layer:$layer x:$x y:$y width:$width net:$net\n";
 	#my $layer2=mapLayer(unpack("C",substr($value,1,1))) || "B.Cu";
