@@ -858,7 +858,7 @@ EOF
         my $ownrot=(($partorientation{$globalp}||0)%4)+($d{'ISMIRRORED'}?4:0);
 		my $ownrot2=(($partorientation{$globalp}||0))%4; #$orientation+
 		#$ownrot2=(4-($partorientation{$globalp}||0))%4 if($d{'ORIENTATION'});
-		$ownrot2=($d{'ORIENTATION'})%4 if($d{'ORIENTATION'});
+		$ownrot2=($d{'ORIENTATION'})%4 if($d{'ORIENTATION'}); # This line is most likely buggy and should be improved
 		#next if($ownrot!=1);
         #next unless($d{'ORIENTATION'});
 		#print "\n863: $d{TEXT} globalp:$globalp orient:$orientation partorient:".($partorientation{$globalp}||"")." ownrot:$ownrot ownrot2:$ownrot2\n"; # if(!defined($ownrot)); 
@@ -901,7 +901,7 @@ EOF
 		  #print "LOC.Y: ".($d{'LOCATION.Y'}*$f)." rely: $rely sheety=$sheety\n";
 		  my $ownrot=(($partorientation{$globalp}||0)%4)+($d{'ISMIRRORED'}?4:0);
 		  my $ownrot2=(($partorientation{$globalp}||0))%4; #$orientation+
-		  $ownrot2=($d{'ORIENTATION'})%4 if($d{'ORIENTATION'});
+		  $ownrot2=($d{'ORIENTATION'})%4 if($d{'ORIENTATION'}); # This line is most likely buggy and should be improved
 		  #ext if($ownrot!=$ownrot2);
 		  #next unless($d{'ORIENTATION'});
 		  #next if($ownrot!=1);
