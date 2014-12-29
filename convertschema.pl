@@ -297,7 +297,7 @@ EOF
 	my $debug=$_[2];
     my %dirmap=("0"=>"L BNN","1"=>"R TNN","2"=>"R TNN","3"=>"L BNN");
     my %dirmapmirrored=("0"=>"R BNN","1"=>"L TNN","2"=>"L TNN","3"=>"R BNN");
-	print "Mapping $_[0] (Mirror: $mirrored) to: ".($mirrored? $dirmapmirrored{$_[0]}:$dirmap{$_[0]})."\n" if($debug);
+	#print "Mapping $_[0] (Mirror: $mirrored) to: ".($mirrored? $dirmapmirrored{$_[0]}:$dirmap{$_[0]})."\n" if($debug);
 	return $mirrored?$dirmapmirrored{$_[0]}:$dirmap{$_[0]};
   }
   
@@ -621,7 +621,7 @@ EOF
 		my $rot=$d{'ORIENTATION'} || $myrot{$fontrotation{$d{'FONTID'}}};
 		#print "FONTROT: $fontrotation{$d{'FONTID'}}\n" if($text=~m/0xA/);
 		my $text=$d{'TEXT'}; $text=~s/\~/~~/g;
-	    $dat="Text Label ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." $rot    $size   ~ $bold\n$text\n";
+	    $dat="Text Label ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." $rot    $size   ~ $bold\n$text\n" if($text ne "" && $text ne " ");
 	  }
 	  elsif($d{'RECORD'} eq '15') # Sheet Symbol
 	  {
@@ -710,7 +710,7 @@ EOF
 		}
 		else
 		{
-  		  print "Voltage: $d{TEXT}\n";
+  		  #print "Voltage: $d{TEXT}\n";
 		}
 		
 		if(defined($d{'STYLE'}) && ($d{'STYLE'}eq"1" || $d{'STYLE'}eq"2"))
@@ -846,7 +846,7 @@ EOF
         my $x=($d{'LOCATION.X'}*$f);
 		my $y=$sheety-($d{'LOCATION.Y'}*$f);
 		my $orientation=$d{'ORIENTATION'} || 0;
-    	$dat.="Text Label $x $y $orientation 70 ~\n$d{TEXT}\n";
+    	$dat.="Text Label $x $y $orientation 70 ~\n$d{TEXT}\n" if($d{'TEXT'} ne "");
       }
 	  elsif($d{'RECORD'} eq '34') #Designator
 	  {
@@ -924,14 +924,14 @@ EOF
 		  my $x=($d{'LOCATION.X'}*$f);
 		  my $y=$sheety-($d{'LOCATION.Y'}*$f);
 		  my $o=$d{'ORIENTATION'} || 0;
-    	  $dat.="Text Label $x $y $o 70 ~\n$d{DESCRIPTION}\n";
+    	  $dat.="Text Label $x $y $o 70 ~\n$d{DESCRIPTION}\n" if($d{'DESCRIPTION'} ne "");
 		}
 		elsif(defined($d{'LOCATION.X'}))
 		{
           my $x=($d{'LOCATION.X'}*$f);
 		  my $y=$sheety-($d{'LOCATION.Y'}*$f);
 		  my $o=$d{'ORIENTATION'} || 0;
-    	  $dat.="Text Label $x $y $o 70 ~\n$d{TEXT}\n";
+    	  $dat.="Text Label $x $y $o 70 ~\n$d{TEXT}\n" if($d{'TEXT'} ne "");
 		}
 		else
 		{
