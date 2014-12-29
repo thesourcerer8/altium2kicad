@@ -15,6 +15,7 @@ use Compress::Zlib;
 # Element Classes (All Top Components, All Bottom Components, HDMI, Power, All Resistors...)
 # Board regions for Rigid-Flex
 # Support for STEP files
+# Rounded Rectangles (Not just ovals that are circles when they are even sided
 
 # Things that are missing in Altium:
 # The Zone-Fill-Polygons are not saved in the file. Workaround: In KiCad, select the zone tool, right-click on an empty area, then "Fill all zones"
@@ -219,8 +220,36 @@ sub MarkPoint($$)
 
 my $USELOGGING=0;
 
+
+# At first we read the curated Altium->KiCad standard component mappings:
+my %modelhints=();
+my %originalhints=();
+foreach my $mod(glob('"pretty.pretty/*"'))
+{
+  my $content=readfile($mod);
+  if($content=~m/\(model ([.\w\/\-]*)\s*(.*)/s)
+  {
+    my($model,$value)=($1,$2);
+	$value=~s/\)\s*$//s;
+	if(defined($modelhints{$model}))
+	{
+	  print "Error: Redefining model for model $model hints in file $mod from file $originalhints{$model}.\nPlease delete one of the files\n";
+	  exit;
+	}
+    $modelhints{$model}=$value;
+	$originalhints{$model}=$mod;
+	#print "\n*$model* =>\n----------\n$value\n------------\n";
+  }
+  
+}
+
+
+
+# Now we start handling all the PCB files that were unpacked by unpack.pl already:
+my $filecounter=0;
 foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
 {
+  $filecounter++;
   print "Handling $filename\n";
   my $short=$filename; $short=~s/\/Root Entry\/Board6\/Data\.dat$//;
 
@@ -621,20 +650,19 @@ EOF
 
   #Mapping the Standard components to KiCad Standard Components:
   our %A2Kwrl=(
-    "Chip_Capacitor_N.PcbLib/Cap Semi"=>"smd/Capacitors/c_1206.wrl",
-	"commonpcb.lib/Cap Semi"=>"smd/Capacitors/c_1206.wrl",
+    "Chip_Capacitor_N.PcbLib/Cap Semi"=>"smd/Capacitors/C0603.wrl",
+	"Chip_Resistor_N.PcbLib/Res1"=>"smd/Capacitors/C0603.wrl",
     "Miscellaneous Connectors.IntLib/Header 20X2"=>"Pin_Headers/Pin_Header_Straight_2x20.wrl",
+	"commonpcb.lib/Cap Semi"=>"smd/Capacitors/C0603.wrl",
 	"SOP_65P_N.PcbLib/ADCxx8Sxx2"=>"smd/smd_dil/ssop-16.wrl",
     "TSOP_65P_N.PcbLib/SN74LVC8T245PWR"=>"smd/smd_dil/tssop-24.wrl",
-	"Chip_Resistor_N.PcbLib/Res1"=>"smd/resistors/r_1206.wrl",
-    "SOT23_5-6Lead_N.PcbLib/RT9706"=>"smt/SOT223.wrl",
-	"SOT23_5-6Lead_N.PcbLib/LP2980M5"=>"smt/SOT223.wrl",
-	"Chip Diode - 2 Contacts.PcbLib/LED2"=>"Dioden_SMD_Wings3d_RevA_06Sep2012/Dioden_SMD_RevA_31May2013.wrl");
-	
-  our %A2Kfak=(
-    "Miscellaneous Connectors.IntLib/Header 20X2"=>"0.395"
-  );  
-	
+    "SOT23_5-6Lead_N.PcbLib/RT9706"=>"smd/SOT23_5.wrl",
+	"SOT23_5-6Lead_N.PcbLib/LP2980M5"=>"smd/SOT23_5.wrl",
+	"Chip Diode - 2 Contacts.PcbLib/LED2"=>"Dioden_SMD_Wings3d_RevA_06Sep2012/Dioden_SMD_RevA_31May2013.wrl",
+    "NSC LDO.IntLib/LM1117MP-3.3"=>"smd/SOT223.wrl",
+    "National Semiconductor DAC.IntLib/DAC101C085CIMM/NOPB"=>"smd/smd_dil/msoic-8.wrl",
+	"SOIC_127P_N.PcbLib/AP2318M-ADJ"=>"smd/smd_dil/psop-8.wrl");
+		
   our $componentid=0;
   our %componentatx=();
   our %componentaty=();
@@ -657,7 +685,7 @@ EOF
 	}
 	else
 	{
-	  print "No Mapping for: ".$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'}."\n";
+	  print "    \"".$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'}."\"=>\".wrl\",\n";
 	}
     $componentid++;
   });
@@ -757,11 +785,12 @@ EOF
 
   HandleBinFile("$short/Root Entry/ComponentBodies6/Data.dat","",23,16, sub 
   { 
-    print OUT "#Fills#".$_[3].": ".$_[1]."\n" if($annotate);
+    print OUT "#ComponentBodies#".$_[3].": ".$_[1]."\n" if($annotate);
 
     my %d=%{$_[0]};
 	my $header=$_[2];
 	my $component=unpack("s",substr($header,12,2));
+	print OUT "#\$pads{$component}\n";
 	#print "Component:$component\n";
 	my $id=$d{'MODELID'};
 	my $atx=$d{'MODEL.2D.X'};$atx=~s/mil$//;$atx/=$faktor;$atx-=$xmove;
@@ -784,7 +813,7 @@ EOF
 	my $stp=defined($modelname{$id})?$modelname{$id}:undef; # $d{'IDENTIFIER'}."_". $stp=~s/\{//; $stp=~s/\}//; $stp=$d{'BODYPROJECTION'}; #substr($text,0,10);
 	my $layer=defined($d{'V7_LAYER'})?($d{'V7_LAYER'} eq "MECHANICAL1"?"B.Cu":"F.Cu"):"F.Cu";
 	print OUT <<EOF
-  (gr_text $stp (at $atx $aty) (layer $layer)
+  (gr_text "$stp" (at $atx $aty) (layer $layer)
     (effects (font (size 1.0 1.0) (thickness 0.2)) )
   )
 EOF
@@ -831,8 +860,16 @@ if(defined($stp));
 		  $wrl=$kicadwrl{$component};
 		  $fak=1;
 		}
-		
-	    $pads{$component}.=<<EOF
+	
+        if(defined($modelhints{$wrl}))
+        {
+		  #print "OK: $wrl\n";
+          $pads{$component}.="    (model \"$wrl\"\n".$modelhints{$wrl}."\n";
+        }		
+		else
+		{
+		  print "NOK: *$wrl*\n";
+	      $pads{$component}.=<<EOF
 	(model "$wrl"
       (at (xyz $dx $dy $dz))
       (scale (xyz $lfak $lfak $lfak))
@@ -840,6 +877,7 @@ if(defined($stp));
     )
 EOF
 ;
+        }
 	  }
     }
 	else
@@ -848,22 +886,48 @@ EOF
 	}
   });
   
+  sub pad3dRotate($$)
+  {
+    my $v=$_[0];
+	my $angle=$_[1];
+	if($v=~m/^(.*rotate \(xyz -?\d+ -?\d+\s+)(-?\d+)(\).*)$/s)
+	{
+	  my ($pre,$a,$post)=($1,$2,$3);
+	  my $new=$pre.($angle+$a).$post;
+	  #print "\n************************\n$v\n******************\n ->\n************\n$new\n****************\n";
+	  return $new;
+	}
+	else
+	{
+	  #print "error: $v\n";
+	  #exit;
+	}
+	return $v;
+  }
+  
   $componentid=0;
   HandleBinFile("$short/Root Entry/Components6/Data.dat","",0,0, sub 
   { 
     my %d=%{$_[0]};
     print OUT "#Components#".$_[3].": ".$_[1]."\n" if($annotate);
-	
+	print OUT "#\$pads{$componentid}\n";
 	my $atx=$d{'X'};$atx=~s/mil$//;$atx/=$faktor;$atx-=$xmove;
 	my $aty=$d{'Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
 	my $layer=mapLayer($d{'LAYER'}) || "F.Paste";
+	my $rot=sprintf("%.f",$d{'ROTATION'});
     my $stp=$d{'SOURCEDESIGNATOR'};
+	my $pad=pad3dRotate($pads{$componentid},$rot);
+	
+	my $sourcelib=$d{'SOURCEFOOTPRINTLIBRARY'};
+	#SOURCELIBREFERENCE
+	
+	#print "stp -> $rot\n";
     print OUT <<EOF
  (module $stp (layer $layer) (tedit 4289BEAB) (tstamp 539EEDBF)
     (at $atx $aty)
     (path /539EEC0F)
     (attr smd)
-	$pads{$componentid}
+	$pad
   )
 EOF
 ;
@@ -1282,6 +1346,9 @@ EOF
       my $fontlen=unpack("l",substr($content,$pos,4)); 
 	  my $opos=$pos;
 	  $pos+=4;
+	  my $component=unpack("s",substr($content,$pos+7,2));
+	  my $texttype=unpack("C",substr($content,$pos+21,1));
+	  #next if($texttype eq 0xf2); #  $texttype == 0xc0); # || $texttype == 0x0f2);
       my $layer=mapLayer(unpack("C",substr($content,$pos,1))) || "Cmts.User";
 	  my $olayer=unpack("C",substr($content,$pos,1));
 	  my $x1=sprintf("%.5f",unpack("l",substr($content,$pos+13,4))/$faktor/10000-$xmove);
@@ -1296,7 +1363,7 @@ EOF
 	  my $text=substr($content,$pos+1,$textlen-1); 
 	  $pos+=$textlen;
 	  print OUT "#Texts#".$opos.": ".bin2hex(substr($content,$opos,$pos-$opos))."\n" if($annotate);
-	  print OUT "#Layer: $olayer\n";
+	  print OUT "#Layer: $olayer Component:$component Type:$texttype\n";
 	  $text=~s/"/''/g;
 	  print OUT <<EOF
  (gr_text "$text" (at $x1 $y1 $dir) (layer $layer)
@@ -1325,6 +1392,11 @@ EOF
   
   print OUT ")\n";
 }
+if(!$filecounter)
+{
+  print "There were no unpacked PcbDoc files found. Please unpack them with unpack.pl before running convertpcb.pl\n";
+}
+
 
 sub rem0($)
 {
