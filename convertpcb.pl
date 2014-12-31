@@ -431,7 +431,10 @@ EOF
   our %modelwrl=();
   
   our $modelid="";
+  our %componentbodyavailable=();  
   
+  our %nameon=();
+  our %commenton=();
    
   HandleBinFile("$short/Root Entry/Models/Data.dat","",0,0,sub 
   { 
@@ -591,12 +594,36 @@ EOF
   my $ymove=79.6; 
   #$xmove=50;$ymove=250; # Enable to move everything into the frame, or disable to move it to align to the Gerber-Imports
   
-  my %layermap=("1"=>"F.Cu","3"=>"In2.Cu","4"=>"In3.Cu","11"=>"In6.Cu","12"=>"In7.Cu","32"=>"B.Cu","33"=>"F.SilkS","34"=>"B.SilkS",
-  "35"=>"F.Paste","36"=>"B.Paste","37"=>"F.Mask",
-  "38"=>"B.Mask","39"=>"In1.Cu","40"=>"In4.Cu","41"=>"In5.Cu","42"=>"In8.Cu","74"=>"Dwgs.User",
-    "44"=>"In6.Cu","73"=>"Eco2.User","60"=>"In4.Cu","56"=>"Edge.Cuts",
-  "69"=>"Dwgs.User","59"=>"Dwgs.User","71"=>"F.CrtYd","72"=>"B.CrtYd",
-  "57"=>"Edge.Cuts","58"=>"Dwgs.User");
+  my %layermap=(
+  "1"=>"F.Cu",
+  "2"=>"In4.Cu", # ???  Signal Layer 2/Mid
+  "3"=>"In2.Cu",
+  "4"=>"In3.Cu",
+  "11"=>"In6.Cu",
+  "12"=>"In7.Cu",
+  "32"=>"B.Cu",
+  "33"=>"F.SilkS",
+  "34"=>"B.SilkS",
+  "35"=>"F.Paste",
+  "36"=>"B.Paste",
+  "37"=>"F.Mask",
+  "38"=>"B.Mask",
+  "39"=>"In1.Cu",
+  "40"=>"In4.Cu",
+  "41"=>"In5.Cu",
+  "42"=>"In8.Cu",
+  "44"=>"In6.Cu",
+  "56"=>"Edge.Cuts",
+  "57"=>"Edge.Cuts",
+  "58"=>"Dwgs.User",
+  "59"=>"Dwgs.User",
+  "60"=>"In4.Cu",
+  "69"=>"Dwgs.User",
+  "71"=>"F.CrtYd",
+  "72"=>"B.CrtYd",
+  "73"=>"Eco2.User",
+  "74"=>"Dwgs.User",
+  );
   
   my @layerkeys=keys %layermap;
   foreach(@layerkeys)
@@ -633,6 +660,7 @@ EOF
   my %pads=();
   our %unmappedLayers=();
   our %usedlayers=();
+  our %layererrors=();
   
   # This function maps the Layer numbers or names to KiCad Layernames
   sub mapLayer($)
@@ -644,7 +672,11 @@ EOF
 	  my $name="undefined"; $name=$1 if($layerdoku=~m/name: *$lay *([\w.]+)/);
       $unmappedLayers{$_[0]}=$name ;
 	}
-    print "No mapping for Layer ".$_[0]." defined!\n" if(!defined($layermap{$_[0]}));
+	if(!defined($layermap{$_[0]}) && !defined($layererrors{$_[0]}))
+	{
+      print "No mapping for Layer ".$_[0]." defined!\n" ;
+	  $layererrors{$_[0]}=1;
+	}
 	return $layermap{$_[0]}; 
   }
 
@@ -652,15 +684,24 @@ EOF
   our %A2Kwrl=(
     "Chip_Capacitor_N.PcbLib/Cap Semi"=>"smd/Capacitors/C0603.wrl",
 	"Chip_Resistor_N.PcbLib/Res1"=>"smd/Capacitors/C0603.wrl",
-    "Miscellaneous Connectors.IntLib/Header 20X2"=>"Pin_Headers/Pin_Header_Straight_2x20.wrl",
-	"commonpcb.lib/Cap Semi"=>"smd/Capacitors/C0603.wrl",
+	"Chip Diode - 2 Contacts.PcbLib/LED2"=>"smd/Capacitors/C0603.wrl",
 	"SOP_65P_N.PcbLib/ADCxx8Sxx2"=>"smd/smd_dil/ssop-16.wrl",
-    "TSOP_65P_N.PcbLib/SN74LVC8T245PWR"=>"smd/smd_dil/tssop-24.wrl",
     "SOT23_5-6Lead_N.PcbLib/RT9706"=>"smd/SOT23_5.wrl",
 	"SOT23_5-6Lead_N.PcbLib/LP2980M5"=>"smd/SOT23_5.wrl",
-	"Chip Diode - 2 Contacts.PcbLib/LED2"=>"Dioden_SMD_Wings3d_RevA_06Sep2012/Dioden_SMD_RevA_31May2013.wrl",
+    "TSOP_65P_N.PcbLib/SN74LVC8T245PWR"=>"smd/smd_dil/tssop-24.wrl",
     "NSC LDO.IntLib/LM1117MP-3.3"=>"smd/SOT223.wrl",
     "National Semiconductor DAC.IntLib/DAC101C085CIMM/NOPB"=>"smd/smd_dil/msoic-8.wrl",
+    "Miscellaneous Connectors.IntLib/Header 20X2"=>"Pin_Headers/Pin_Header_Straight_2x20.wrl",
+    "Miscellaneous Connectors.IntLib/Header 8X2"=>"Pin_Headers/Pin_Header_Straight_2x8.wrl",
+	"Miscellaneous Connectors.IntLib/Header 4"=>"Pin_Headers/Pin_Header_Straight_1x4.wrl",
+	"Miscellaneous Connectors.IntLib/Header 6"=>"Pin_Headers/Pin_Header_Straight_1x6.wrl",
+	"Miscellaneous Connectors.IntLib/Header 8"=>"Pin_Headers/Pin_Header_Straight_1x8.wrl",
+	"commonpcb.lib/Header 3"=>"Pin_Headers/Pin_Header_Straight_1x3.wrl",
+	"commonpcb.lib/Header 4"=>"Pin_Headers/Pin_Header_Straight_1x4.wrl",
+    "commonpcb.lib/Header 3"=>"Pin_Headers/Pin_Header_Straight_1x3.wrl",
+	"commonpcb.lib/Header 5"=>"Pin_Headers/Pin_Header_Straight_1x5.wrl",
+	"commonpcb.lib/Header 8"=>"Pin_Headers/Pin_Header_Straight_1x8.wrl",
+	"commonpcb.lib/Cap Semi"=>"smd/Capacitors/C0603.wrl",
 	"SOIC_127P_N.PcbLib/AP2318M-ADJ"=>"smd/smd_dil/psop-8.wrl");
 		
   our $componentid=0;
@@ -668,6 +709,8 @@ EOF
   our %componentaty=();
   our %componentlayer=();
   our %kicadwrl=();
+  our %kicadwrlerror=();
+  
   HandleBinFile("$short/Root Entry/Components6/Data.dat","",0,0, sub 
   { 
     my %d=%{$_[0]};
@@ -677,15 +720,21 @@ EOF
 	my $aty=$d{'Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
 	$componentaty{$componentid}=$aty;
     $componentlayer{$componentid}=$d{'LAYER'};
+	my $reference=$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'};
+	$kicadwrl{$componentid}=$A2Kwrl{$reference};
 	
-	$kicadwrl{$componentid}=$A2Kwrl{$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'}};
+	$nameon{$componentid}=$d{'NAMEON'};
+	$commenton{$componentid}=$d{'COMMENTON'};
+	
+	
 	if(defined($kicadwrl{$componentid}))
 	{
-	  #print "A2K: ".$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'}." -> ".$A2Kwrl{$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'}}."\n";
+	  #print "A2K: $reference -> ".$A2Kwrl{$reference}."\n";
 	}
 	else
 	{
-	  print "    \"".$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'}."\"=>\".wrl\",\n";
+	  print "    \"$reference\"=>\".wrl\",\n" if(!defined($kicadwrlerror{$reference}));
+	  $kicadwrlerror{$reference}=1;
 	}
     $componentid++;
   });
@@ -769,6 +818,7 @@ EOF
 	  my $drill=($holesize==0)?"":" (drill $holesize) ";
 	  
 	  $pads{$component}.=<<EOF
+#813
     (pad "$name" $tp $type (at $x1 $y1$mdir) (size $sx $sy) $drill
       (layers $layer) (net $net "$netname")
     )
@@ -795,8 +845,17 @@ EOF
 	my $id=$d{'MODELID'};
 	my $atx=$d{'MODEL.2D.X'};$atx=~s/mil$//;$atx/=$faktor;$atx-=$xmove;
 	my $aty=$d{'MODEL.2D.Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
+	my $layer=defined($d{'V7_LAYER'})?($d{'V7_LAYER'} eq "MECHANICAL1"?"B.Cu":"F.Cu"):"F.Cu";
 	
 	my $catx=$componentatx{$component};
+
+	my $stp=defined($modelname{$id})?$modelname{$id}:undef; # $d{'IDENTIFIER'}."_". $stp=~s/\{//; $stp=~s/\}//; $stp=$d{'BODYPROJECTION'}; #substr($text,0,10);
+	print OUT <<EOF
+  (gr_text "$stp" (at $atx $aty) (layer $layer)
+    (effects (font (size 1.0 1.0) (thickness 0.2)) )
+  )
+EOF
+if(0 && defined($stp)); 
 	
 	
     $atx-=$componentatx{$component} if($component>=0 && defined($componentatx{$component}));
@@ -810,14 +869,6 @@ EOF
 	{
 	  #print "MODELID: $d{'MODELID'}\n";
 	}
-	my $stp=defined($modelname{$id})?$modelname{$id}:undef; # $d{'IDENTIFIER'}."_". $stp=~s/\{//; $stp=~s/\}//; $stp=$d{'BODYPROJECTION'}; #substr($text,0,10);
-	my $layer=defined($d{'V7_LAYER'})?($d{'V7_LAYER'} eq "MECHANICAL1"?"B.Cu":"F.Cu"):"F.Cu";
-	print OUT <<EOF
-  (gr_text "$stp" (at $atx $aty) (layer $layer)
-    (effects (font (size 1.0 1.0) (thickness 0.2)) )
-  )
-EOF
-if(defined($stp)); 
 
 
 	my $ident=""; $ident.=pack("C",$_) foreach(split(",",$d{'IDENTIFIER'}));
@@ -861,15 +912,18 @@ if(defined($stp));
 		  $fak=1;
 		}
 	
+	    $componentbodyavailable{$component}=1;
+	
         if(defined($modelhints{$wrl}))
         {
 		  #print "OK: $wrl\n";
-          $pads{$component}.="    (model \"$wrl\"\n".$modelhints{$wrl}."\n";
+          $pads{$component}.="#911\n    (model \"$wrl\"\n".$modelhints{$wrl}."\n";
         }		
 		else
 		{
-		  print "NOK: *$wrl*\n";
+		  #print "NOK: *$wrl*\n";
 	      $pads{$component}.=<<EOF
+#917
 	(model "$wrl"
       (at (xyz $dx $dy $dz))
       (scale (xyz $lfak $lfak $lfak))
@@ -916,10 +970,56 @@ EOF
 	my $layer=mapLayer($d{'LAYER'}) || "F.Paste";
 	my $rot=sprintf("%.f",$d{'ROTATION'});
     my $stp=$d{'SOURCEDESIGNATOR'};
-	my $pad=pad3dRotate($pads{$componentid},$rot);
+	my $reference=$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'};
 	
 	my $sourcelib=$d{'SOURCEFOOTPRINTLIBRARY'};
 	#SOURCELIBREFERENCE
+
+	if(!defined($componentbodyavailable{$componentid}))
+	{
+	  if($pads{$componentid}=~m/\(model/)
+	  {
+	    print "Where did the model come from? componentid: $componentid\n";
+	  }
+	
+	  if(defined($kicadwrl{$componentid}) && !$pads{$componentid}=~m/\(model/)
+	  {
+	    print "No component body available for component $componentid, we could create our own for $reference now.\n";
+	    print "wrl: $kicadwrl{$componentid}\n";
+		my $wrl=$kicadwrl{$componentid};
+		
+        if(defined($modelhints{$wrl}))
+        {
+		  #print "OK: $wrl\n";
+          $pads{$componentid}.="#985\n		  (model \"$wrl\"\n".$modelhints{$wrl}."\n";
+        }		
+		else
+		{
+		  print "NOK: *$wrl*\n";
+	      $pads{$componentid}.=<<EOF
+#991		  
+	(model "$wrl"
+      (at (xyz 0 0 0))
+      (scale (xyz 1 1 1))
+      (rotate (xyz 0 0 $rot))
+    )
+EOF
+;
+        }
+	  }
+	  else
+	  {
+	    #print "No mapping yet:\n";
+        print "    \"$reference\"=>\".wrl\",\n" if(!defined($kicadwrlerror{$reference}));
+	    $kicadwrlerror{$reference}=1;
+
+	  }
+	}
+
+	
+    my $pad=pad3dRotate($pads{$componentid},$rot);
+
+	
 	
 	#print "stp -> $rot\n";
     print OUT <<EOF
@@ -1348,8 +1448,20 @@ EOF
 	  $pos+=4;
 	  my $component=unpack("s",substr($content,$pos+7,2));
 	  my $texttype=unpack("C",substr($content,$pos+21,1));
-	  #next if($texttype eq 0xf2); #  $texttype == 0xc0); # || $texttype == 0x0f2);
-      my $layer=mapLayer(unpack("C",substr($content,$pos,1))) || "Cmts.User";
+	  my $hide=0;
+	  if($component>=0)
+	  {
+	    if($texttype == 0xc0)
+		{
+		  $hide=1 if($commenton{$component} eq "FALSE");
+		}
+		if($texttype == 0xf2)
+		{
+		  $hide=1 if($nameon{$component} eq "FALSE");
+		}
+	  }
+	  
+	  my $layer=mapLayer(unpack("C",substr($content,$pos,1))) || "Cmts.User";
 	  my $olayer=unpack("C",substr($content,$pos,1));
 	  my $x1=sprintf("%.5f",unpack("l",substr($content,$pos+13,4))/$faktor/10000-$xmove);
 	  my $y1=sprintf("%.5f",$ymove-unpack("l",substr($content,$pos+17,4))/$faktor/10000);
@@ -1363,14 +1475,16 @@ EOF
 	  my $text=substr($content,$pos+1,$textlen-1); 
 	  $pos+=$textlen;
 	  print OUT "#Texts#".$opos.": ".bin2hex(substr($content,$opos,$pos-$opos))."\n" if($annotate);
-	  print OUT "#Layer: $olayer Component:$component Type:$texttype\n";
+	  print OUT "#Layer: $olayer Component:$component Type:".sprintf("%02X",$texttype)."\n";
+	  print OUT "#Commenton: ".$commenton{$component}." nameon: ".$nameon{$component}."\n" if($component>=0);
+	  print OUT "#hide: $hide\n";
 	  $text=~s/"/''/g;
 	  print OUT <<EOF
  (gr_text "$text" (at $x1 $y1 $dir) (layer $layer)
     (effects (font (size $width $width) (thickness 0.1)) (justify left))
   )
 EOF
-;
+        if(!$hide);
 	}
   } 
 
@@ -1387,7 +1501,7 @@ EOF
     my $name="undefined"; $name=$1 if($layerdoku=~m/name: *$_ *([\w.]+)/);
 	my $kic=$layermap{$_} || "undefined";
 	my $lname=$layername{$_} || "undefined";
-    print "Used layer: $_ $lname/$name -> $kic\n";
+    #print "Used layer: $_ $lname/$name -> $kic\n";
   }
   
   print OUT ")\n";
