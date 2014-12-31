@@ -931,7 +931,7 @@ EOF
           my $x=($d{'LOCATION.X'}*$f);
 		  my $y=$sheety-($d{'LOCATION.Y'}*$f);
 		  my $o=$d{'ORIENTATION'} || 0;
-    	  $dat.="Text Label $x $y $o 70 ~\n$d{TEXT}\n" if($d{'TEXT'} ne "");
+    	  $dat.="Text Label $x $y $o 70 ~\n$d{TEXT}\n" if(defined($d{'TEXT'}) && $d{'TEXT'} ne "");
 		}
 		else
 		{
