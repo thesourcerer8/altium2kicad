@@ -114,6 +114,9 @@ sub near($$)
 }
 
 
+my %newa2k=();
+open A2K,">a2k.txt";
+
 # This is the main handling function that parses most of the binary files inside a .PcbDoc
 sub HandleBinFile 
 {
@@ -127,7 +130,7 @@ sub HandleBinFile
   my $content=readfile($filename);
 
   return unless defined($content);
-  $content=~s/\x0d\x0a/\x0d/gs;
+  $content=~s/\x0d\x0a/\x0a/gs;
   return unless length($content)>4;
   
   my $text="";
@@ -519,8 +522,8 @@ $layers
 
   (setup
     (last_trace_width 0.254)
-    (trace_clearance 0.254)
-    (zone_clearance 0.508)
+    (trace_clearance 0.127)
+    (zone_clearance 0.0144)
     (zone_45_only no)
     (trace_min 0.254)
     (segment_width 0.2)
@@ -592,7 +595,8 @@ EOF
   my $fak="0.39370078740158";
   my $xmove=95.3; 
   my $ymove=79.6; 
-  #$xmove=50;$ymove=250; # Enable to move everything into the frame, or disable to move it to align to the Gerber-Imports
+  #$xmove=50;$ymove=250; # Enable to move Novena mainboard into the frame, or disable to move it to align to the Gerber-Imports
+  $xmove=0; $ymove=0; # Enable to align GPBB to the Gerber Imports
   
   my %layermap=(
   "1"=>"F.Cu",
@@ -682,8 +686,9 @@ EOF
 
   #Mapping the Standard components to KiCad Standard Components:
   our %A2Kwrl=(
+  # Old mappings
     "Chip_Capacitor_N.PcbLib/Cap Semi"=>"smd/Capacitors/C0603.wrl",
-	"Chip_Resistor_N.PcbLib/Res1"=>"smd/Capacitors/C0603.wrl",
+	"Chip_Resistor_N.PcbLib/Res1"=>"smd/resistors/R0603.wrl",
 	"Chip Diode - 2 Contacts.PcbLib/LED2"=>"smd/Capacitors/C0603.wrl",
 	"SOP_65P_N.PcbLib/ADCxx8Sxx2"=>"smd/smd_dil/ssop-16.wrl",
     "SOT23_5-6Lead_N.PcbLib/RT9706"=>"smd/SOT23_5.wrl",
@@ -702,7 +707,40 @@ EOF
 	"commonpcb.lib/Header 5"=>"Pin_Headers/Pin_Header_Straight_1x5.wrl",
 	"commonpcb.lib/Header 8"=>"Pin_Headers/Pin_Header_Straight_1x8.wrl",
 	"commonpcb.lib/Cap Semi"=>"smd/Capacitors/C0603.wrl",
-	"SOIC_127P_N.PcbLib/AP2318M-ADJ"=>"smd/smd_dil/psop-8.wrl");
+	"SOIC_127P_N.PcbLib/AP2318M-ADJ"=>"smd/smd_dil/psop-8.wrl",
+	
+  #New mappings
+    "Chip Diode - 2 Contacts.PcbLib/CD1608-0603"=>"smd/Capacitors/C0603.wrl",
+    "Chip Diode - 2 Contacts.PcbLib/CD2012-0805"=>"smd/Capacitors/C0805.wrl",
+    "Chip_Capacitor_N.PcbLib/CAPC1005N"=>"smd/Capacitors/C0402.wrl",
+    "Chip_Capacitor_N.PcbLib/CAPC1608N"=>"smd/Capacitors/C0603.wrl",
+    "Chip_Capacitor_N.PcbLib/CAPC2012N"=>"smd/Capacitors/C0805.wrl",
+    "Chip_Capacitor_N.PcbLib/CAPC3216N"=>"smd/Capacitors/C1206.wrl",
+    "Chip_Capacitor_N.PcbLib/CAPC3225N"=>"smd/Capacitors/C1210.wrl",
+    "Chip_Resistor_N.PcbLib/RESC1005N"=>"smd/resistors/R0402.wrl",
+    "Chip_Resistor_N.PcbLib/RESC1608N"=>"smd/resistors/R0603.wrl",
+    "Chip_Resistor_N.PcbLib/RESC2012N"=>"smd/resistors/R0805.wrl",
+    "Chip_Resistor_N.PcbLib/RESC3216N"=>"smd/resistors/R1206.wrl",
+    "Miscellaneous Connectors.IntLib/HDR2X20"=>"Pin_Headers/Pin_Header_Straight_2x20.wrl",
+    "Miscellaneous Connectors.IntLib/HDR1X4"=>"Pin_Headers/Pin_Header_Straight_1x4.wrl",
+    "Miscellaneous Connectors.IntLib/HDR1X6"=>"Pin_Headers/Pin_Header_Straight_1x6.wrl",
+    "Miscellaneous Connectors.IntLib/HDR1X8"=>"Pin_Headers/Pin_Header_Straight_1x8.wrl",  
+    "Miscellaneous Connectors.IntLib/HDR2X8"=>"Pin_Headers/Pin_Header_Straight_2x8.wrl",
+    "NSC LDO.IntLib/MP04A_N"=>"smd/SOT223.wrl",
+    "National Semiconductor DAC.IntLib/MUA08A_N"=>"smd/smd_dil/msoic-8.wrl",
+    "SOIC_127P_N.PcbLib/SOIC127P600-8N"=>"smd/smd_dil/psop-8.wrl",
+    "SOP_65P_N.PcbLib/SOP65P640-16N"=>"smd/smd_dil/ssop-16.wrl",
+    "SOT23_5-6Lead_N.PcbLib/SOT23-5AN"=>"smd/SOT23_5.wrl",
+    "TSOP_65P_N.PcbLib/TSOP65P640-24AN"=>"smd/smd_dil/tssop-24.wrl",
+    "commonpcb.lib/CAPC0603N_B"=>"smd/Capacitors/C0603.wrl",
+    "commonpcb.lib/CAPC1608N_HD"=>"smd/Capacitors/C1608.wrl",
+    "commonpcb.lib/SWITCH_TS-1187A"=>"Pin_Headers/Pin_Header_Straight_1x4.wrl",
+    "commonpcb.lib/USB_TYPEA_TH_SINGLE"=>"Pin_Headers/Pin_Header_Straight_1x4.wrl",
+    "commonpcb.lib/HAOYU_TS_1185A_E"=>"Pin_Headers/Pin_Header_Straight_1x4.wrl",
+    "commonpcb.lib/JST_S3B_EH"=>"Pin_Headers/Pin_Header_Straight_1x3.wrl",
+
+	
+	);
 		
   our $componentid=0;
   our %componentatx=();
@@ -720,7 +758,10 @@ EOF
 	my $aty=$d{'Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
 	$componentaty{$componentid}=$aty;
     $componentlayer{$componentid}=$d{'LAYER'};
-	my $reference=$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'};
+	my $reference=$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'PATTERN'};
+#	my $reference=$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'};
+	my $newreference=$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'PATTERN'};
+	
 	$kicadwrl{$componentid}=$A2Kwrl{$reference};
 	
 	$nameon{$componentid}=$d{'NAMEON'};
@@ -729,7 +770,7 @@ EOF
 	
 	if(defined($kicadwrl{$componentid}))
 	{
-	  #print "A2K: $reference -> ".$A2Kwrl{$reference}."\n";
+	  $newa2k{" \"$newreference\"=>\"".$A2Kwrl{$reference}."\",\n"}=1;
 	}
 	else
 	{
@@ -835,7 +876,7 @@ EOF
 
   HandleBinFile("$short/Root Entry/ComponentBodies6/Data.dat","",23,16, sub 
   { 
-    print OUT "#ComponentBodies#".$_[3].": ".$_[1]."\n" if($annotate);
+    print OUT "#ComponentBodies#".$_[3].": ".bin2hex($_[2])." ".$_[1]."\n" if($annotate);
 
     my %d=%{$_[0]};
 	my $header=$_[2];
@@ -909,7 +950,7 @@ if(0 && defined($stp));
 		else
 		{
 		  $wrl=$kicadwrl{$component};
-		  $fak=1;
+		  $lfak=1;
 		}
 	
 	    $componentbodyavailable{$component}=1;
@@ -917,7 +958,7 @@ if(0 && defined($stp));
         if(defined($modelhints{$wrl}))
         {
 		  #print "OK: $wrl\n";
-          $pads{$component}.="#911\n    (model \"$wrl\"\n".$modelhints{$wrl}."\n";
+          $pads{$component}.="#921 component:$component id:$id nr:$_[3]\n#".join("|",map { "$_=$_[0]{$_}" } sort keys %{$_[0]})." 0:".bin2hex($header)."\n    (model \"$wrl\"\n".$modelhints{$wrl}."\n";
         }		
 		else
 		{
@@ -947,7 +988,8 @@ EOF
 	if($v=~m/^(.*rotate \(xyz -?\d+ -?\d+\s+)(-?\d+)(\).*)$/s)
 	{
 	  my ($pre,$a,$post)=($1,$2,$3);
-	  my $new=$pre.($angle+$a).$post;
+	  my $newa=($angle+$a); $newa-=360 if($newa>=360);
+	  my $new=$pre.$newa.$post;
 	  #print "\n************************\n$v\n******************\n ->\n************\n$new\n****************\n";
 	  return $new;
 	}
@@ -970,14 +1012,15 @@ EOF
 	my $layer=mapLayer($d{'LAYER'}) || "F.Paste";
 	my $rot=sprintf("%.f",$d{'ROTATION'});
     my $stp=$d{'SOURCEDESIGNATOR'};
-	my $reference=$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'};
+#	my $reference=$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'};
+	my $reference=$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'PATTERN'};
 	
 	my $sourcelib=$d{'SOURCEFOOTPRINTLIBRARY'};
 	#SOURCELIBREFERENCE
 
 	if(!defined($componentbodyavailable{$componentid}))
 	{
-	  if($pads{$componentid}=~m/\(model/)
+	  if(defined($pads{$componentid}) && $pads{$componentid}=~m/\(model/)
 	  {
 	    print "Where did the model come from? componentid: $componentid\n";
 	  }
@@ -1016,9 +1059,15 @@ EOF
 	  }
 	}
 
+	$rot=0 if($pads{$componentid}=~m/\.\/wrl\//);
 	
-    my $pad=pad3dRotate($pads{$componentid},$rot);
-
+    my $pad=pad3dRotate($pads{$componentid}||"",$rot);
+    if($pads{$componentid}=~m/\.\/wrl\//)
+	{
+	  #print "Rewriting scale\n";
+	  $pad=~s/\(scale\s*\(xyz 1 1 1\)\)/(scale (xyz $fak $fak $fak))/sg;
+	  #print "Result: $pad\n";
+	}
 	
 	
 	#print "stp -> $rot\n";
@@ -1030,7 +1079,7 @@ EOF
 	$pad
   )
 EOF
-;
+if(defined($stp));
     $componentid++;
   });
 
@@ -1042,27 +1091,40 @@ EOF
     my $fn=$_[0]{'NAME'};
     my $value=$_[1];
 	my $net=unpack("s",substr($value,3,2));
+	my $component=unpack("s",substr($value,7,2));
+	my $xorig=unpack("l",substr($value,13,4));
+	my $yorig=unpack("l",substr($value,17,4));
   	my $x=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
 	my $y=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
 	my $r=sprintf("%.5f",unpack("l",substr($value,21,4))/$faktor/10000);
+	my $layerorig=unpack("C",substr($value,0,1));
 	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "Undefined";
-    my $sa=unpack("d",substr($value,25,8)); 
+    my $sa=unpack("d",substr($value,25,8));
     my $ea=unpack("d",substr($value,33,8)); 
+
+    my $angle=$ea-$sa; $angle=360+$ea-$sa if($ea<$sa);
+
+	$sa=-$sa;
+	$ea=-$ea;
+    $angle=-$angle;
+	
 	#($sa,$ea)=($ea,$sa) if($sa>$ea);
     my $sarad=$sa/180*$pi;
 	my $earad=$ea/180*$pi;
 	my $width=sprintf("%.5f",unpack("l",substr($value,41,4))/$faktor/10000);
 	
+	
     my $x1=sprintf("%.5f",$x+cos($sarad)*$r);
 	my $y1=sprintf("%.5f",$y+sin($sarad)*$r);
 	my $x2=sprintf("%.5f",$x+cos($earad)*$r);
 	my $y2=sprintf("%.5f",$y+sin($earad)*$r);
-    my $angle=$ea-$sa;
+
 	print OUT "#Arc#$_[3]: ".bin2hex($value)."\n" if($annotate);
+	print OUT "#Arc#$_[3]: xorig:$xorig yorig:$yorig layer:$layerorig component:$component\n";
 	print OUT "#Arc#$_[3]: x:$x y:$y radius:$r layer:$layer sa:$sa ea:$ea sarad:$sarad earad:$earad width:$width x1:$x1 x2:$x2 y1:$y1 y2:$y2\n" if($annotate);
-
-    print OUT "  (gr_arc (start $x $y) (end $x2 $y2) (angle $angle) (layer $layer) (width $width))\n";
-
+    print OUT "  (gr_arc (start $x $y) (end $x1 $y1) (angle $angle) (layer $layer) (width $width))\n";
+	#print OUT "  (gr_text \"1\" (at $x1 $y1) (layer $layer))\n";
+	#print OUT "  (gr_text \"2\" (at $x2 $y2) (layer $layer))\n";
 	
 	#print "ARC layer:$layer x:$x y:$y width:$width net:$net\n";
 	#my $layer2=mapLayer(unpack("C",substr($value,1,1))) || "B.Cu";
@@ -1186,7 +1248,7 @@ EOF
 	{
 	  print OUT <<EOF
 (zone (net $net) (net_name "$netname") (layer $layer) (tstamp 547BA6E6) (hatch edge 0.508)
-    (connect_pads thru_hole_only (clearance 0.508))
+    (connect_pads thru_hole_only (clearance 0.09144))
     (min_thickness 0.254)
     (fill (mode segment) (arc_segments 16) (thermal_gap 0.508) (thermal_bridge_width 0.508))
     (polygon
@@ -1711,11 +1773,14 @@ sub decodePcbLib($)
 
 foreach(glob("'library/Miscellaneous Devices/Root Entry/PcbLib/0/Root Entry/*/Data.dat.bin'"))
 {
-  decodePcbLib($_);
+ #decodePcbLib($_);
 }
 foreach(glob("'TestsSrc/Root Entry/*/Data.dat.bin'"))
 {
   #decodePcbLib($_);
 }
 
-
+foreach (sort keys %newa2k)
+{
+  #rint A2K $_;
+}
