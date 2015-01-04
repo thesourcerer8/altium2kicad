@@ -114,9 +114,6 @@ sub near($$)
 }
 
 
-my %newa2k=();
-open A2K,">a2k.txt";
-
 # This is the main handling function that parses most of the binary files inside a .PcbDoc
 sub HandleBinFile 
 {
@@ -770,7 +767,7 @@ EOF
 	
 	if(defined($kicadwrl{$componentid}))
 	{
-	  $newa2k{" \"$newreference\"=>\"".$A2Kwrl{$reference}."\",\n"}=1;
+	  #$newa2k{" \"$newreference\"=>\"".$A2Kwrl{$reference}."\",\n"}=1;
 	}
 	else
 	{
@@ -1296,12 +1293,11 @@ EOF
 	my $width=sprintf("%.5f",unpack("l",substr($value,29,4))/$faktor/10000);
 	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "Cmts.User";
 	
-	if($layer =~m/Edge.Cuts/i)
+	if($layer =~m/(Edge\.Cuts|Silk)/i)
 	{
 	  $cutcounter++;
 	  #$width="0.$cutcounter";
 	  #print "  (gr_line (start $x1 $y1) (end $x2 $y2) (layer $layer) (width $width))\n";
-	  
 	  
 	  print OUT "  (gr_line (start $x1 $y1) (end $x2 $y2) (layer $layer) (width $width))\n"; #(angle 45) 
 	}
@@ -1780,7 +1776,3 @@ foreach(glob("'TestsSrc/Root Entry/*/Data.dat.bin'"))
   #decodePcbLib($_);
 }
 
-foreach (sort keys %newa2k)
-{
-  #rint A2K $_;
-}
