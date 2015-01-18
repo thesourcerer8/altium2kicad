@@ -1,7 +1,8 @@
 #!/usr/bin/perl -w
 use strict;
 use Compress::Zlib;
-
+use Math::Geometry::Planar;
+use Data::Dumper;
 #use Math::Bezier;
 
 # Things that are missing in KiCad:
@@ -205,6 +206,293 @@ sub HandleBinFile
   }
   close HBOUT;
 }
+
+sub Box($$$$$$$$)
+{
+  my ($translation,$rotation,$scale,$color,$shininess,$sx,$sy,$sz)=@_;
+
+ # Box("1 1 1","0 0 1  0","1 1 1","0.598039217 0.098039217 0.098039217","1","1","1","1");
+  
+  return <<EOF
+Transform
+{
+  translation $translation
+  rotation $rotation
+  scale $scale
+  scaleOrientation 0 0 1  0
+  center 0 1 0
+  children 
+    Shape 
+	{
+      appearance 
+        Appearance 
+		{
+          material 
+            Material 
+			{
+              diffuseColor $color
+              shininess $shininess
+            }
+        }
+      geometry 
+        IndexedFaceSet
+		{
+          coord 
+            Coordinate 
+			{
+              point [ 0   0   0,
+                      0   0   $sz,
+                      0   $sy $sz,
+                      0   $sy 0,
+                      $sx 0   0,
+                      $sx 0   $sz,
+                      $sx $sy $sz,
+                      $sx $sy 0					  
+					]
+            }                              
+            coordIndex [ 3, 1, 2, -1, 0, 1, 3, -1,
+                         5, 7, 6, -1, 5, 4, 7, -1,
+                         4, 5, 0, -1, 0, 5, 1, -1,
+                         6, 7, 3, -1, 6, 3, 2, -1,
+                         3, 7, 0, -1, 0, 7, 4, -1,
+                         6, 2, 1, -1, 6, 1, 5, -1 ]
+          ccw TRUE
+          solid FALSE
+          convex TRUE
+        }
+
+    }
+}
+EOF
+;
+}
+
+
+sub ExtrudedPolygon($$$$$$$)
+{
+  my ($translation,$rotation,$scale,$color,$shininess,$height,$polygon)=@_;
+
+  my @points=@{$polygon};
+  my $count=0;
+  my $n=scalar(@points);
+
+  my @polyarray=();  
+  
+  my @point=();
+  my @line=();
+  foreach(0 .. $n-1)
+  {
+    push @point,$points[$_]." 0",$points[$_]." $height";
+	#push @line,$_*2,(($_+1)%$n)*2,(($_+2)%$n)*2,-1;
+	push @line,$_*2,$_*2+1,(($_+1)%$n)*2,-1; # Side
+	push @line,(($_+1)%$n)*2,$_*2+1,(($_+1)%$n)*2+1,-1; # Side
+	push @polyarray,[$1,$2] if($points[$_]=~m/^(-?\d+\.?\d*)\s+(-?\d+\.?\d*)$/ && $points[$_] ne $points[($_+1)%$n]);
+  }
+
+  #print Dumper(\@polyarray);
+  
+  my $poly = Math::Geometry::Planar->new;
+  $poly->points(\@polyarray);
+  my @triangles=$poly->triangulate();
+  
+  my $pos=$n*2;
+  #print Dumper(\@triangles);
+  #push @line,-1,-1,-1,-1;
+  foreach(@triangles)
+  {
+	#Bottom:
+    push @point,"$_->{points}[0][0] $_->{points}[0][1] 0\n","$_->{points}[1][0] $_->{points}[1][1] 0","$_->{points}[2][0] $_->{points}[2][1] 0";
+    push @line,$pos,$pos+2,$pos+1,-1;
+
+	#Top:
+    push @point,"$_->{points}[0][0] $_->{points}[0][1] $height\n","$_->{points}[1][0] $_->{points}[1][1] $height","$_->{points}[2][0] $_->{points}[2][1] $height";
+    push @line,$pos+3,$pos+4,$pos+5,-1;
+
+	$pos+=6;
+  }
+  #exit;
+  
+  my $points=join ",",@point;
+  my $lines=join ",",@line;  
+  
+  return <<EOF
+Transform
+{
+  translation $translation
+  rotation $rotation
+  scale $scale
+  scaleOrientation 0 0 1  0
+  center 0 1 0
+  children 
+    Shape 
+	{
+      appearance 
+        Appearance 
+		{
+          material 
+            Material 
+			{
+              diffuseColor $color
+              shininess $shininess
+            }
+        }
+      geometry 
+        IndexedFaceSet
+		{
+          coord 
+            Coordinate 
+			{
+              point [ $points ]
+            }                              
+            coordIndex [ $lines ]
+          ccw TRUE
+          solid FALSE
+          convex TRUE
+        }
+
+    }
+}
+EOF
+;
+}
+
+
+
+sub Cylinder($$$$$$$)
+{
+  my ($translation,$rotation,$scale,$color,$shininess,$r,$h)=@_;
+  
+  my $parts=32;
+  
+  my @point=();
+  my @line=();
+ 
+  # Middle bottom point
+  push @point,"0 0 0";
+  
+  # Middle top point
+  push @point,"0 0 $h";
+  
+  foreach (0 .. $parts-1)
+  {
+    push @point,"".sprintf("%.7f",(sin($_*2*$pi/$parts)*$r))." ".sprintf("%.7f",(cos($_*2*$pi/$parts)*$r))." 0";
+    push @point,"".sprintf("%.7f",(sin($_*2*$pi/$parts)*$r))." ".sprintf("%.7f",(cos($_*2*$pi/$parts)*$r))." $h";
+	push @line,$_*2+2,(($_+1)%$parts)*2+2,0,-1; # Bottom
+	push @line,$_*2+3,(($_+1)%$parts)*2+3,1,-1; # Top
+	push @line,$_*2+2, $_*2+3, (($_+1)%$parts)*2+2,-1; # Side
+	push @line,$_*2+3,(($_+1)%$parts)*2+3,  (($_+1)%$parts)*2+2,-1; # Side
+	
+  }
+  my $points=join ",",@point;
+  my $lines=join ",",@line;  
+ 
+  return <<EOF
+Transform
+{
+  translation $translation
+  rotation $rotation
+  scale $scale
+  scaleOrientation 0 0 1  0
+  center 0 1 0
+  children 
+    Shape 
+	{
+      appearance 
+        Appearance 
+		{
+          material 
+            Material 
+			{
+              diffuseColor $color
+              shininess $shininess
+            }
+        }
+      geometry 
+        IndexedFaceSet
+		{
+          coord 
+            Coordinate 
+			{
+              point [ $points ]
+            }                              
+            coordIndex [ $lines ]
+          ccw TRUE
+          solid FALSE
+          convex TRUE
+        }
+
+    }
+}
+EOF
+;
+}
+
+sub Cone($$$$$$$)
+{
+  my ($translation,$rotation,$scale,$color,$shininess,$r,$h)=@_;
+  
+  my $parts=16;
+  
+  my @point=();
+  my @line=();
+ 
+  # Middle point
+  push @point,"0 0 0";
+  
+  # Top point
+  push @point,"0 0 $h";
+  
+  foreach (0 .. $parts-1)
+  {
+    push @point,"".sprintf("%.7f",(sin($_*2*$pi/$parts)*$r))." ".sprintf("%.7f",(cos($_*2*$pi/$parts)*$r))." 0";
+	push @line,$_+2,0,(($_+1)%$parts)+2,-1;
+	push @line,$_+2,1,(($_+1)%$parts)+2,-1;
+  }
+  my $points=join ",",@point;
+  my $lines=join ",",@line;  
+ 
+  return <<EOF
+Transform
+{
+  translation $translation
+  rotation $rotation
+  scale $scale
+  scaleOrientation 0 0 1  0
+  center 0 1 0
+  children 
+    Shape 
+	{
+      appearance 
+        Appearance 
+		{
+          material 
+            Material 
+			{
+              diffuseColor $color
+              shininess $shininess
+            }
+        }
+      geometry 
+        IndexedFaceSet
+		{
+          coord 
+            Coordinate 
+			{
+              point [ $points ]
+            }                              
+            coordIndex [ $lines ]
+          ccw TRUE
+          solid FALSE
+          convex TRUE
+        }
+
+    }
+}
+EOF
+;
+}
+
+
 
 # This marks a specific point for debugging and adds additionial lines around the point that look like a star
 sub MarkPoint($$)
@@ -683,30 +971,6 @@ EOF
 
   #Mapping the Standard components to KiCad Standard Components:
   our %A2Kwrl=(
-  # Old mappings
-    "Chip_Capacitor_N.PcbLib/Cap Semi"=>"smd/Capacitors/C0603.wrl",
-	"Chip_Resistor_N.PcbLib/Res1"=>"smd/resistors/R0603.wrl",
-	"Chip Diode - 2 Contacts.PcbLib/LED2"=>"smd/Capacitors/C0603.wrl",
-	"SOP_65P_N.PcbLib/ADCxx8Sxx2"=>"smd/smd_dil/ssop-16.wrl",
-    "SOT23_5-6Lead_N.PcbLib/RT9706"=>"smd/SOT23_5.wrl",
-	"SOT23_5-6Lead_N.PcbLib/LP2980M5"=>"smd/SOT23_5.wrl",
-    "TSOP_65P_N.PcbLib/SN74LVC8T245PWR"=>"smd/smd_dil/tssop-24.wrl",
-    "NSC LDO.IntLib/LM1117MP-3.3"=>"smd/SOT223.wrl",
-    "National Semiconductor DAC.IntLib/DAC101C085CIMM/NOPB"=>"smd/smd_dil/msoic-8.wrl",
-    "Miscellaneous Connectors.IntLib/Header 20X2"=>"Pin_Headers/Pin_Header_Straight_2x20.wrl",
-    "Miscellaneous Connectors.IntLib/Header 8X2"=>"Pin_Headers/Pin_Header_Straight_2x8.wrl",
-	"Miscellaneous Connectors.IntLib/Header 4"=>"Pin_Headers/Pin_Header_Straight_1x4.wrl",
-	"Miscellaneous Connectors.IntLib/Header 6"=>"Pin_Headers/Pin_Header_Straight_1x6.wrl",
-	"Miscellaneous Connectors.IntLib/Header 8"=>"Pin_Headers/Pin_Header_Straight_1x8.wrl",
-	"commonpcb.lib/Header 3"=>"Pin_Headers/Pin_Header_Straight_1x3.wrl",
-	"commonpcb.lib/Header 4"=>"Pin_Headers/Pin_Header_Straight_1x4.wrl",
-    "commonpcb.lib/Header 3"=>"Pin_Headers/Pin_Header_Straight_1x3.wrl",
-	"commonpcb.lib/Header 5"=>"Pin_Headers/Pin_Header_Straight_1x5.wrl",
-	"commonpcb.lib/Header 8"=>"Pin_Headers/Pin_Header_Straight_1x8.wrl",
-	"commonpcb.lib/Cap Semi"=>"smd/Capacitors/C0603.wrl",
-	"SOIC_127P_N.PcbLib/AP2318M-ADJ"=>"smd/smd_dil/psop-8.wrl",
-	
-  #New mappings
     "Chip Diode - 2 Contacts.PcbLib/CD1608-0603"=>"smd/Capacitors/C0603.wrl",
     "Chip Diode - 2 Contacts.PcbLib/CD2012-0805"=>"smd/Capacitors/C0805.wrl",
     "Chip_Capacitor_N.PcbLib/CAPC1005N"=>"smd/Capacitors/C0402.wrl",
@@ -735,7 +999,6 @@ EOF
     "commonpcb.lib/USB_TYPEA_TH_SINGLE"=>"Pin_Headers/Pin_Header_Straight_1x4.wrl",
     "commonpcb.lib/HAOYU_TS_1185A_E"=>"Pin_Headers/Pin_Header_Straight_1x4.wrl",
     "commonpcb.lib/JST_S3B_EH"=>"Pin_Headers/Pin_Header_Straight_1x3.wrl",
-
 	
 	);
 		
@@ -771,7 +1034,7 @@ EOF
 	}
 	else
 	{
-	  print "    \"$reference\"=>\".wrl\",\n" if(!defined($kicadwrlerror{$reference}));
+	  #print "    \"$reference\"=>\".wrl\",\n" if(!defined($kicadwrlerror{$reference}));
 	  $kicadwrlerror{$reference}=1;
 	}
     $componentid++;
@@ -878,7 +1141,7 @@ EOF
     my %d=%{$_[0]};
 	my $header=$_[2];
 	my $component=unpack("s",substr($header,12,2));
-	print OUT "#\$pads{$component}\n";
+	print OUT "#\$pads{$component}\n" if($annotate);
 	#print "Component:$component\n";
 	my $id=$d{'MODELID'};
 	my $atx=$d{'MODEL.2D.X'};$atx=~s/mil$//;$atx/=$faktor;$atx-=$xmove;
@@ -997,13 +1260,131 @@ EOF
 	}
 	return $v;
   }
+
+
+  our %shapes=();
+  mkdir "wrlshp";
+  
+  print OUT "#Now handling Shape Based Bodies ...\n";
+  HandleBinFile("$short/Root Entry/ShapeBasedComponentBodies6/Data.dat","\x0c",0,0, sub 
+  { 
+    my $value=$_[1];
+    print OUT "#ShapeBasedComponentBodies#".$_[3].": ".bin2hex($value)."\n" if($annotate);
+	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
+	my $component=unpack("s",substr($value,7,2));
+    print OUT "# ".bin2hex($unknownheader)."\n" if($annotate);
+    my $textlen=unpack("l",substr($value,18,4));
+	my $text=substr($value,22,$textlen);$text=~s/\x00$//;
+	print OUT "#Text:$text\n" if($annotate);
+	my @a=split '\|',$text;
+	my %d=();
+	foreach my $c(@a)
+	{
+	  #print " * $c\n";
+      if($c=~m/^([^=]*)=(.*)$/)
+	  {
+	    $d{$1}=$2;
+	  }
+	}
+	#my $layer=mapLayer($d{'V7_LAYER'});
+	#print "Layer: $layer\n";
+	my $datalen=(unpack("l",substr($value,22+$textlen,4))+1)*37;
+	my $data=substr($value,22+$textlen+4,$datalen);
+	my $ncoords=unpack("l",substr($value,22+$textlen,4));
+	print OUT "#ncoords: $ncoords\n" if($annotate);
+	foreach(0 .. $ncoords-1)
+	{
+      my $x1=sprintf("%.5f",unpack("l",substr($data,$_*37+1,4))/$faktor/10000-$xmove);
+	  my $y1=sprintf("%.5f",$ymove-unpack("l",substr($data,$_*37+5,4))/$faktor/10000);
+      my $x2=sprintf("%.5f",unpack("l",substr($data,$_*37+37+1,4))/$faktor/10000-$xmove);
+	  my $y2=sprintf("%.5f",$ymove-unpack("l",substr($data,$_*37+37+5,4))/$faktor/10000);
+	  print OUT "#ShapeBasedAdhesiveLine\n" if($annotate);
+	  print OUT "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer F.Adhes) (width 0.2))\n";
+	     #print "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer F.Adhes) (width 0.2))\n";
+	}
+	
+      #MODEL.MODELTYPE=0 => Box / Extruded PolyLine)
+	  #MODEL.MODELTYPE=2 => Cylinder
+	  #MODEL.MODELTYPE=3 => Sphere
+	  #BODYOPACITY3D=1.000 => Opaque
+	  #BODYOPACITY3D=0.500 => Half-transparent
+	  #BODYOPACITY3D=0.000 => Invisible
+	  #BODYCOLOR3D=255 => Red
+	  #BODYCOLOR3D=65280 => Green
+    my $col=$d{'BODYCOLOR3D'};
+	my $red=($col&255)/255.0;
+	my $green=(($col>>8)&255)/255.0;
+	my $blue=(($col>>16)&255)/255.0;
+	my $color=sprintf("%.5f %.5f %.5f",$red,$green,$blue);
+
+	
+	my $wrl="wrlshp/".substr($d{'MODELID'},0,16).".wrl"; $wrl=~s/[\{\}]//g;
+	
+    if($d{'MODEL.MODELTYPE'} == 0)
+	{
+	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=100; 
+	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=100; 
+      my $pz=$d{'STANDOFFHEIGHT'};$pz=~s/mil//; $pz/=100; $pz=sprintf("%.7f",$pz);
+	  my $sx=$d{'MODEL.2D.X'};$sx=~s/mil//; $sx/=100; $sx=sprintf("%.7f",$sx);
+	  my $sy=$d{'MODEL.2D.Y'};$sy=~s/mil//; $sy/=100; $sy=sprintf("%.7f",$sy);
+	  my $sz=$d{'MODEL.EXTRUDED.MAXZ'}; $sz=~s/mil//; $sz/=100; $sz=sprintf("%.7f",$sz);
+	  my @poly=();
+	  foreach(0 .. $ncoords-1)
+	  {
+        my $x1=sprintf("%.7f",unpack("l",substr($data,$_*37+1,4))/$faktor/10000-$componentatx{$component}); #-$xmove
+	    my $y1=sprintf("%.7f",unpack("l",substr($data,$_*37+5,4))/$faktor/10000+$componentaty{$component}); #$ymove-
+        push @poly,"$x1 $y1";
+      }
+	  $shapes{$wrl}.=ExtrudedPolygon("0 0 $pz","0 0 0  0","$fak $fak 1",$color,"1",$sz,\@poly).",";
+	}
+
+	if($d{'MODEL.MODELTYPE'} == 1)
+	{
+	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=100; 
+	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=100; 
+      my $pz=$d{'STANDOFFHEIGHT'};$pz=~s/mil//; $pz/=100; 
+	  
+      $shapes{$wrl}.=Cone("0 0 0 ","0 0 0  0","1 1 1",$color,"1","2","3").",";
+	}
+
+    if($d{'MODEL.MODELTYPE'} == 2)
+	{
+	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=100; 
+	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=100; 
+      my $pz=$d{'STANDOFFHEIGHT'};$pz=~s/mil//; $pz/=100; 
+	  
+	  my $h=$d{'MODEL.CYLINDER.HEIGHT'};$h=~s/mil//; $h/=100; $h=sprintf("%.7f",$h);
+	  my $r=$d{'MODEL.CYLINDER.RADIUS'};$r=~s/mil//; $r/=100; $r=sprintf("%.7f",$r);
+	  
+      $shapes{$wrl}.=Cylinder("0 0 0 ","0 0 0  0","1 1 1",$color,"1",$r,$h).",";
+	  
+
+	}
+
+    $pads{$component}.=<<EOF
+#1365
+	(model "./$wrl"
+      (at (xyz 0 0 0))
+      (scale (xyz 1 1 1))
+      (rotate (xyz 0 0 0))
+    )
+EOF
+;
+	  
+	#print "  ".bin2hex($data)."\n";
+	#print "text: $text\n";
+	#print "\n";
+  });
+
+
+
   
   $componentid=0;
   HandleBinFile("$short/Root Entry/Components6/Data.dat","",0,0, sub 
   { 
     my %d=%{$_[0]};
     print OUT "#Components#".$_[3].": ".$_[1]."\n" if($annotate);
-	print OUT "#\$pads{$componentid}\n";
+	print OUT "#\$pads{$componentid}\n" if($annotate);
 	my $atx=$d{'X'};$atx=~s/mil$//;$atx/=$faktor;$atx-=$xmove;
 	my $aty=$d{'Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
 	my $layer=mapLayer($d{'LAYER'}) || "F.Paste";
@@ -1050,7 +1431,7 @@ EOF
 	  else
 	  {
 	    #print "No mapping yet:\n";
-        print "    \"$reference\"=>\".wrl\",\n" if(!defined($kicadwrlerror{$reference}));
+        #print "    \"$reference\"=>\".wrl\",\n" if(!defined($kicadwrlerror{$reference}));
 	    $kicadwrlerror{$reference}=1;
 
 	  }
@@ -1117,9 +1498,9 @@ if(defined($stp));
 	my $y2=sprintf("%.5f",$y+sin($earad)*$r);
 
 	print OUT "#Arc#$_[3]: ".bin2hex($value)."\n" if($annotate);
-	print OUT "#Arc#$_[3]: xorig:$xorig yorig:$yorig layer:$layerorig component:$component\n";
+	print OUT "#Arc#$_[3]: xorig:$xorig yorig:$yorig layer:$layerorig component:$component\n" if($annotate);
 	print OUT "#Arc#$_[3]: x:$x y:$y radius:$r layer:$layer sa:$sa ea:$ea sarad:$sarad earad:$earad width:$width x1:$x1 x2:$x2 y1:$y1 y2:$y2\n" if($annotate);
-    print OUT "  (gr_arc (start $x $y) (end $x1 $y1) (angle $angle) (layer $layer) (width $width))\n";
+    print OUT "  (gr_arc (start $x $y) (end $x1 $y1) (angle $angle) (layer $layer) (width $width))\n" if($annotate);
 	#print OUT "  (gr_text \"1\" (at $x1 $y1) (layer $layer))\n";
 	#print OUT "  (gr_text \"2\" (at $x2 $y2) (layer $layer))\n";
 	
@@ -1161,7 +1542,7 @@ if(defined($stp));
 	#print "Layer: $layer1 -> $layer2\n";
 	#print "Koordinaten:\n" if($debug);
 	#print "x:$x y:$y width:$width\n" if($debug);
-	print OUT "  (via (at $x $y) (size $width) (layers $layer1 $layer2) (net $net))\n";
+	print OUT "  (via (at $x $y) (size $width) (layers $layer1 $layer2) (net $net))\n" if($annotate);
 	
 
 	# The following was an experimental automatic reverse-engineering try. The code is disabled now.
@@ -1432,7 +1813,7 @@ EOF
 	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
     my $textlen=unpack("l",substr($value,18,4));
 	my $text=substr($value,22,$textlen);$text=~s/\x00$//;
-	print OUT "#$text\n";
+	print OUT "#$text\n" if($annotate);
 	my @a=split '\|',$text;
 	my %d=();
 	foreach my $c(@a)
@@ -1450,41 +1831,164 @@ EOF
 	#print "text: $text\n";
   });
   
-  HandleBinFile("$short/Root Entry/ShapeBasedComponentBodies6/Data.dat","\x0c",0,0, sub 
-  { 
-    my $value=$_[1];
-    print OUT "#ShapeBasedComponentBodies#".$_[3].": ".bin2hex($value)."\n" if($annotate);
-	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
-    #print "  ".bin2hex($unknownheader)."\n";
-    my $textlen=unpack("l",substr($value,18,4));
-	my $text=substr($value,22,$textlen);$text=~s/\x00$//;
-	my @a=split '\|',$text;
-	my %d=();
-	foreach my $c(@a)
-	{
-	  #print " * $c\n";
-      if($c=~m/^([^=]*)=(.*)$/)
-	  {
-	    $d{$1}=$2;
-	  }
-	}
-	#my $layer=mapLayer($d{'V7_LAYER'});
-	#print "Layer: $layer\n";
-	my $datalen=(unpack("l",substr($value,22+$textlen,4))+1)*37;
-	my $data=substr($value,22+$textlen+4,$datalen);
-	foreach(0 .. unpack("l",substr($value,22+$textlen,4))-1)
-	{
-      my $x1=sprintf("%.5f",unpack("l",substr($data,$_*37+1,4))/$faktor/10000-$xmove);
-	  my $y1=sprintf("%.5f",$ymove-unpack("l",substr($data,$_*37+5,4))/$faktor/10000);
-      my $x2=sprintf("%.5f",unpack("l",substr($data,$_*37+37+1,4))/$faktor/10000-$xmove);
-	  my $y2=sprintf("%.5f",$ymove-unpack("l",substr($data,$_*37+37+5,4))/$faktor/10000);
-	  print OUT "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer F.Adhes) (width 0.2))\n";
-	     #print "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer F.Adhes) (width 0.2))\n";
-	}
-	#print "  ".bin2hex($data)."\n";
-	#print "text: $text\n";
-	#print "\n";
-  });
+  
+
+  open VOUT,">wrlshapes.kicad_pcb";
+  print VOUT <<EOF
+  (kicad_pcb (version 4) (host pcbnew "(2014-07-21 BZR 5016)-product")
+
+  (general
+    (links 0)
+    (no_connects 0)
+    (area 0 0 0 0)
+    (thickness 1.6)
+    (drawings 1)
+    (tracks 0)
+    (zones 0)
+    (modules 42)
+    (nets 2)
+  )
+
+  (page A4)
+  (layers
+    (0 F.Cu signal)
+	(1 In1.Cu signal)
+    (2 In2.Cu power)
+    (3 In3.Cu power)
+    (4 In4.Cu signal)
+    (5 In5.Cu signal)
+    (6 In6.Cu signal)
+    (7 In7.Cu signal)
+    (8 In8.Cu signal)
+    (31 B.Cu signal)
+    (32 B.Adhes user)
+    (33 F.Adhes user)
+    (34 B.Paste user)
+    (35 F.Paste user)
+    (36 B.SilkS user)
+    (37 F.SilkS user)
+    (38 B.Mask user)
+    (39 F.Mask user)
+    (40 Dwgs.User user)
+    (41 Cmts.User user)
+    (42 Eco1.User user)
+    (43 Eco2.User user)
+    (44 Edge.Cuts user)
+    (45 Margin user)
+    (46 B.CrtYd user)
+    (47 F.CrtYd user)
+    (48 B.Fab user)
+    (49 F.Fab user)
+$layers
+  )
+
+  (setup
+    (last_trace_width 0.254)
+    (trace_clearance 0.127)
+    (zone_clearance 0.0144)
+    (zone_45_only no)
+    (trace_min 0.254)
+    (segment_width 0.2)
+    (edge_width 0.1)
+    (via_size 0.889)
+    (via_drill 0.635)
+    (via_min_size 0.889)
+    (via_min_drill 0.508)
+    (uvia_size 0.508)
+    (uvia_drill 0.127)
+    (uvias_allowed no)
+    (uvia_min_size 0.508)
+    (uvia_min_drill 0.127)
+    (pcb_text_width 0.3)
+    (pcb_text_size 1.5 1.5)
+    (mod_edge_width 0.15)
+    (mod_text_size 1 1)
+    (mod_text_width 0.15)
+    (pad_size 1.5 1.5)
+    (pad_drill 0.6)
+    (pad_to_mask_clearance 0)
+    (aux_axis_origin 0 0)
+    (visible_elements FFFFFF7F)
+    (pcbplotparams
+      (layerselection 262143)
+      (usegerberextensions false)
+      (excludeedgelayer true)
+      (linewidth 0.100000)
+      (plotframeref false)
+      (viasonmask false)
+      (mode 1)
+      (useauxorigin false)
+      (hpglpennumber 1)
+      (hpglpenspeed 20)
+      (hpglpendiameter 15)
+      (hpglpenoverlay 2)
+      (psnegative false)
+      (psa4output false)
+      (plotreference true)
+      (plotvalue true)
+      (plotinvisibletext false)
+      (padsonsilk false)
+      (subtractmaskfromsilk false)
+      (outputformat 1)
+      (mirror false)
+      (drillshape 0)
+      (scaleselection 1)
+      (outputdirectory "GerberOutput/"))
+  )
+
+  (net 0 "")
+  (net 1 "Net1")
+  
+  (net_class Default "This is the default net class."
+    (clearance 0.254)
+    (trace_width 0.254)
+    (via_dia 0.889)
+    (via_drill 0.635)
+    (uvia_dia 0.508)
+    (uvia_drill 0.127)
+	(add_net Net1)
+  )
+  
+EOF
+;
+
+  my $nshape=0;
+  foreach(sort keys %shapes)
+  {
+    open WRLOUT,">$_";
+	print WRLOUT "#VRML V2.0 utf8\n";
+    print WRLOUT "Group { children [\n";
+	print WRLOUT $shapes{$_};
+	print WRLOUT "] }\n";
+	close WRLOUT;
+	my $atx=($nshape%10)*30+30;
+	my $aty=int($nshape/10)*30+30;
+	
+	print VOUT <<EOF
+  (module A$nshape (layer F.Cu) (tedit 4289BEAB) (tstamp 539EEDBF)
+    (at $atx $aty)
+    (path /539EEC0F)
+    (attr smd)
+	(model "./$_"
+      (at (xyz 0 0 0))
+      (scale (xyz 1 1 1))
+      (rotate (xyz 0 0 0))
+    )
+    (pad "1" smd oval (at 0.0 0.0) (size 0.60000 2.20000) 
+      (layers F.Cu F.Mask F.Paste) (net 1 "Net1")
+    )
+  )
+EOF
+;
+	$nshape++;
+  }
+  print VOUT ")\n";
+  close VOUT;
+  print OUT "#Finished handling Shape Based Bodies.\n";
+  
+  
+  
+  
   
   sub ucs2utf($)
   {
@@ -1533,9 +2037,9 @@ EOF
 	  my $text=substr($content,$pos+1,$textlen-1); 
 	  $pos+=$textlen;
 	  print OUT "#Texts#".$opos.": ".bin2hex(substr($content,$opos,$pos-$opos))."\n" if($annotate);
-	  print OUT "#Layer: $olayer Component:$component Type:".sprintf("%02X",$texttype)."\n";
-	  print OUT "#Commenton: ".$commenton{$component}." nameon: ".$nameon{$component}."\n" if($component>=0);
-	  print OUT "#hide: $hide\n";
+	  print OUT "#Layer: $olayer Component:$component Type:".sprintf("%02X",$texttype)."\n" if($annotate);
+	  print OUT "#Commenton: ".$commenton{$component}." nameon: ".$nameon{$component}."\n" if($component>=0 && $annotate);
+	  print OUT "#hide: $hide\n" if($annotate);
 	  $text=~s/"/''/g;
 	  print OUT <<EOF
  (gr_text "$text" (at $x1 $y1 $dir) (layer $layer)
@@ -1751,7 +2255,7 @@ sub decodePcbLib($)
 	  #type: 12 => ShapeBasedComponentBodies6 - First byte seems to contain the layer, the rest has been always the same until now
       #type: 6 => Fills
 	  
-	  #MODEL.MODELTYPE=0 => Box
+	  #MODEL.MODELTYPE=0 => Box / Extruded PolyLine)
 	  #MODEL.MODELTYPE=2 => Cylinder
 	  #MODEL.MODELTYPE=3 => Sphere
 	  #BODYOPACITY3D=1.000 => Opaque
@@ -1775,4 +2279,59 @@ foreach(glob("'TestsSrc/Root Entry/*/Data.dat.bin'"))
 {
   #decodePcbLib($_);
 }
+
+foreach(glob("ASCII*.PcbDoc"))
+{
+  next;
+  next unless($annotate);
+  my $line="";
+  print "Documenting $_\n";
+  open IN,"<$_";
+  my %h=();
+  while($line=<IN>)
+  {
+    my @a=split '\|',$line;
+    my %d=();
+	my $recordtype="";
+	foreach my $c(@a)
+	{
+  	  #print "$c\n";
+      if($c=~m/^([^=]*)=(.*)$/)
+	  {
+  	    my $name=$1;
+	    my $value=$2;
+		$d{$name}=$value;
+      }
+ 	}
+	foreach my $c(@a)
+	{
+  	  #print "$c\n";
+      if($c=~m/^([^=]*)=(.*)$/)
+	  {
+  	    my $name=$1;
+	    my $value=$2;
+		$h{$d{"RECORD"}.($d{'MODEL.MODELTYPE'}||"")}{$name}{$value}=1;
+      }
+ 	}
+
+
+    
+  }
+  close IN;
+  open OUT,">$_.txt";
+  foreach my $record (sort keys %h)
+  {
+    print OUT "\nModel for RECORD=$record:\n";
+    foreach(sort keys %{$h{$record}})
+	{
+	  if(scalar(keys %{$h{$record}{$_}})>0)
+	  {
+	    print OUT "$_={".join(",",sort keys %{$h{$record}{$_}})."}\n";
+	  }
+	}
+	print OUT "\n";
+  }
+  close OUT;
+}
+
 
