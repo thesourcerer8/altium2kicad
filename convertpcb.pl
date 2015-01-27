@@ -1318,7 +1318,7 @@ EOF
 	my $color=sprintf("%.5f %.5f %.5f",$red,$green,$blue);
 
 	
-	my $wrl="wrlshp/".substr($d{'MODELID'},0,16).".wrl"; $wrl=~s/[\{\}]//g;
+	my $wrl="wrlshp/".substr($d{'MODELID'},0,14).".wrl"; $wrl=~s/[\{\}]//g;
 	
     if($d{'MODEL.MODELTYPE'} == 0)
 	{
@@ -2029,6 +2029,7 @@ EOF
 	  my $y1=sprintf("%.5f",$ymove-unpack("l",substr($content,$pos+17,4))/$faktor/10000);
       my $width=sprintf("%.5f",unpack("l",substr($content,$pos+21,4))/$faktor/10000);
 	  my $dir=unpack("d",substr($content,$pos+27,8)); 
+	  my $mirror=unpack("C",substr($content,$opos+39,1));
 	  my $font=substr($content,$pos,$fontlen); 
 	  $pos+=$fontlen;
 	  my $fontname=ucs2utf(substr($font,46,64));
@@ -2039,11 +2040,13 @@ EOF
 	  print OUT "#Texts#".$opos.": ".bin2hex(substr($content,$opos,$pos-$opos))."\n" if($annotate);
 	  print OUT "#Layer: $olayer Component:$component Type:".sprintf("%02X",$texttype)."\n" if($annotate);
 	  print OUT "#Commenton: ".$commenton{$component}." nameon: ".$nameon{$component}."\n" if($component>=0 && $annotate);
+	  print OUT "#Mirror: $mirror\n";
+	  my $mirrortext=$mirror?" (justify mirror)":"";
 	  print OUT "#hide: $hide\n" if($annotate);
 	  $text=~s/"/''/g;
 	  print OUT <<EOF
  (gr_text "$text" (at $x1 $y1 $dir) (layer $layer)
-    (effects (font (size $width $width) (thickness 0.1)) (justify left))
+    (effects (font (size $width $width) (thickness 0.1)) (justify left)$mirrortext)
   )
 EOF
         if(!$hide);
