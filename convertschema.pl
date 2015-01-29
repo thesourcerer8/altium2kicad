@@ -103,6 +103,7 @@ foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'))
 {
   print "Handling $filename\n";
   my $short=$filename; $short=~s/\/Root Entry\/FileHeader\.dat$//;
+  next if -d "$short/Root Entry/Arcs6"; 
   open IN,"<$filename";
   undef $/;
   my $content=<IN>;
@@ -609,7 +610,7 @@ EOF
 	  $partcomp{$globalp}=$LIBREFERENCE;
       $dat="";	  
 	}
-    else
+    else # Not a component
 	{
 	  
 	  if($d{'RECORD'} eq '4') # Label
@@ -1031,14 +1032,18 @@ EOF
 	  }
 	  elsif($d{'RECORD'} eq '28') # Text Frame
 	  {
-		my $x=($d{'LOCATION.X'}*$f)-$relx;
-		my $y=($d{'LOCATION.Y'}*$f)-$rely;
+  		my $x=($d{'LOCATION.X'}*$f);
+		my $y=$sheety-($d{'LOCATION.Y'}*$f);
+		#my $x=($d{'LOCATION.X'}*$f)-$relx;
+		#my $y=($d{'LOCATION.Y'}*$f)-$rely;
         ($x,$y)=rotate($x,$y,$partorientation{$globalp});
 		my $cx=($d{'CORNER.X'}*$f)-$relx;
 		my $cy=($d{'CORNER.Y'}*$f)-$rely;
 		($cx,$cy)=rotate($cx,$cy,$partorientation{$globalp});
 		my $text=$d{'TEXT'}; $text=~s/\~1/\~/g; $text=~s/ /\~/g;
-		drawcomponent "T 0 $x $y 100 0 1 1 $text 1\n";
+        my $o=$d{'ORIENTATION'} || 0;
+   	    $dat.="Text Label $x $y $o 70 ~\n$text\n";
+		#drawcomponent "T 0 $x $y 100 0 1 1 $text 1\n";
 		#!!! Line-break, Alignment, ...
       }	  
 	  elsif($d{'RECORD'} eq '31') #Sheet
