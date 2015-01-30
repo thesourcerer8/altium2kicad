@@ -468,7 +468,19 @@ EOF
 			}
 		  }
 		}
-		
+		$name="";
+		my $namepos=0;
+		$state=0;
+		while($namepos < length($oldname))
+		{
+		  my $thisstate=(defined(substr($oldname,$namepos+1,1)) && substr($oldname,$namepos+1,1) eq "\\")?1:0;
+		  if($thisstate != $state)
+		  {
+		    $name.="~";
+		  }
+		  $name.=substr($oldname,$namepos+1,1);
+		  $namepos++;
+		}
 		if(defined($d{'LOCATION.X'})&&defined($d{'LOCATION.Y'}))
 		{
 		  my %dirtext=("0"=>"L","1"=>"D","2"=>"R","3"=>"U");
