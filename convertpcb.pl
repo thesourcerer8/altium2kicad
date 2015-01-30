@@ -3,6 +3,7 @@ use strict;
 use Compress::Zlib;
 use Math::Geometry::Planar;
 use Data::Dumper;
+use Cwd;
 #use Math::Bezier;
 
 # Things that are missing in KiCad:
@@ -19,10 +20,14 @@ use Data::Dumper;
 # Rounded Rectangles (Not just ovals that are circles when they are even sided
 
 # Things that are missing in Altium:
-# The Zone-Fill-Polygons are not saved in the file. Workaround: In KiCad, select the zone tool, right-click on an empty area, then "Fill all zones"
+# The Zone-Fill-Polygons are not saved in the file. Workaround: Press "b" in PcbNew or: select the zone tool, right-click on an empty area, then "Fill all zones"
 # Annotations in the fileformat
 
 my $annotate=1;
+
+my $absoluteWRLpath=1;
+
+my $wrlprefix=$absoluteWRLpath ? Cwd::cwd() : ".";
 
 my $current_status=<<EOF
 Advanced Placer Options6.dat # Not needed
@@ -431,7 +436,7 @@ sub Cone($$$$$$$)
 {
   my ($translation,$rotation,$scale,$color,$shininess,$r,$h)=@_;
   
-  my $parts=16;
+  my $parts=32;
   
   my @point=();
   my @line=();
@@ -1205,7 +1210,7 @@ if(0 && defined($stp));
 		my $lfak=$fak;
 		if(defined($stp) && -r $wrl)
 		{
-		  $wrl="./$wrl";
+		  $wrl="$wrlprefix/$wrl";
 		}
 		else
 		{
@@ -1292,6 +1297,8 @@ EOF
 	my $data=substr($value,22+$textlen+4,$datalen);
 	my $ncoords=unpack("l",substr($value,22+$textlen,4));
 	print OUT "#ncoords: $ncoords\n" if($annotate);
+	my $v7layer="F.CrtYd";
+	$v7layer=$d{'V7LAYER'} eq "MECHANICAL1" ? "F.CrtYd":"B.CrtYd" if(defined($d{'V7LAYER'}));
 	foreach(0 .. $ncoords-1)
 	{
       my $x1=sprintf("%.5f",unpack("l",substr($data,$_*37+1,4))/$faktor/10000-$xmove);
@@ -1299,8 +1306,8 @@ EOF
       my $x2=sprintf("%.5f",unpack("l",substr($data,$_*37+37+1,4))/$faktor/10000-$xmove);
 	  my $y2=sprintf("%.5f",$ymove-unpack("l",substr($data,$_*37+37+5,4))/$faktor/10000);
 	  print OUT "#ShapeBasedAdhesiveLine\n" if($annotate);
-	  print OUT "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer F.Adhes) (width 0.2))\n";
-	     #print "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer F.Adhes) (width 0.2))\n";
+	  print OUT "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer $v7layer) (width 0.2))\n";
+	     #print "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer $v7layer) (width 0.2))\n";
 	}
 	
       #MODEL.MODELTYPE=0 => Box / Extruded PolyLine)
@@ -1343,8 +1350,8 @@ EOF
 	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=100; 
 	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=100; 
       my $pz=$d{'STANDOFFHEIGHT'};$pz=~s/mil//; $pz/=100; 
-	  
-      $shapes{$wrl}.=Cone("0 0 0 ","0 0 0  0","1 1 1",$color,"1","2","3").",";
+	  my $sz=$d{'OVERALLHEIGHT'}; $sz=~s/mil//; $sz/=100; $sz-=$pz;
+      $shapes{$wrl}.=Cone("0 0 0 ","0 0 0  0","1 1 1",$color,"1",$sz,"3").",";
 	}
 
     if($d{'MODEL.MODELTYPE'} == 2)
@@ -1360,10 +1367,10 @@ EOF
 	  
 
 	}
-
+    
     $pads{$component}.=<<EOF
 #1365
-	(model "./$wrl"
+	(model "$wrlprefix/$wrl"
       (at (xyz 0 0 0))
       (scale (xyz 1 1 1))
       (rotate (xyz 0 0 0))
@@ -1969,7 +1976,7 @@ EOF
     (at $atx $aty)
     (path /539EEC0F)
     (attr smd)
-	(model "./$_"
+	(model "$wrlprefix/$_"
       (at (xyz 0 0 0))
       (scale (xyz 1 1 1))
       (rotate (xyz 0 0 0))
