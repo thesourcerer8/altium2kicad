@@ -468,6 +468,7 @@ EOF
 			}
 		  }
 		}
+		my $brokenname=$name;
 		$name="";
 		my $namepos=0;
 		$state=0;
@@ -478,9 +479,11 @@ EOF
 		  {
 		    $name.="~";
 		  }
-		  $name.=substr($oldname,$namepos+1,1);
-		  $namepos++;
+		  $state=$thisstate;
+		  $name.=substr($oldname,$namepos,1) unless(substr($oldname,$namepos,1)eq "\\" && !$thisstate);
+		  $namepos+=$thisstate?2:1;
 		}
+		#print "oldname: $oldname brokenname:$brokenname name:$name\n" if($brokenname ne $name);
 		if(defined($d{'LOCATION.X'})&&defined($d{'LOCATION.Y'}))
 		{
 		  my %dirtext=("0"=>"L","1"=>"D","2"=>"R","3"=>"U");
