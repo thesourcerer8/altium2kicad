@@ -18,10 +18,18 @@ use Cwd;
 # Board regions for Rigid-Flex
 # Support for STEP files
 # Rounded Rectangles (Not just ovals that are circles when they are even sided
+# Novena has too many netclasses for KiCad, the NetClass editor in the Design Rules Editor vanishes due to GUI layout when there are too many netclasses
+# Loading the 3D viewer is slow, especially when the zones are filled. It only utilizes a single core.
+
 
 # Things that are missing in Altium:
 # The Zone-Fill-Polygons are not saved in the file. Workaround: Press "b" in PcbNew or: select the zone tool, right-click on an empty area, then "Fill all zones"
 # Annotations in the fileformat
+
+# Todos for this converter:
+# Wrong recordtype errors for Regions6
+# Correct positioning for Cones, Cylinders, ... 
+
 
 my $annotate=1;
 
@@ -30,47 +38,57 @@ my $absoluteWRLpath=1;
 my $wrlprefix=$absoluteWRLpath ? Cwd::cwd() : ".";
 
 my $current_status=<<EOF
-Advanced Placer Options6.dat # Not needed
-Arcs6.dat # NEEDED
-Board6.dat # Here are various global infos about the whole board and about the layers
-BoardRegions.dat # Here we likely have only 1 region for Novena. Keepouts are defined here. KiCad does not have a Region concept yet.
-Classes6.dat # Interesting, but KiCAD does not have classes
-ComponentBodies6.dat # Done.
-Components6.dat # NEEDED.
-Connections6.dat # Empty
-Coordinates6.dat # Empty
-Design Rule Checker Options6.dat # Not needed
-DifferentialPairs6.dat # To be done later
-Dimensions6.dat # Annotations about the dimensions
-EmbeddedBoards6.dat # Empty
-EmbeddedFonts6.dat # 2 Fonts, we don´t need them
-Embeddeds6.dat # Empty
-ExtendedPrimitiveInformation.dat # Empty
-FileVersionInfo.dat # Messages for when the file is opened in older Altium versions that do not support certain features in this fileformat
-Fills6.dat # Needs to be verified, are they really rectangular?
-FromTos6.dat # Empty
-Models.dat # Done
-ModelsNoEmbed.dat # Empty
-Nets6.dat # Needed
-Pads6.dat # Important
-Pin Swap Options6.dat # Only 1 line, likely not needed
-Polygons6.dat # Done
-Regions6.dat #
-Rules6.dat # Not important
-ShapeBasedComponentBodies6.dat # HALF-Done, do we need more?
-ShapeBasedRegions6.dat # Not needed, I guess
-SmartUnions.dat # Empty
-Texts.dat # Warnings for older Altium versions, I think we don´t need to support those ;-)
-Texts6.dat # Partly done, NEEDED
-Textures.dat # Empty
-Tracks6.dat # Done
-Vias6.dat # Done
-WideStrings6.dat # Seems to be a copy of Texts6, just for Unicode?!?
+Advanced Placer Options6 # Not needed
+Arcs6 # Likely Done
+Board6 # Here are various global infos about the whole board and about the layers
+BoardRegions # Here we likely have only 1 region for Novena. Keepouts are defined here. KiCad does not have a Region concept yet.
+Classes6 # NetClasses and ComponentClasses
+ComponentBodies6 # Nearly Done
+Components6 # Nearly Done
+Connections6 # Empty
+Coordinates6 # Empty
+Design Rule Checker Options6 # To be done later
+DifferentialPairs6 # To be done later
+Dimensions6 # Annotations about the dimensions
+EmbeddedBoards6 # Empty
+EmbeddedFonts6 # 2 Fonts, we don´t need them
+Embeddeds6 # Empty
+ExtendedPrimitiveInformation # Empty
+FileVersionInfo # Messages for when the file is opened in older Altium versions that do not support certain features in this fileformat
+Fills6 # Needs to be verified, are they really rectangular? 
+FromTos6 # Empty
+Models # Done
+ModelsNoEmbed # Empty
+Nets6 # Needed
+Pads6 # Important
+Pin Swap Options6 # Only 1 line, likely not needed
+Polygons6 # Done
+Regions6 #
+Rules6 #
+ShapeBasedComponentBodies6 # HALF-Done, do we need more?
+ShapeBasedRegions6 # Not needed, I guess
+SmartUnions # Empty
+Texts # Warnings for older Altium versions, I think we don´t need to support those ;-)
+Texts6 # Partly done, NEEDED
+Textures # Empty
+Tracks6 # Done
+Vias6 # Done
+WideStrings6 # Seems to be a copy of Texts6, just for Unicode?!?
 EOF
 ;
 
 my $pi=3.14159265359;
+my $faktor=39.370078740158;
+my $fak="0.39370078740158";
 
+sub mil2mm($)
+{
+  return undef unless(defined($_[0]));
+  my $data=$_[0];
+  $data=~s/mil$//;
+  $data/=$faktor;
+  return sprintf("%.6f",$data); 
+}
 
 #Reads a file with one function
 sub readfile($)
@@ -125,8 +143,8 @@ sub HandleBinFile
 {
   my ($filename,$recordtype,$headerlen,$nskip,$piped)=@_;
   # filename is the filename of the file to load
-  # recordtype is a string that is checked at the beginning of every record
-  # headerlen is the length of the header to skip once on the beginning of the file
+  # recordtype is a string that is checked at the beginning of every record, after the header
+  # headerlen is the length of the header to read and have as callback parameter $_[2] at the beginning of each record
   # nskip
   # piped is a callback function that gets called with the parameters $piped->(\%d,$data,$header,$line);
   my $model=1;
@@ -150,13 +168,18 @@ sub HandleBinFile
     my $header=substr($content,$pos,$headerlen);
     $pos+=$headerlen;
     my $rtyp=substr($content,$pos,length($recordtype));
-	last if($rtyp ne $recordtype);
+	if($rtyp ne $recordtype)
+	{
+	  print "Error: Wrong recordtype: $rtyp, expected $recordtype\n";
+	  last;
+	}
 	$pos+=length($recordtype);
 	
-	#print "Pos: $pos\n";
+	print HBOUT sprintf("Pos: %08X ",$pos);
     my $len=sprintf("%.5f",unpack("l",substr($content,$pos,4))); 
+	$len-- if($len==0x59917); #  Workaround for Regions6  !!! TODO  XXX  Perhaps it is a CRLF issue?
 	$pos+=4;
-    #print "len: $len\n";
+    print HBOUT sprintf("len: %08X ",$len);
     my $data=substr($content,$pos,$len);  
 	$pos+=$len;
 	
@@ -537,6 +560,7 @@ foreach my $mod(glob('"pretty.pretty/*"'))
 }
 
 
+my $trackwidth=10;
 
 # Now we start handling all the PCB files that were unpacked by unpack.pl already:
 my $filecounter=0;
@@ -581,6 +605,11 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
 	  {
 	    $mechenabled{$1}=$d{$_};
 		#print "$1 -> $d{$_}\n";
+	  }
+	  if($_=~m/^TRACKWIDTH$/)
+	  {
+	    print "Track Width: $d{$_}\n";
+		$trackwidth=$d{$_};
 	  }
 	}
   }); # Board
@@ -742,8 +771,54 @@ EOF
 	$modeldz{$_[0]{'ID'}}=$_[0]{'DZ'};
 	$modelwrl{$_[0]{'ID'}}="$short/Root Entry/Models/$_[3].wrl";
   });
+
+  our %rules=();
+  HandleBinFile("$short/Root Entry/Rules6/Data.dat","",2,0,sub 
+  {
+    my $rulekind=$_[0]{'RULEKIND'};
+	my $name=$_[0]{'NAME'};
+    my $clearance=mil2mm($_[0]{'CLEARANCE'});
+	my $gap=mil2mm($_[0]{'GAP'});
+	if(defined($clearance))
+	{
+	  print "Rule $rulekind $name gives clearance $clearance\n";
+	  $rules{$name}=$clearance;
+	}
+	if(defined($gap))
+	{
+	  print "Rule $rulekind $name gives gap $gap\n";
+	  $rules{$name}=$gap;
+	}
+  });
   
-  
+  our %netclass=();
+  our %netclassrev=();
+  HandleBinFile("$short/Root Entry/Classes6/Data.dat","",0,0,sub 
+  {
+    my $name=$_[0]{'NAME'};
+	my $superclass=$_[0]{'SUPERCLASS'};
+    my $kind=$_[0]{'KIND'};
+	#KIND={0,1,2,3,4,6,7}
+    #0: Net-Classes
+    #1: Source-Schematic-Sheet-Classes (Hierarchical Schematics)
+    #2: All From-Tos (?)
+    #3: Pad-Classes
+    #4: Layer-Classes
+    #5: ?
+    #6: Differential Pair-Classes
+    #7: Polygon-Classes
+    if($superclass eq "FALSE" && $kind==0)
+	{
+	  foreach my $key(keys %{$_[0]})
+	  {
+	    if($key=~m/^M(\d+)$/)
+		{
+		  $netclass{$name}{$_[0]{$key}}=1;
+		  $netclassrev{$_[0]{$key}}=$name;
+		}
+	  }
+	}
+  });
 
   print "Writing PCB to $short.kicad_pcb\n";
   open OUT,">$short.kicad_pcb";
@@ -760,7 +835,11 @@ EOF
     $nets.= "  (net $line \"$name\")\n";
   });
 
-    
+
+  my $clearance=$rules{'Clearance'};
+  my $tracewidth=mil2mm($trackwidth);
+
+  
   # This is the standard Header for the .kicad_pcb file
   print OUT <<EOF
 (kicad_pcb (version 4) (host pcbnew "(2014-07-21 BZR 5016)-product")
@@ -869,8 +948,8 @@ $layers
 $nets
   
   (net_class Default "This is the default net class."
-    (clearance 0.254)
-    (trace_width 0.254)
+    (clearance $clearance)
+    (trace_width $tracewidth)
     (via_dia 0.889)
     (via_drill 0.635)
     (uvia_dia 0.508)
@@ -880,9 +959,24 @@ $nets
   
 EOF
 ;
+  foreach my $class(sort keys %netclass)
+  {
+    print OUT " (net_class $class \"$class\"\n";
+	print OUT <<EOF
+	(clearance $clearance)
+    (trace_width $tracewidth)
+    (via_dia 0.889)
+    (via_drill 0.635)
+    (uvia_dia 0.508)
+    (uvia_drill 0.127)
+EOF
+;
+    print OUT "    (add_net $_)\n" foreach(sort keys %{$netclass{$class}});
+    print OUT "  )\n";
+  }
+
+
   
-  my $faktor=39.370078740158;
-  my $fak="0.39370078740158";
   my $xmove=95.3; 
   my $ymove=79.6; 
   #$xmove=50;$ymove=250; # Enable to move Novena mainboard into the frame, or disable to move it to align to the Gerber-Imports
@@ -1017,10 +1111,10 @@ EOF
   HandleBinFile("$short/Root Entry/Components6/Data.dat","",0,0, sub 
   { 
     my %d=%{$_[0]};
-	my $atx=$d{'X'};$atx=~s/mil$//;$atx/=$faktor;$atx-=$xmove;
+	my $atx=mil2mm($d{'X'});$atx-=$xmove;
 	$componentatx{$componentid}=$atx;
 	#print "\$componentatx{$componentid}=$atx\n";
-	my $aty=$d{'Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
+	my $aty=mil2mm($d{'Y'});$aty=$ymove-$aty;
 	$componentaty{$componentid}=$aty;
     $componentlayer{$componentid}=$d{'LAYER'};
 	my $reference=$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'PATTERN'};
@@ -1149,8 +1243,8 @@ EOF
 	print OUT "#\$pads{$component}\n" if($annotate);
 	#print "Component:$component\n";
 	my $id=$d{'MODELID'};
-	my $atx=$d{'MODEL.2D.X'};$atx=~s/mil$//;$atx/=$faktor;$atx-=$xmove;
-	my $aty=$d{'MODEL.2D.Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
+	my $atx=mil2mm($d{'MODEL.2D.X'});$atx-=$xmove;
+	my $aty=mil2mm($d{'MODEL.2D.Y'});$aty=$ymove-$aty;
 	my $layer=defined($d{'V7_LAYER'})?($d{'V7_LAYER'} eq "MECHANICAL1"?"B.Cu":"F.Cu"):"F.Cu";
 	
 	my $catx=$componentatx{$component};
@@ -1334,6 +1428,7 @@ EOF
       my $pz=$d{'STANDOFFHEIGHT'};$pz=~s/mil//; $pz/=100; $pz=sprintf("%.7f",$pz);
 	  my $sx=$d{'MODEL.2D.X'};$sx=~s/mil//; $sx/=100; $sx=sprintf("%.7f",$sx);
 	  my $sy=$d{'MODEL.2D.Y'};$sy=~s/mil//; $sy/=100; $sy=sprintf("%.7f",$sy);
+	  my $szmin=$d{'MODEL.EXTRUDED.MINZ'}; $szmin=~s/mil//; $szmin/=100; $szmin=sprintf("%.7f",$szmin);
 	  my $sz=$d{'MODEL.EXTRUDED.MAXZ'}; $sz=~s/mil//; $sz/=100; $sz=sprintf("%.7f",$sz);
 	  my @poly=();
 	  foreach(0 .. $ncoords-1)
@@ -1362,11 +1457,22 @@ EOF
 	  
 	  my $h=$d{'MODEL.CYLINDER.HEIGHT'};$h=~s/mil//; $h/=100; $h=sprintf("%.7f",$h);
 	  my $r=$d{'MODEL.CYLINDER.RADIUS'};$r=~s/mil//; $r/=100; $r=sprintf("%.7f",$r);
-	  
       $shapes{$wrl}.=Cylinder("0 0 0 ","0 0 0  0","1 1 1",$color,"1",$r,$h).",";
-	  
-
 	}
+
+    if($d{'MODEL.MODELTYPE'} == 3) #  Sphere
+	{
+	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=100; 
+	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=100; 
+      my $pz=$d{'STANDOFFHEIGHT'};$pz=~s/mil//; $pz/=100; 
+	  
+	  #my $h=$d{'MODEL.CYLINDER.HEIGHT'};$h=~s/mil//; $h/=100; $h=sprintf("%.7f",$h);
+	  #my $r=$d{'MODEL.CYLINDER.RADIUS'};$r=~s/mil//; $r/=100; $r=sprintf("%.7f",$r);
+      #$shapes{$wrl}.=Sphere("0 0 0 ","0 0 0  0","1 1 1",$color,"1",$r,$pz).",";
+	}
+
+	
+
     
     $pads{$component}.=<<EOF
 #1365
@@ -1392,8 +1498,8 @@ EOF
     my %d=%{$_[0]};
     print OUT "#Components#".$_[3].": ".$_[1]."\n" if($annotate);
 	print OUT "#\$pads{$componentid}\n" if($annotate);
-	my $atx=$d{'X'};$atx=~s/mil$//;$atx/=$faktor;$atx-=$xmove;
-	my $aty=$d{'Y'};$aty=~s/mil$//;$aty/=$faktor;$aty=$ymove-$aty;
+	my $atx=mil2mm($d{'X'});$atx-=$xmove;
+	my $aty=mil2mm($d{'Y'});$aty=$ymove-$aty;
 	my $layer=mapLayer($d{'LAYER'}) || "F.Paste";
 	my $rot=sprintf("%.f",$d{'ROTATION'});
     my $stp=$d{'SOURCEDESIGNATOR'};
@@ -1407,7 +1513,7 @@ EOF
 	{
 	  if(defined($pads{$componentid}) && $pads{$componentid}=~m/\(model/)
 	  {
-	    print "Where did the model come from? componentid: $componentid\n";
+	    #print "Where did the model come from? componentid: $componentid\n"; # !!! TODO
 	  }
 	
 	  if(defined($kicadwrl{$componentid}) && !$pads{$componentid}=~m/\(model/)
@@ -1612,7 +1718,7 @@ if(defined($stp));
     my %d=%{$_[0]};
 	print OUT "#Polygons#".$_[3].": ".$_[1]."\n" if($annotate);
 	my $counter=$_[3];
-	my $width=$d{'TRACKWIDTH'}||1;$width=~s/mil$//; #/$faktor/10000;
+	my $width=mil2mm($d{'TRACKWIDTH'}||1);
 	my $layer=mapLayer($d{'LAYER'}) || "F.Paste";
 	my $net=($d{'NET'}||-1)+2; my $netname=$netnames{$net};
 	#print "Polygon $_[3] has net $net\n";
@@ -1645,12 +1751,12 @@ EOF
 	
 	foreach(0 .. $maxpoints-(($d{'POLYGONTYPE'} eq "Polygon" && $d{'HATCHSTYLE'} eq "Solid")?1:0))
 	{
-	  my $sx=$d{'VX'.$_};$sx=~s/mil$//;$sx/=$faktor;$sx-=$xmove;
-	  my $sy=$d{'VY'.$_};$sy=~s/mil$//;$sy/=$faktor;$sy=$ymove-$sy;
-	  my $ex=$d{'VX'.($_+1)}||0;$ex=~s/mil$//;$ex/=$faktor;$ex-=$xmove;
-	  my $ey=$d{'VY'.($_+1)}||0;$ey=~s/mil$//;$ey/=$faktor;$ey=$ymove-$ey;
+	  my $sx=mil2mm($d{'VX'.$_});$sx-=$xmove;
+	  my $sy=mil2mm($d{'VY'.$_});$sy=$ymove-$sy;
+	  my $ex=mil2mm($d{'VX'.($_+1)}||0);$ex-=$xmove;
+	  my $ey=mil2mm($d{'VY'.($_+1)}||0);$ey=$ymove-$ey;
       #MarkPoint($sx,$sy) if($d{'POLYGONTYPE'} eq "Split Plane" && $counter eq 1);
-	  print OUT "(gr_line (start $sx $sy) (end $ex $ey) (angle 90) (layer $layer) (width 0.2))\n" if($d{'POLYGONTYPE'} eq "Polygon" && $d{'POLYGONOUTLINE'} eq "TRUE");
+	  print OUT "(gr_line (start $sx $sy) (end $ex $ey) (angle 90) (layer $layer) (width $width))\n" if($d{'POLYGONTYPE'} eq "Polygon" && $d{'POLYGONOUTLINE'} eq "TRUE");
 	  print OUT "(xy $sx $sy) " if($d{'POLYGONTYPE'} eq "Split Plane" || $d{'HATCHSTYLE'} eq "Solid");
 	}
 	
@@ -1970,7 +2076,7 @@ EOF
 	close WRLOUT;
 	my $atx=($nshape%10)*30+30;
 	my $aty=int($nshape/10)*30+30;
-	
+	#wrlshapes.kicad_pcb
 	print VOUT <<EOF
   (module A$nshape (layer F.Cu) (tedit 4289BEAB) (tstamp 539EEDBF)
     (at $atx $aty)
