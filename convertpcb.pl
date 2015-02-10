@@ -18,9 +18,9 @@ use Cwd;
 # Board regions for Rigid-Flex
 # Support for STEP files
 # Rounded Rectangles (Not just ovals that are circles when they are even sided
-# Novena has too many netclasses for KiCad, the NetClass editor in the Design Rules Editor vanishes due to GUI layout when there are too many netclasses
+# Novena had too many netclasses for KiCad <BZR 5406, the NetClass editor in the Design Rules Editor vanished due to GUI layout when there are too many netclasses: https://bugs.launchpad.net/kicad/+bug/1418135
 # Loading the 3D viewer is slow, especially when the zones are filled. It only utilizes a single core.
-
+# The 3D view currently has a problem with relative pathes: https://bugs.launchpad.net/kicad/+bug/1417786  a workaround is available with the $absoluteWRLpath option
 
 # Things that are missing in Altium:
 # The Zone-Fill-Polygons are not saved in the file. Workaround: Press "b" in PcbNew or: select the zone tool, right-click on an empty area, then "Fill all zones"
@@ -89,6 +89,11 @@ sub mil2mm($)
   $data/=$faktor;
   return sprintf("%.6f",$data); 
 }
+sub bmil2mm($)
+{
+  return sprintf("%.7f",unpack("l",$_[0])/$faktor/10000);
+}
+
 
 #Reads a file with one function
 sub readfile($)
@@ -1057,7 +1062,7 @@ EOF
 	$usedlayers{$lay}++;
     if(!defined($layermap{$lay}))
 	{
-	  my $name="undefined"; $name=$1 if($layerdoku=~m/name: *$lay *([\w.]+)/);
+	  my $name="Eco1.User"; $name=$1 if($layerdoku=~m/name: *$lay *([\w.]+)/);
       $unmappedLayers{$_[0]}=$name ;
 	}
 	if(!defined($layermap{$_[0]}) && !defined($layererrors{$_[0]}))
@@ -1158,8 +1163,8 @@ EOF
       my $component=unpack("s",substr($value,$pos+30,2));	
 
 	  #print AOUT "component:$component net:$net\n";
-      my $x1=unpack("l",substr($value,$pos+36,4))/$faktor/10000-$xmove; 
-	  my $y1=$ymove-unpack("l",substr($value,$pos+40,4))/$faktor/10000;
+      my $x1=-$xmove+bmil2mm(substr($value,$pos+36,4));
+	  my $y1=$ymove-bmil2mm(substr($value,$pos+40,4));
   	  #MarkPoint($x1,$y1) if($counter eq 2);
 	  $x1-=$componentatx{$component} if($component>=0 && defined($componentatx{$component}));
 	  $y1-=$componentaty{$component} if($component>=0 && defined($componentaty{$component}));
@@ -1173,9 +1178,9 @@ EOF
 	  $layer.=" F.Mask F.Paste" if($layer=~m/F\.Cu/);
 	  $layer.=" B.Mask B.Paste" if($layer=~m/B\.Cu/);
 
-	  my $sx=sprintf("%.5f",unpack("l",substr($value,$pos+44,4))/$faktor/10000);
-	  my $sy=sprintf("%.5f",unpack("l",substr($value,$pos+48,4))/$faktor/10000);
-	  my $holesize=sprintf("%.5f",unpack("l",substr($value,$pos+68,4))/$faktor/10000);
+	  my $sx=bmil2mm(substr($value,$pos+44,4));
+	  my $sy=bmil2mm(substr($value,$pos+48,4));
+	  my $holesize=bmil2mm(substr($value,$pos+68,4));
 
 	  
 	  my $dir=unpack("d",substr($value,$pos+75,8)); 
@@ -1276,8 +1281,8 @@ if(0 && defined($stp));
 	#my $rot=(($modelrotx{$id}||0)+$d{'MODEL.3D.ROTX'})." ".(($modelroty{$id}||0)+$d{'MODEL.3D.ROTY'})." ".(($modelrotz{$id}||0)+$d{'MODEL.3D.ROTZ'});
 	my $rot=((360-$d{'MODEL.3D.ROTX'})." ".(360-$d{'MODEL.3D.ROTY'})." ".(360-$d{'MODEL.3D.ROTZ'}));
 	#my $rot=(($modelrotx{$id}||0))." ".(($modelroty{$id}||0))." ".(($modelrotz{$id}||0));
-	my $mdz=$modeldz{$id}||0; $mdz=~s/mil//; $mdz/=10000000; 
-	#my $dz=$d{'MODEL.3D.DZ'}; $dz=~s/mil//; $dz=$mdz; #+
+	my $mdz=mil2mm($modeldz{$id}||0);
+	#my $dz=mil2mm($d{'MODEL.3D.DZ'}); $dz=$mdz; #+
 	#$dz/=$faktor; $dz/=1000;
 	my $dz=$mdz;
 	my $wrl=(defined($modelwrl{$id}) && -f $modelwrl{$id}) ? $modelwrl{$id} : undef;
@@ -1395,10 +1400,10 @@ EOF
 	$v7layer=$d{'V7LAYER'} eq "MECHANICAL1" ? "F.CrtYd":"B.CrtYd" if(defined($d{'V7LAYER'}));
 	foreach(0 .. $ncoords-1)
 	{
-      my $x1=sprintf("%.5f",unpack("l",substr($data,$_*37+1,4))/$faktor/10000-$xmove);
-	  my $y1=sprintf("%.5f",$ymove-unpack("l",substr($data,$_*37+5,4))/$faktor/10000);
-      my $x2=sprintf("%.5f",unpack("l",substr($data,$_*37+37+1,4))/$faktor/10000-$xmove);
-	  my $y2=sprintf("%.5f",$ymove-unpack("l",substr($data,$_*37+37+5,4))/$faktor/10000);
+      my $x1=sprintf("%.5f",-$xmove+bmil2mm(substr($data,$_*37+1,4)));
+	  my $y1=sprintf("%.5f",+$ymove-bmil2mm(substr($data,$_*37+5,4)));
+      my $x2=sprintf("%.5f",-$xmove+bmil2mm(substr($data,$_*37+37+1,4)));
+	  my $y2=sprintf("%.5f",+$ymove-bmil2mm(substr($data,$_*37+37+5,4)));
 	  print OUT "#ShapeBasedAdhesiveLine\n" if($annotate);
 	  print OUT "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer $v7layer) (width 0.2))\n";
 	     #print "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer $v7layer) (width 0.2))\n";
@@ -1433,8 +1438,8 @@ EOF
 	  my @poly=();
 	  foreach(0 .. $ncoords-1)
 	  {
-        my $x1=sprintf("%.7f",unpack("l",substr($data,$_*37+1,4))/$faktor/10000-$componentatx{$component}); #-$xmove
-	    my $y1=sprintf("%.7f",unpack("l",substr($data,$_*37+5,4))/$faktor/10000+$componentaty{$component}); #$ymove-
+        my $x1=sprintf("%.7f",bmil2mm(substr($data,$_*37+1,4))-$componentatx{$component});
+	    my $y1=sprintf("%.7f",bmil2mm(substr($data,$_*37+5,4))+$componentaty{$component});
         push @poly,"$x1 $y1";
       }
 	  $shapes{$wrl}.=ExtrudedPolygon("0 0 $pz","0 0 0  0","$fak $fak 1",$color,"1",$sz,\@poly).",";
@@ -1585,11 +1590,11 @@ if(defined($stp));
 	my $component=unpack("s",substr($value,7,2));
 	my $xorig=unpack("l",substr($value,13,4));
 	my $yorig=unpack("l",substr($value,17,4));
-  	my $x=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
-	my $y=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
-	my $r=sprintf("%.5f",unpack("l",substr($value,21,4))/$faktor/10000);
+  	my $x=sprintf("%.5f",-$xmove+bmil2mm(substr($value,13,4)));
+	my $y=sprintf("%.5f",+$ymove-bmil2mm(substr($value,17,4)));
+	my $r=bmil2mm(substr($value,21,4));
 	my $layerorig=unpack("C",substr($value,0,1));
-	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "Undefined";
+	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "F.SilkS";
     my $sa=unpack("d",substr($value,25,8));
     my $ea=unpack("d",substr($value,33,8)); 
 
@@ -1602,7 +1607,7 @@ if(defined($stp));
 	#($sa,$ea)=($ea,$sa) if($sa>$ea);
     my $sarad=$sa/180*$pi;
 	my $earad=$ea/180*$pi;
-	my $width=sprintf("%.5f",unpack("l",substr($value,41,4))/$faktor/10000);
+	my $width=bmil2mm(substr($value,41,4));
 	
 	
     my $x1=sprintf("%.5f",$x+cos($sarad)*$r);
@@ -1645,9 +1650,9 @@ if(defined($stp));
     my $value=$_[1];
 	print OUT "#Vias#".$_[3].": ".bin2hex($value)."\n" if($annotate);
     my $debug=($count<100);
-    my $x=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
-	my $y=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
-	my $width=sprintf("%.5f",unpack("l",substr($value,21,4))/$faktor/10000);
+    my $x=sprintf("%.5f",-$xmove+bmil2mm(substr($value,13,4)));
+	my $y=sprintf("%.5f",+$ymove-bmil2mm(substr($value,17,4)));
+	my $width=bmil2mm(substr($value,21,4));
 	my $layer1="F.Cu"; # mapLayer(unpack("C",substr($value,0,1))); # || "F.Cu"; # Since Novena does not have any Blind or Buried Vias
 	my $layer2="B.Cu"; # mapLayer(unpack("C",substr($value,1,1))); # || "B.Cu";
 	my $net=unpack("s",substr($value,3,2))+2;
@@ -1780,19 +1785,18 @@ EOF
     my $net=unpack("s",substr($value,3,2))+2;	  
     my $netname=$netnames{$net};
 	my $component=unpack("s",substr($value,7,2));
-    my $x1=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
-	my $y1=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
-	my $x2=sprintf("%.5f",unpack("l",substr($value,21,4))/$faktor/10000-$xmove);
-	my $y2=sprintf("%.5f",$ymove-unpack("l",substr($value,25,4))/$faktor/10000);
-	my $width=sprintf("%.5f",unpack("l",substr($value,29,4))/$faktor/10000);
+    my $x1=sprintf("%.5f",-$xmove+bmil2mm(substr($value,13,4)));
+	my $y1=sprintf("%.5f",+$ymove-bmil2mm(substr($value,17,4)));
+	my $x2=sprintf("%.5f",-$xmove+bmil2mm(substr($value,21,4)));
+	my $y2=sprintf("%.5f",+$ymove-bmil2mm(substr($value,25,4)));
+	my $width=bmil2mm(substr($value,29,4));
 	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "Cmts.User";
 	
-	if($layer =~m/(Edge\.Cuts|Silk)/i)
+	if($layer =~m/(Edge\.Cuts|Silk|CrtYd|Adhes|Paste)/i)
 	{
 	  $cutcounter++;
 	  #$width="0.$cutcounter";
 	  #print "  (gr_line (start $x1 $y1) (end $x2 $y2) (layer $layer) (width $width))\n";
-	  
 	  print OUT "  (gr_line (start $x1 $y1) (end $x2 $y2) (layer $layer) (width $width))\n"; #(angle 45) 
 	}
 	else
@@ -1894,10 +1898,10 @@ EOF
 	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "Cmts.User";
     my $net=unpack("s",substr($value,3,2))+2;	  
     my $netname=$netnames{$net};
-    my $x1=sprintf("%.5f",unpack("l",substr($value,13,4))/$faktor/10000-$xmove);
-	my $y1=sprintf("%.5f",$ymove-unpack("l",substr($value,17,4))/$faktor/10000);
-	my $x2=sprintf("%.5f",unpack("l",substr($value,21,4))/$faktor/10000-$xmove);
-	my $y2=sprintf("%.5f",$ymove-unpack("l",substr($value,25,4))/$faktor/10000);
+    my $x1=sprintf("%.5f",-$xmove+bmil2mm(substr($value,13,4)));
+	my $y1=sprintf("%.5f",+$ymove-bmil2mm(substr($value,17,4)));
+	my $x2=sprintf("%.5f",-$xmove+bmil2mm(substr($value,21,4)));
+	my $y2=sprintf("%.5f",+$ymove-bmil2mm(substr($value,25,4)));
     my $dir=sprintf("%.5f",unpack("d",substr($value,29,8))); 
     my $dir2=sprintf("%.5f",unpack("d",substr($value,38,8))); 
 
@@ -2138,9 +2142,9 @@ EOF
 	  
 	  my $layer=mapLayer(unpack("C",substr($content,$pos,1))) || "Cmts.User";
 	  my $olayer=unpack("C",substr($content,$pos,1));
-	  my $x1=sprintf("%.5f",unpack("l",substr($content,$pos+13,4))/$faktor/10000-$xmove);
-	  my $y1=sprintf("%.5f",$ymove-unpack("l",substr($content,$pos+17,4))/$faktor/10000);
-      my $width=sprintf("%.5f",unpack("l",substr($content,$pos+21,4))/$faktor/10000);
+	  my $x1=sprintf("%.5f",-$xmove+bmil2mm(substr($content,$pos+13,4)));
+	  my $y1=sprintf("%.5f",+$ymove-bmil2mm(substr($content,$pos+17,4)));
+      my $width=bmil2mm(substr($content,$pos+21,4));
 	  my $dir=unpack("d",substr($content,$pos+27,8)); 
 	  my $mirror=unpack("C",substr($content,$opos+39,1));
 	  my $font=substr($content,$pos,$fontlen); 
