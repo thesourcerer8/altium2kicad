@@ -841,7 +841,7 @@ EOF
   });
 
 
-  my $clearance=$rules{'Clearance'};
+  my $clearance=$rules{'Clearance'} || "0.127";
   my $tracewidth=mil2mm($trackwidth);
 
   
@@ -976,7 +976,7 @@ EOF
     (uvia_drill 0.127)
 EOF
 ;
-    print OUT "    (add_net $_)\n" foreach(sort keys %{$netclass{$class}});
+    print OUT "    (add_net \"$_\")\n" foreach(sort keys %{$netclass{$class}});
     print OUT "  )\n";
   }
 
@@ -992,6 +992,7 @@ EOF
   "2"=>"In4.Cu", # ???  Signal Layer 2/Mid
   "3"=>"In2.Cu",
   "4"=>"In3.Cu",
+  "6"=>"In5.Cu",
   "11"=>"In6.Cu",
   "12"=>"In7.Cu",
   "32"=>"B.Cu",
@@ -1011,7 +1012,16 @@ EOF
   "58"=>"Dwgs.User",
   "59"=>"Dwgs.User",
   "60"=>"In4.Cu",
+  "61"=>"In5.Cu",
+  "62"=>"In6.Cu",
+  "63"=>"In7.Cu",
+  "64"=>"In8.Cu",
+  "65"=>"In9.Cu",
+  "66"=>"In10.Cu",
+  "67"=>"In11.Cu",
+  "68"=>"In12.Cu",
   "69"=>"Dwgs.User",
+  "70"=>"B.Cu",
   "71"=>"F.CrtYd",
   "72"=>"B.CrtYd",
   "73"=>"Eco2.User",
@@ -1045,6 +1055,14 @@ EOF
   $layermap{"TOP"}=$layermap{1};
   $layermap{"BOTTOM"}=$layermap{32};
   $layermap{"TOPOVERLAY"}=$layermap{33};
+  $layermap{"BOTTOMOVERLAY"}=$layermap{34};
+  $layermap{"TOPSOLDER"}=$layermap{37};
+  $layermap{"BOTTOMSOLDER"}=$layermap{38};
+  $layermap{"TOPPASTE"}=$layermap{35};
+  $layermap{"BOTTOMPASTE"}=$layermap{36};
+  $layermap{"MULTILAYER"}=$layermap{74};
+  $layermap{"MECHANICAL14"}=$layermap{70};
+ 
   foreach(sort keys %layermap)
   {
     #print "SORT: $_ -> $layermap{$_}\n";
@@ -1059,6 +1077,11 @@ EOF
   sub mapLayer($)
   {
     my $lay=$_[0];
+	if(!defined($lay))
+	{
+	  print "mapLayer called with undefined layername\n";
+	  return undef;
+	}
 	$usedlayers{$lay}++;
     if(!defined($layermap{$lay}))
 	{
@@ -1122,9 +1145,9 @@ EOF
 	my $aty=mil2mm($d{'Y'});$aty=$ymove-$aty;
 	$componentaty{$componentid}=$aty;
     $componentlayer{$componentid}=$d{'LAYER'};
-	my $reference=$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'PATTERN'};
+	my $reference=($d{'SOURCEFOOTPRINTLIBRARY'}||"")."/".$d{'PATTERN'};
 #	my $reference=$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'};
-	my $newreference=$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'PATTERN'};
+	my $newreference=($d{'SOURCEFOOTPRINTLIBRARY'}||"")."/".$d{'PATTERN'};
 	
 	$kicadwrl{$componentid}=$A2Kwrl{$reference};
 	
@@ -1152,7 +1175,7 @@ EOF
 	open AOUT,">$short/Root Entry/Pads6/Data.dat.txt";
 	my $pos=0;
 	my $counter=0;
-	while($pos<length($value))
+	while($pos+140<length($value))
 	{
 	  my $len=sprintf("%.5f",unpack("l",substr($value,$pos+1,4)));
 	  print AOUT bin2hex(substr($value,$pos,5))." ";
@@ -1171,9 +1194,9 @@ EOF
 
       $x1=sprintf("%.5f",$x1);
 	  $y1=sprintf("%.5f",$y1);
-		
+	  
       my $altlayer=unpack("C",substr($value,$pos+23,1));
-      my $layer=mapLayer($altlayer); $layer="F.Cu B.Cu" if($altlayer==74);
+      my $layer=mapLayer($altlayer) || "F.Cu"; $layer="F.Cu B.Cu" if($altlayer==74);
 	  
 	  $layer.=" F.Mask F.Paste" if($layer=~m/F\.Cu/);
 	  $layer.=" B.Mask B.Paste" if($layer=~m/B\.Cu/);
@@ -1438,8 +1461,8 @@ EOF
 	  my @poly=();
 	  foreach(0 .. $ncoords-1)
 	  {
-        my $x1=sprintf("%.7f",bmil2mm(substr($data,$_*37+1,4))-$componentatx{$component});
-	    my $y1=sprintf("%.7f",bmil2mm(substr($data,$_*37+5,4))+$componentaty{$component});
+        my $x1=sprintf("%.7f",bmil2mm(substr($data,$_*37+1,4))-($componentatx{$component}||0));
+	    my $y1=sprintf("%.7f",bmil2mm(substr($data,$_*37+5,4))+($componentaty{$component}||0));
         push @poly,"$x1 $y1";
       }
 	  $shapes{$wrl}.=ExtrudedPolygon("0 0 $pz","0 0 0  0","$fak $fak 1",$color,"1",$sz,\@poly).",";
@@ -1449,9 +1472,9 @@ EOF
 	{
 	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=100; 
 	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=100; 
-      my $pz=$d{'STANDOFFHEIGHT'};$pz=~s/mil//; $pz/=100; 
-	  my $sz=$d{'OVERALLHEIGHT'}; $sz=~s/mil//; $sz/=100; $sz-=$pz;
-      $shapes{$wrl}.=Cone("0 0 0 ","0 0 0  0","1 1 1",$color,"1",$sz,"3").",";
+      my $pz=mil2mm($d{'STANDOFFHEIGHT'}); #$pz=~s/mil//; $pz/=100; 
+	  my $sz=mil2mm($d{'OVERALLHEIGHT'})-$pz; #; $sz=~s/mil//; $sz/=100; $sz-=$pz;
+      #$shapes{$wrl}.=Cone("0 0 0 ","0 0 0  0","1 1 1",$color,"1",$sz,"3").",";
 	}
 
     if($d{'MODEL.MODELTYPE'} == 2)
@@ -1460,9 +1483,9 @@ EOF
 	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=100; 
       my $pz=$d{'STANDOFFHEIGHT'};$pz=~s/mil//; $pz/=100; 
 	  
-	  my $h=$d{'MODEL.CYLINDER.HEIGHT'};$h=~s/mil//; $h/=100; $h=sprintf("%.7f",$h);
-	  my $r=$d{'MODEL.CYLINDER.RADIUS'};$r=~s/mil//; $r/=100; $r=sprintf("%.7f",$r);
-      $shapes{$wrl}.=Cylinder("0 0 0 ","0 0 0  0","1 1 1",$color,"1",$r,$h).",";
+	  my $h=mil2mm($d{'MODEL.CYLINDER.HEIGHT'});  #$h=~s/mil//; $h/=100; $h=sprintf("%.7f",$h);
+	  my $r=mil2mm($d{'MODEL.CYLINDER.RADIUS'});  #$r=~s/mil//; $r/=100; $r=sprintf("%.7f",$r);
+      #$shapes{$wrl}.=Cylinder("0 0 0 ","0 0 0  0","1 1 1",$color,"1",$r,$h).",";
 	}
 
     if($d{'MODEL.MODELTYPE'} == 3) #  Sphere
@@ -1508,10 +1531,10 @@ EOF
 	my $layer=mapLayer($d{'LAYER'}) || "F.Paste";
 	my $rot=sprintf("%.f",$d{'ROTATION'});
     my $stp=$d{'SOURCEDESIGNATOR'};
-#	my $reference=$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'};
-	my $reference=$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'PATTERN'};
+#	my $reference=($d{'SOURCEFOOTPRINTLIBRARY'}||"")."/".$d{'SOURCELIBREFERENCE'};
+	my $reference=($d{'SOURCEFOOTPRINTLIBRARY'}||"")."/".$d{'PATTERN'};
 	
-	my $sourcelib=$d{'SOURCEFOOTPRINTLIBRARY'};
+	my $sourcelib=($d{'SOURCEFOOTPRINTLIBRARY'}||"");
 	#SOURCELIBREFERENCE
 
 	if(!defined($componentbodyavailable{$componentid}))
@@ -1555,10 +1578,10 @@ EOF
 	  }
 	}
 
-	$rot=0 if($pads{$componentid}=~m/\.\/wrl\//);
+	$rot=0 if(defined($pads{$componentid}) && $pads{$componentid}=~m/\.\/wrl\//);
 	
     my $pad=pad3dRotate($pads{$componentid}||"",$rot);
-    if($pads{$componentid}=~m/\.\/wrl\//)
+    if(defined($pads{$componentid}) && $pads{$componentid}=~m/\.\/wrl\//)
 	{
 	  #print "Rewriting scale\n";
 	  $pad=~s/\(scale\s*\(xyz 1 1 1\)\)/(scale (xyz $fak $fak $fak))/sg;
@@ -1902,9 +1925,11 @@ EOF
 	my $y1=sprintf("%.5f",+$ymove-bmil2mm(substr($value,17,4)));
 	my $x2=sprintf("%.5f",-$xmove+bmil2mm(substr($value,21,4)));
 	my $y2=sprintf("%.5f",+$ymove-bmil2mm(substr($value,25,4)));
-    my $dir=sprintf("%.5f",unpack("d",substr($value,29,8))); 
-    my $dir2=sprintf("%.5f",unpack("d",substr($value,38,8))); 
+    my $dir=sprintf('%.5f',unpack("d",substr($value,29,8))); 
+	
+    my $dir2=sprintf('%.5f',unpack("d",substr($value,38,8))||0); 
 
+	
 	#print "Koordinaten:\n";
 	#print "x:$x1 y:$y1 dir:$dir dir2:$dir2\n";
 	print OUT <<EOF
@@ -2116,14 +2141,16 @@ EOF
   if(1)
   {
     print "Texts6...\n";
-    my $content=readfile("$short/Root Entry/Texts6/Data.dat"); $content=~s/\r\n/\n/sg;
+    my $content=readfile("$short/Root Entry/Texts6/Data.dat"); #$content=~s/\r\n/\n/sg;
 	my $pos=0;
 	my %seen=();
 	while($pos<length($content))
 	{
-	  last if(substr($content,$pos,1) ne "\x05"); $pos++;
-      my $fontlen=unpack("l",substr($content,$pos,4)); 
 	  my $opos=$pos;
+	  last if(substr($content,$pos,1) ne "\x05"); 
+	  #print "pos: $pos\n";
+	  $pos++;
+      my $fontlen=unpack("l",substr($content,$pos,4)); 
 	  $pos+=4;
 	  my $component=unpack("s",substr($content,$pos+7,2));
 	  my $texttype=unpack("C",substr($content,$pos+21,1));
