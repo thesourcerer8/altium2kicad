@@ -17,7 +17,7 @@ push @files,<*.SchLib>;
 
 foreach my $file (@files)
 {
-  next if($file=~m/^ASCII/i); # We have to skip ASCII formatted PCB Files
+  #next if($file=~m/^ASCII/i); # We have to skip ASCII formatted PCB Files
   next if(-d $file); # We only handle files, no directories.
   print "Loading $file\n";
   my $short=$file; $short=~s/\.\w+$//;
@@ -26,6 +26,12 @@ foreach my $file (@files)
   binmode IN;
   undef $/;
   my $content=<IN>;
+  
+  if(substr($content,0,length("|RECORD=Board|")) eq "|RECORD=Board|")
+  {
+    print "Skipping ASCII .PcbDoc\n";
+	next;
+  }
   #print "filelength: ".length($content)."\n";
   
   close IN;
@@ -34,28 +40,30 @@ foreach my $file (@files)
 
   my $v="l";
 
-  my $header=substr($content,0,512);
-  my $CDFident=substr($header,0,8);
-  my $uid=substr($header,8,16);
-  my $revision=unpack('v',substr($header,24,2));
-  my $version=unpack('v',substr($header,26,2));
-  my $byteorder=substr($header,28,2);
-  my $sectorpowersize=unpack('v',substr($header,30,2));
-  my $sectorsize=2**$sectorpowersize;
-  my $shortsectorpowersize=unpack('v',substr($header,32,2));
-  my $shortsectorsize=2**$shortsectorpowersize;
-  my $unused=substr($header,34,10);
-  my $SATsizeSectors=unpack($v,substr($header,44,4));
-  my $SecIdDirStream=unpack($v,substr($header,48,4));
-  my $unused2=substr($header,52,4);
-  my $minByteSizeStdStream=unpack($v,substr($header,56,4));
-  my $SecIdSSAT=unpack($v,substr($header,60,4));
-  my $totalSectorsSSAT=unpack($v,substr($header,64,4));
-  my $SecIdMSAT=unpack($v,substr($header,68,4));
-  my $totalSectorsMSAT=unpack($v,substr($header,72,4));
-  my $firstpartMSAT=substr($header,76,436);
+  our $header=substr($content,0,512);
+  our $CDFident=substr($header,0,8);
+  our $uid=substr($header,8,16);
+  our $revision=unpack('v',substr($header,24,2));
+  our $version=unpack('v',substr($header,26,2));
+  our $byteorder=substr($header,28,2);
+  our $sectorpowersize=unpack('v',substr($header,30,2));
+  our $sectorsize=2**$sectorpowersize;
+  our $shortsectorpowersize=unpack('v',substr($header,32,2));
+  our $shortsectorsize=2**$shortsectorpowersize;
+  our $unused=substr($header,34,10);
+  our $SATsizeSectors=unpack($v,substr($header,44,4));
+  our $SecIdDirStream=unpack($v,substr($header,48,4));
+  our $unused2=substr($header,52,4);
+  our $minByteSizeStdStream=unpack($v,substr($header,56,4));
+  our $SecIdSSAT=unpack($v,substr($header,60,4));
+  our $totalSectorsSSAT=unpack($v,substr($header,64,4));
+  our $SecIdMSAT=unpack($v,substr($header,68,4));
+  our $totalSectorsMSAT=unpack($v,substr($header,72,4));
+  our $firstpartMSAT=substr($header,76,436);
+  
+  next unless($revision==62); # We might stumble across other ASCII files that way
 
-  my $MSAT=$firstpartMSAT;
+  our $MSAT=$firstpartMSAT;
   if(0)
   {
   print "maximum number of blocks: ".((length($content)-512)/$sectorsize)."\n";
@@ -94,13 +102,13 @@ foreach my $file (@files)
         print "CollectingMSAT(): Error in file $file, next sector in MSAT is $nextsec but should be a positive value!\n";
         last;
       }
-      if(512+$nextsec*$sectorsize>length($content))
+      if((512+($nextsec*$sectorsize))>length($content))
       {
         print "CollectingMSAT(): Error in file $file: next sector in MSAT goes beyond end of file!\n";
         last;
       }
       #print "Adding a MSAT block at $nextsec->".(512+$nextsec*$sectorsize)." ($sectorsize)\n";
-      my $sec=substr($content,512+$nextsec*$sectorsize,$sectorsize);
+      my $sec=substr($content,512+($nextsec*$sectorsize),$sectorsize);
       $MSAT.=substr($sec,0,$sectorsize-4);
       $nextsec=unpack($v,substr($sec,-4,4));
       #print "nextsec: $nextsec\n";
@@ -116,6 +124,8 @@ foreach my $file (@files)
   print MSAT join(",",@MSAT)."\n";
   close MSAT;
 
+  #print "sectorsize: $sectorsize\n";
+
 
   # Collecting the whole SAT Table:
   my @SAT=();
@@ -124,7 +134,7 @@ foreach my $file (@files)
   {
     if($_>=0)
     { 
-      my $sec=substr($content,512+$_*$sectorsize,$sectorsize);
+      my $sec=substr($content,512+($_*$sectorsize),$sectorsize);
       $SAT1.=$sec;
     }
   }
@@ -148,17 +158,20 @@ foreach my $file (@files)
     my $filecontent="";
     my %seen=();
     my $count=0;
+	
+    #print "sectorsize: $sectorsize\n";
+
     while($nextsec>=0)
     {
-      #print "count:$count nextsec:$nextsec\n";
-      if(512+$nextsec*$sectorsize>length($content))
+      #print "count:$count nextsec:$nextsec sectorsize:$sectorsize nextpos:".(512+($nextsec*$sectorsize))." length(content):".length($content)."\n";
+      if((512+($nextsec*$sectorsize))>length($content))
       {
         print "getLongFile(): Error in file $file: next sector $nextsec in file goes beyond end of file beginning sector: $_[0]!\n";
         return "";
       }
 
       $visits{$nextsec+1}=1;
-      my $sec=substr($content,512+$nextsec*$sectorsize,$sectorsize);
+      my $sec=substr($content,512+($nextsec*$sectorsize),$sectorsize);
       $filecontent.=substr($sec,0,$sectorsize);
       #print "oldnextsec: $nextsec SAT[$nextsec]=$SAT[$nextsec]\n";
       $nextsec=$SAT[$nextsec];
@@ -174,7 +187,8 @@ foreach my $file (@files)
     return $_[1]>0?substr($filecontent,0,$_[1]):$filecontent;
   }
 
-
+  #print "sectorsize: $sectorsize\n";
+  
   my @SSAT=();
 
   sub getShortFile($$$$$)
@@ -223,11 +237,11 @@ foreach my $file (@files)
       {
         print "CollectingShortSAT(): Error in file $file, next sector in SSAT is $nextsec but should be a positive value!\n";
       }
-      if(512+$nextsec*$sectorsize>length($content))
+      if(512+($nextsec*$sectorsize)>length($content))
       {
         print "CollectingShortSAT(): Error in file $file: next sector in SSAT goes beyond end of file!\n";
       }
-      my $sec=substr($content,512+$nextsec*$sectorsize,$sectorsize);
+      my $sec=substr($content,512+($nextsec*$sectorsize),$sectorsize);
       $SSAT.=substr($sec,0,$sectorsize);
       #print "SAT[$nextsec]=$SAT[$nextsec]\n";
       $nextsec=$SAT[$nextsec];
@@ -373,6 +387,7 @@ foreach my $file (@files)
         my $path = Cwd::cwd();
 		chdir $newpath;
         my $newerpath = Cwd::cwd();
+
 	    print "Path: $path Newpath: $newpath Newerpath: $newerpath 0: $0\n";
         system "\"$0\"";
 		chdir $path;
