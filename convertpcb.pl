@@ -142,6 +142,12 @@ sub near($$)
   return ($_[0]>$_[1]-$d && $_[0]<$_[1]+$d);
 }
 
+sub near2d($$$$)
+{
+  my $d=0.0001;
+  return (sqrt(($_[0]-$_[1])*($_[0]-$_[1])+($_[2]-$_[3])*($_[2]-$_[3]))<$d);
+}
+
 
 # This is the main handling function that parses most of the binary files inside a .PcbDoc
 sub HandleBinFile 
@@ -319,7 +325,7 @@ sub ExtrudedPolygon($$$$$$$)
 	#push @line,$_*2,(($_+1)%$n)*2,(($_+2)%$n)*2,-1;
 	push @line,$_*2,$_*2+1,(($_+1)%$n)*2,-1; # Side
 	push @line,(($_+1)%$n)*2,$_*2+1,(($_+1)%$n)*2+1,-1; # Side
-	push @polyarray,[$1,$2] if($points[$_]=~m/^(-?\d+\.?\d*)\s+(-?\d+\.?\d*)$/ && $points[$_] ne $points[($_+1)%$n]);
+	push @polyarray,[$1,$2] if($points[$_]=~m/^(-?\d+\.?\d*)\s+(-?\d+\.?\d*)$/ && ($points[$_] ne $points[($_+1)%$n]));
   }
 
   #print Dumper(\@polyarray);
@@ -592,6 +598,9 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
   my %layername=();
   my %dieltype=();
   my %mechenabled=();
+  my %activelayer=();
+  my %layernext=();
+  my %layerprev=();
   HandleBinFile($filename,"",0,0,sub {
     my %d=%{$_[0]};
 	foreach(keys %d)
@@ -611,6 +620,18 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
 	    $mechenabled{$1}=$d{$_};
 		#print "$1 -> $d{$_}\n";
 	  }
+	  if($_=~m/^LAYER(\d+)NEXT$/)
+	  {
+	    $layernext{$1}=$d{$_};
+		$activelayer{$1}=1 if($d{$_});
+		#print "$1 -> $d{$_}\n";
+	  }
+      if($_=~m/^LAYER(\d+)PREV$/)
+	  {
+	    $layerprev{$1}=$d{$_};
+		$activelayer{$1}=1 if($d{$_});
+		#print "$1 -> $d{$_}\n";
+	  }
 	  if($_=~m/^TRACKWIDTH$/)
 	  {
 	    print "Track Width: $d{$_}\n";
@@ -618,6 +639,26 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
 	  }
 	}
   }); # Board
+  
+  my $firstlayer=0;
+  my $lastlayer=0;
+  my @layersorder=();
+  foreach(keys %activelayer)
+  {
+    $firstlayer=$_ if($layerprev{$_}==0 && $layernext{$_}!=0);
+	$lastlayer=$_ if($layerprev{$_}!=0 && $layernext{$_}==0);
+  }
+  
+  my $thislayer=$firstlayer;
+  while($thislayer!=0)
+  {
+	push @layersorder,$thislayer;
+	$thislayer=$layernext{$thislayer};
+  }
+  print "Layers: ".join(",",@layersorder)."\n";
+  
+  print "Active layers: ".scalar(keys %activelayer)."\n";
+    
 
   my $layers="";
   
@@ -844,6 +885,12 @@ EOF
   my $clearance=$rules{'Clearance'} || "0.127";
   my $tracewidth=mil2mm($trackwidth);
 
+  my $layertext="";
+  foreach(1 .. scalar(@layersorder)-2)
+  {
+     $layertext.="	($_ In$_.Cu signal)\n";
+  } 
+  
   
   # This is the standard Header for the .kicad_pcb file
   print OUT <<EOF
@@ -864,14 +911,7 @@ EOF
   (page A4)
   (layers
     (0 F.Cu signal)
-	(1 In1.Cu signal)
-    (2 In2.Cu power)
-    (3 In3.Cu power)
-    (4 In4.Cu signal)
-    (5 In5.Cu signal)
-    (6 In6.Cu signal)
-    (7 In7.Cu signal)
-    (8 In8.Cu signal)
+$layertext
     (31 B.Cu signal)
     (32 B.Adhes user)
     (33 F.Adhes user)
@@ -1027,6 +1067,16 @@ EOF
   "73"=>"Eco2.User",
   "74"=>"Dwgs.User",
   );
+  
+  foreach(1 .. scalar(@layersorder)-2)
+  {
+     if($layermap{$layersorder[$_]} ne "In$_.Cu")
+	 {
+	   print "Changing $_ $layersorder[$_] from old value $layermap{$layersorder[$_]} to In$_.Cu\n";
+	 }
+     $layermap{$layersorder[$_]}="In$_.Cu";
+  }
+  
   
   my @layerkeys=keys %layermap;
   foreach(@layerkeys)
@@ -1397,6 +1447,7 @@ EOF
   { 
     my $value=$_[1];
     print OUT "#ShapeBasedComponentBodies#".$_[3].": ".bin2hex($value)."\n" if($annotate);
+    print "#ShapeBasedComponentBodies#".$_[3]."\n" if($annotate);
 	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
 	my $component=unpack("s",substr($value,7,2));
     print OUT "# ".bin2hex($unknownheader)."\n" if($annotate);
@@ -1459,13 +1510,18 @@ EOF
 	  my $szmin=$d{'MODEL.EXTRUDED.MINZ'}; $szmin=~s/mil//; $szmin/=100; $szmin=sprintf("%.7f",$szmin);
 	  my $sz=$d{'MODEL.EXTRUDED.MAXZ'}; $sz=~s/mil//; $sz/=100; $sz=sprintf("%.7f",$sz);
 	  my @poly=();
+	  my $prevx=undef; my $prevy=undef;
+	  my $good=1;
 	  foreach(0 .. $ncoords-1)
 	  {
-        my $x1=sprintf("%.7f",bmil2mm(substr($data,$_*37+1,4))-($componentatx{$component}||0));
-	    my $y1=sprintf("%.7f",bmil2mm(substr($data,$_*37+5,4))+($componentaty{$component}||0));
-        push @poly,"$x1 $y1";
+        my $x1=sprintf("%.8f",bmil2mm(substr($data,$_*37+1,4))-($componentatx{$component}||0));
+	    my $y1=sprintf("%.8f",bmil2mm(substr($data,$_*37+5,4))+($componentaty{$component}||0));
+		$good=0 if(defined($prevx) && near2d($prevx,$x1,$prevy,$y1));
+        push @poly,"$x1 $y1" if(!defined($prevx) || $prevx ne $x1 || $prevy ne $y1);
+		$prevx=$x1;
+		$prevy=$y1;
       }
-	  $shapes{$wrl}.=ExtrudedPolygon("0 0 $pz","0 0 0  0","$fak $fak 1",$color,"1",$sz,\@poly).",";
+	  $shapes{$wrl}.=ExtrudedPolygon("0 0 $pz","0 0 0  0","$fak $fak 1",$color,"1",$sz,\@poly)."," if($good);
 	}
 
 	if($d{'MODEL.MODELTYPE'} == 1)
@@ -2127,10 +2183,7 @@ EOF
   print VOUT ")\n";
   close VOUT;
   print OUT "#Finished handling Shape Based Bodies.\n";
-  
-  
-  
-  
+
   
   sub ucs2utf($)
   {
