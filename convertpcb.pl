@@ -655,9 +655,9 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
 	push @layersorder,$thislayer;
 	$thislayer=$layernext{$thislayer};
   }
-  print "Layers: ".join(",",@layersorder)."\n";
+  #print "Layers: ".join(",",@layersorder)."\n";
   
-  print "Active layers: ".scalar(keys %activelayer)."\n";
+  #print "Active layers: ".scalar(keys %activelayer)."\n";
     
 
   my $layers="";
@@ -825,6 +825,8 @@ EOF
 	my $name=$_[0]{'NAME'};
     my $clearance=mil2mm($_[0]{'CLEARANCE'});
 	my $gap=mil2mm($_[0]{'GAP'});
+	my $airgap=mil2mm($_[0]{'AIRGAPWIDTH'});
+	my $conductorwidth=mil2mm($_[0]{'RELIEFCONDUCTORWIDTH'});
 	if(defined($clearance))
 	{
 	  print "Rule $rulekind $name gives clearance $clearance\n";
@@ -834,6 +836,14 @@ EOF
 	{
 	  print "Rule $rulekind $name gives gap $gap\n";
 	  $rules{$name}=$gap;
+	}
+	if(defined($airgap))
+    {
+	  $rules{$name.".AIRGAP"}=$airgap;
+	}
+	if(defined($conductorwidth))
+    {
+	  $rules{$name.".RELIEFCONDUCTORWIDTH"}=$conductorwidth;
 	}
   });
   
@@ -1072,7 +1082,7 @@ EOF
   {
      if($layermap{$layersorder[$_]} ne "In$_.Cu")
 	 {
-	   print "Changing $_ $layersorder[$_] from old value $layermap{$layersorder[$_]} to In$_.Cu\n";
+	   #print "Changing $_ $layersorder[$_] from old value $layermap{$layersorder[$_]} to In$_.Cu\n";
 	 }
      $layermap{$layersorder[$_]}="In$_.Cu";
   }
@@ -1294,11 +1304,12 @@ EOF
 
 	  my $tp=($holesize==0)?"smd":$plated eq "TRUE"?"thru_hole":"np_thru_hole";
 	  my $drill=($holesize==0)?"":" (drill $holesize) ";
-	  
+ 	  my $nettext=($net>1)?"(net $net \"$netname\")":"";
+
 	  $pads{$component}.=<<EOF
-#813
+#1309
     (pad "$name" $tp $type (at $x1 $y1$mdir) (size $sx $sy) $drill
-      (layers $layer) (net $net "$netname")
+      (layers $layer) $nettext
     )
 EOF
 ;
@@ -1447,7 +1458,7 @@ EOF
   { 
     my $value=$_[1];
     print OUT "#ShapeBasedComponentBodies#".$_[3].": ".bin2hex($value)."\n" if($annotate);
-    print "#ShapeBasedComponentBodies#".$_[3]."\n" if($annotate);
+    #print "#ShapeBasedComponentBodies#".$_[3]."\n" if($annotate);
 	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
 	my $component=unpack("s",substr($value,7,2));
     print OUT "# ".bin2hex($unknownheader)."\n" if($annotate);
@@ -1821,16 +1832,18 @@ if(defined($stp));
 
 	if($d{'POLYGONTYPE'} eq "Split Plane" || $d{'HATCHSTYLE'} eq "Solid")
 	{
+	  my $thermalgap=$rules{'PolygonConnect.AIRGAP'} || "0.508";
+	  my $thermalbridgewidth=$rules{'PolygonConnect.RELIEFCONDUCTORWIDTH'} || "0.508";
+	  my $nettext=($net>1)?"(net $net) (net_name \"$netname\")":"";
 	  print OUT <<EOF
-(zone (net $net) (net_name "$netname") (layer $layer) (tstamp 547BA6E6) (hatch edge 0.508)
+(zone $nettext (layer $layer) (tstamp 547BA6E6) (hatch edge 0.508)
     (connect_pads thru_hole_only (clearance 0.09144))
     (min_thickness 0.254)
-    (fill (mode segment) (arc_segments 16) (thermal_gap 0.508) (thermal_bridge_width 0.508))
+    (fill (mode segment) (arc_segments 32) (thermal_gap $thermalgap) (thermal_bridge_width $thermalbridgewidth))
     (polygon
       (pts     
 EOF
 ;
-	
 	}
 	
 	foreach(0 .. $maxpoints-(($d{'POLYGONTYPE'} eq "Polygon" && $d{'HATCHSTYLE'} eq "Solid")?1:0))
@@ -1988,8 +2001,9 @@ EOF
 	
 	#print "Koordinaten:\n";
 	#print "x:$x1 y:$y1 dir:$dir dir2:$dir2\n";
+    my $nettext=($net>1)?"(net $net) (net_name \"$netname\")":"";
 	print OUT <<EOF
-	  (zone (net $net) (net_name "$netname") (layer $layer) (tstamp 53EB93DD) (hatch edge 0.508)
+	  (zone $nettext (layer $layer) (tstamp 53EB93DD) (hatch edge 0.508)
     (connect_pads (clearance 0.508))
     (min_thickness 0.254)
     (fill (arc_segments 16) (thermal_gap 0.508) (thermal_bridge_width 0.508))
@@ -2173,7 +2187,7 @@ EOF
       (rotate (xyz 0 0 0))
     )
     (pad "1" smd oval (at 0.0 0.0) (size 0.60000 2.20000) 
-      (layers F.Cu F.Mask F.Paste) (net 1 "Net1")
+      (layers F.Cu F.Mask F.Paste)
     )
   )
 EOF
@@ -2194,7 +2208,8 @@ EOF
   if(1)
   {
     print "Texts6...\n";
-    my $content=readfile("$short/Root Entry/Texts6/Data.dat"); #$content=~s/\r\n/\n/sg;
+	# It seems there are files with \r\n and files with \n but we don´t know how to distinguish those. Perhaps it depends on the Alitum version?
+    my $content=readfile("$short/Root Entry/Texts6/Data.dat"); $content=~s/\r\n/\n/sg unless($filename=~m/EDA/);
 	my $pos=0;
 	my %seen=();
 	while($pos<length($content))
@@ -2239,7 +2254,7 @@ EOF
 	  print OUT "#Commenton: ".$commenton{$component}." nameon: ".$nameon{$component}."\n" if($component>=0 && $annotate);
 	  print OUT "#Mirror: $mirror\n";
 	  my $mirrortext=$mirror?" (justify mirror)":"";
-	  print OUT "#hide: $hide\n" if($annotate);
+	  print OUT "#hide: $hide ($text)\n" if($annotate);
 	  $text=~s/"/''/g;
 	  print OUT <<EOF
  (gr_text "$text" (at $x1 $y1 $dir) (layer $layer)
