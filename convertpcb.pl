@@ -1835,7 +1835,7 @@ if(defined($stp));
 	  my $thermalgap=$rules{'PolygonConnect.AIRGAP'} || "0.508";
 	  my $thermalbridgewidth=$rules{'PolygonConnect.RELIEFCONDUCTORWIDTH'} || "0.508";
 	  my $nettext=($net>1)?"(net $net) (net_name \"$netname\")":"";
-	  my $priority=defined($pourindex)?"\n  (priority $pourindex)":"";
+	  my $priority=defined($pourindex)?"\n  (priority ".(100-$pourindex).")":"";
 	  print OUT <<EOF
 (zone $nettext (layer $layer) (tstamp 547BA6E6) (hatch edge 0.508) $priority
     (connect_pads thru_hole_only (clearance 0.09144))
