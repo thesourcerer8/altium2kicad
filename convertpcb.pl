@@ -1815,6 +1815,10 @@ if(defined($stp));
 	my $width=mil2mm($d{'TRACKWIDTH'}||1);
 	my $layer=mapLayer($d{'LAYER'}) || "F.Paste";
 	my $pourindex=$d{'POURINDEX'};
+	if(defined($pourindex) && ( $pourindex<0 || $pourindex>100))
+	{
+	  print "Warning: Pourindex $pourindex out of the expected range (0 .. 100)\n";
+	}
 	my $net=($d{'NET'}||-1)+2; my $netname=$netnames{$net};
 	#print "Polygon $_[3] has net $net\n";
 	my $maxpoints=0;
