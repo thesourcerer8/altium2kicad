@@ -1186,7 +1186,6 @@ EOF
     "commonpcb.lib/USB_TYPEA_TH_SINGLE"=>"Pin_Headers/Pin_Header_Straight_1x4.wrl",
     "commonpcb.lib/HAOYU_TS_1185A_E"=>"Pin_Headers/Pin_Header_Straight_1x4.wrl",
     "commonpcb.lib/JST_S3B_EH"=>"Pin_Headers/Pin_Header_Straight_1x3.wrl",
-	
 	);
 		
   our $componentid=0;
@@ -1815,6 +1814,7 @@ if(defined($stp));
 	my $counter=$_[3];
 	my $width=mil2mm($d{'TRACKWIDTH'}||1);
 	my $layer=mapLayer($d{'LAYER'}) || "F.Paste";
+	my $pourindex=$d{'POURINDEX'};
 	my $net=($d{'NET'}||-1)+2; my $netname=$netnames{$net};
 	#print "Polygon $_[3] has net $net\n";
 	my $maxpoints=0;
@@ -1835,8 +1835,9 @@ if(defined($stp));
 	  my $thermalgap=$rules{'PolygonConnect.AIRGAP'} || "0.508";
 	  my $thermalbridgewidth=$rules{'PolygonConnect.RELIEFCONDUCTORWIDTH'} || "0.508";
 	  my $nettext=($net>1)?"(net $net) (net_name \"$netname\")":"";
+	  my $priority=defined($pourindex)?"\n  (priority $pourindex)":"";
 	  print OUT <<EOF
-(zone $nettext (layer $layer) (tstamp 547BA6E6) (hatch edge 0.508)
+(zone $nettext (layer $layer) (tstamp 547BA6E6) (hatch edge 0.508) $priority
     (connect_pads thru_hole_only (clearance 0.09144))
     (min_thickness 0.254)
     (fill (mode segment) (arc_segments 32) (thermal_gap $thermalgap) (thermal_bridge_width $thermalbridgewidth))
