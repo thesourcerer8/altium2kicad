@@ -1132,6 +1132,8 @@ EOF
   our %unmappedLayers=();
   our %usedlayers=();
   our %layererrors=();
+  our %altiumlayername=("1"=>"TOP","32"=>"BOTTOM","33"=>"TOPOVERLAY","34"=>"BOTTOMOVERLAY","37"=>"TOPSOLDER","38"=>"BOTTOMSOLDER","35"=>"TOPPASTE","36"=>"BOTTOMPASTE","74"=>"MULTILAYER","70"=>"MECHANICAL14");
+  
   
   # This function maps the Layer numbers or names to KiCad Layernames
   sub mapLayer($)
@@ -1232,16 +1234,18 @@ EOF
     my $value=readfile("$short/Root Entry/Pads6/Data.dat");
     $value=~s/\r\n/\n/gs;
 	open AOUT,">$short/Root Entry/Pads6/Data.dat.txt";
+	open DOUT,">Pads.txt";
 	my $pos=0;
 	my $counter=0;
 	while($pos+140<length($value))
 	{
+	  my $opos=$pos;
 	  my $len=sprintf("%.5f",unpack("l",substr($value,$pos+1,4)));
 	  print AOUT bin2hex(substr($value,$pos,5))." ";
 	  print AOUT sprintf("A:%10s",bin2hex(substr($value,$pos+5,$len)))." ";
 	  my $name=substr($value,$pos+6,$len-1);
 	  $pos+=5+$len;
-
+      my $npos=$pos;
       my $component=unpack("s",substr($value,$pos+30,2));	
 
 	  #print AOUT "component:$component net:$net\n";
@@ -1270,16 +1274,21 @@ EOF
 	  my $mdir=($dir==0)?"":" $dir";
 	  
 	  my %typemap=("2"=>"rect","1"=>"circle");
-      my $type=$typemap{unpack("C",substr($value,$pos+72,1))};	  
+	  my $otype=unpack("C",substr($value,$pos+72,1));
+      my $type=$typemap{$otype};	  
 	  
 	  $type="oval" if($type eq "circle" && $sx != $sy);
 	  
       my %platemap=("0"=>"FALSE","1"=>"TRUE");
       my $plated=$platemap{unpack("C",substr($value,$pos+83,1))};	  
 
-	  
-      my $net=unpack("s",substr($value,$pos+26,2))+2;	  
+	  my $onet=unpack("s",substr($value,$pos+26,2));
+      my $net=$onet+2;	  
 	  my $netname=$netnames{$net};
+	  
+	  my %soldermaskexpansionmap=("1"=>"Rule","2"=>"Manual");
+	  my $soldermaskexpansionmode=$soldermaskexpansionmap{unpack("C",substr($value,$pos+125))};
+  	  my $SOLDERMASKEXPANSION_MANUAL=bmil2mm(substr($value,$pos+113,4)); #This is wrong !!! XXX
 	  
 	  #print "layer:$layer net:$net component=$component type:$type dir:$dir \n";
 	  print AOUT bin2hex(substr($value,$pos,143))." ";
@@ -1287,6 +1296,11 @@ EOF
 	  $pos+=147;
   	  print AOUT bin2hex(substr($value,$pos,$len2))."\n";
       $pos+=$len2;
+	  my $olayer=$altiumlayername{$altlayer};
+	  my $onettext=$onet>=0?"|NET=$onet":"";
+	  my $dump=bin2hex(substr($value,$npos,143));
+	  my $smem=$SOLDERMASKEXPANSION_MANUAL?"|SOLDERMASKEXPANSION_MANUAL=$SOLDERMASKEXPANSION_MANUAL":"";
+	  print DOUT "$dump |RECORD=Pad$onettext|COMPONENT=$component|INDEXFORSAVE=$counter|SELECTION=FALSE|LAYER=$olayer|LOCKED=FALSE|POLYGONOUTLINE=FALSE|USERROUTED=TRUE|UNIONINDEX=0|SOLDERMASKEXPANSIONMODE=$soldermaskexpansionmode$SOLDERMASKEXPANSION_MANUAL|PASTEMASKEXPANSIONMODE=Rule|NAME=1|X=5511.1023mil|Y=3027.2441mil|XSIZE=39.3701mil|YSIZE=39.3701mil|SHAPE=RECTANGLE|HOLESIZE=0mil|ROTATION= 2.70000000000000E+0002|PLATED=TRUE|DAISYCHAIN=Load|CCSV=0|CPLV=0|CCWV=1|CENV=1|CAGV=1|CPEV=1|CSEV=1|CPCV=1|CPRV=1|CCW=25mil|CEN=4|CAG=10mil|CPE=0mil|CSE=2.7559mil|CPC=20mil|CPR=20mil|PADMODE=0|SWAPID_PAD=|SWAPID_GATE=|&|0|SWAPPEDPADNAME=|GATEID=0|OVERRIDEWITHV6_6SHAPES=FALSE|DRILLTYPE=0|HOLETYPE=0|HOLEWIDTH=0mil|HOLEROTATION= 0.00000000000000E+0000|PADXOFFSET0=0mil|PADYOFFSET0=0mil|PADXOFFSET1=0mil|PADYOFFSET1=0mil|PADXOFFSET2=0mil|PADYOFFSET2=0mil|PADXOFFSET3=0mil|PADYOFFSET3=0mil|PADXOFFSET4=0mil|PADYOFFSET4=0mil|PADXOFFSET5=0mil|PADYOFFSET5=0mil|PADXOFFSET6=0mil|PADYOFFSET6=0mil|PADXOFFSET7=0mil|PADYOFFSET7=0mil|PADXOFFSET8=0mil|PADYOFFSET8=0mil|PADXOFFSET9=0mil|PADYOFFSET9=0mil|PADXOFFSET10=0mil|PADYOFFSET10=0mil|PADXOFFSET11=0mil|PADYOFFSET11=0mil|PADXOFFSET12=0mil|PADYOFFSET12=0mil|PADXOFFSET13=0mil|PADYOFFSET13=0mil|PADXOFFSET14=0mil|PADYOFFSET14=0mil|PADXOFFSET15=0mil|PADYOFFSET15=0mil|PADXOFFSET16=0mil|PADYOFFSET16=0mil|PADXOFFSET17=0mil|PADYOFFSET17=0mil|PADXOFFSET18=0mil|PADYOFFSET18=0mil|PADXOFFSET19=0mil|PADYOFFSET19=0mil|PADXOFFSET20=0mil|PADYOFFSET20=0mil|PADXOFFSET21=0mil|PADYOFFSET21=0mil|PADXOFFSET22=0mil|PADYOFFSET22=0mil|PADXOFFSET23=0mil|PADYOFFSET23=0mil|PADXOFFSET24=0mil|PADYOFFSET24=0mil|PADXOFFSET25=0mil|PADYOFFSET25=0mil|PADXOFFSET26=0mil|PADYOFFSET26=0mil|PADXOFFSET27=0mil|PADYOFFSET27=0mil|PADXOFFSET28=0mil|PADYOFFSET28=0mil|PADXOFFSET29=0mil|PADYOFFSET29=0mil|PADXOFFSET30=0mil|PADYOFFSET30=0mil|PADXOFFSET31=0mil|PADYOFFSET31=0mil|PADJUMPERID=0\n";
 	  
 	  my $width=0.5;
 
@@ -1304,9 +1318,10 @@ EOF
 	  my $tp=($holesize==0)?"smd":$plated eq "TRUE"?"thru_hole":"np_thru_hole";
 	  my $drill=($holesize==0)?"":" (drill $holesize) ";
  	  my $nettext=($net>1)?"(net $net \"$netname\")":"";
-
+      my $oposhex=sprintf("%X",$opos);
 	  $pads{$component}.=<<EOF
-#1309
+#1309 counter:$counter pos:$opos(0x$oposhex) type:$otype net:$onet
+#$dump
     (pad "$name" $tp $type (at $x1 $y1$mdir) (size $sx $sy) $drill
       (layers $layer) $nettext
     )
@@ -1317,6 +1332,7 @@ EOF
 	  
 	}
     close AOUT;
+	close DOUT;
   
   }#);
 
@@ -2451,7 +2467,8 @@ sub decodePcbLib($)
 		  print "Error in file!\n";
 		  last;
 		}
-	    print "* ".bin2hex(substr($content,$pos,16))."\n";
+	    #print "* ".bin2hex(substr($content,$pos,16))."\n";
+        print "** ".sprintf("%.7f",unpack("d",substr($content,$pos,8))/$faktor/10000)." ".sprintf("%.7f",unpack("d",substr($content,$pos+8,8))/$faktor/10000)."\n";
 		$pos+=16;
 	  }
 	  $prevtype=-1;
@@ -2462,11 +2479,11 @@ sub decodePcbLib($)
       my $value=substr($content,$pos+5,$typelen);
 	  if(substr($value,0,2)eq "V7")
 	  {
-        print "pos: ".sprintf("%5d",$pos)." typelen: ".sprintf("%5d",$typelen)." value: $value\n";
+        print "pos: ".sprintf("%5d 0x%02X",$pos,$pos)." typelen: ".sprintf("%5d",$typelen)." value: $value\n";
   	  }
  	  else
 	  {
-        print "pos: ".sprintf("%5d",$pos)." typelen: ".sprintf("%5d",$typelen)." value: ".bin2hex(substr($content,$pos,5))." ".bin2hex(substr($content,$pos+5,$typelen))."\n";	
+        print "pos: ".sprintf("%5d 0x%02X",$pos,$pos)." typelen: ".sprintf("%5d",$typelen)." value: ".bin2hex(substr($content,$pos,5))." ".bin2hex(substr($content,$pos+5,$typelen))."\n";	
   	  }
 	  
 	  #type: 0 => Contains V7-|seperated|values| , afterwards a list of coordinates follow
@@ -2495,9 +2512,16 @@ foreach(glob("'library/Miscellaneous Devices/Root Entry/PcbLib/0/Root Entry/*/Da
 {
  #decodePcbLib($_);
 }
-foreach(glob("'TestsSrc/Root Entry/*/Data.dat.bin'"))
+foreach my $dir (glob("'*/Root Entry/Library'"))
 {
-  #decodePcbLib($_);
+  $dir=~s/\/Library$//;
+  foreach(glob("'".$dir."/*/Data.dat.bin'"))
+  {
+    next if(m/\/Library\/Data.dat.bin/);
+    next if(m/\/FileVersionInfo\/Data.dat.bin/);
+    decodePcbLib($_);
+    #print "Done decoding PCBLIB $_\n";
+  }
 }
 
 foreach(glob("ASCII*.PcbDoc"))
