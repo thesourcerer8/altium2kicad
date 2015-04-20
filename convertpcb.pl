@@ -128,6 +128,7 @@ sub bin2hex($)
 {
   my $orig=$_[0];
   my $value="";
+  return "" if(!defined($orig) || $orig eq "");
   foreach(0 .. length($orig)-1)
   {
     $value.=sprintf("%02X",unpack("C",substr($orig,$_,1)));
@@ -547,134 +548,7 @@ sub MarkPoint($$)
 
 my $USELOGGING=0;
 
-
-# At first we read the curated Altium->KiCad standard component mappings:
-my %modelhints=();
-my %originalhints=();
-foreach my $mod(glob('"pretty.pretty/*"'))
-{
-  my $content=readfile($mod);
-  if($content=~m/\(model ([.\w\/\-]*)\s*(.*)/s)
-  {
-    my($model,$value)=($1,$2);
-	$value=~s/\)\s*$//s;
-	if(defined($modelhints{$model}))
-	{
-	  print "Error: Redefining model for model $model hints in file $mod from file $originalhints{$model}.\nPlease delete one of the files\n";
-	  exit;
-	}
-    $modelhints{$model}=$value;
-	$originalhints{$model}=$mod;
-	#print "\n*$model* =>\n----------\n$value\n------------\n";
-  }
-  
-}
-
-
-my $trackwidth=10;
-
-# Now we start handling all the PCB files that were unpacked by unpack.pl already:
-my $filecounter=0;
-foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
-{
-  $filecounter++;
-  print "Handling $filename\n";
-  my $short=$filename; $short=~s/\/Root Entry\/Board6\/Data\.dat$//;
-
-  #foreach my $dat(glob("\"$short/Root Entry/Models/*.dat\""))
-  #{
-  #  next unless($dat=~m/\d+\.dat/);
-  #  #print "Uncompressing STEP File $dat\n";
-  #  my $f=readfile($dat);
-  #	 $f=~s/\r\n/\n/sg;
-  #  my $x = inflateInit();
-  #  my $dest = $x->inflate($f);
-  #  open OUT,">$dat.step";
-  #  binmode OUT;
-  #  print OUT $dest;
-  #  close OUT;
-  #}
-  
-  my %layername=();
-  my %dieltype=();
-  my %mechenabled=();
-  my %activelayer=();
-  my %layernext=();
-  my %layerprev=();
-  HandleBinFile($filename,"",0,0,sub {
-    my %d=%{$_[0]};
-	foreach(keys %d)
-	{
-	  if($_=~m/^LAYER(\d+)NAME$/)
-	  {
-	    $layername{$1}=$d{$_};
-		#print "$1 -> $d{$_}\n";
-	  }
-	  if($_=~m/^LAYER(\d+)DIELTYPE$/)
-	  {
-	    $dieltype{$1}=$d{$_};
-		#print "$1 -> $d{$_}\n";
-	  }
-	  if($_=~m/^LAYER(\d+)MECHENABLED$/)
-	  {
-	    $mechenabled{$1}=$d{$_};
-		#print "$1 -> $d{$_}\n";
-	  }
-	  if($_=~m/^LAYER(\d+)NEXT$/)
-	  {
-	    $layernext{$1}=$d{$_};
-		$activelayer{$1}=1 if($d{$_});
-		#print "$1 -> $d{$_}\n";
-	  }
-      if($_=~m/^LAYER(\d+)PREV$/)
-	  {
-	    $layerprev{$1}=$d{$_};
-		$activelayer{$1}=1 if($d{$_});
-		#print "$1 -> $d{$_}\n";
-	  }
-	  if($_=~m/^TRACKWIDTH$/)
-	  {
-	    print "Track Width: $d{$_}\n";
-		$trackwidth=$d{$_};
-	  }
-	}
-  }); # Board
-  
-  my $firstlayer=0;
-  my $lastlayer=0;
-  my @layersorder=();
-  foreach(keys %activelayer)
-  {
-    $firstlayer=$_ if($layerprev{$_}==0 && $layernext{$_}!=0);
-	$lastlayer=$_ if($layerprev{$_}!=0 && $layernext{$_}==0);
-  }
-  
-  my $thislayer=$firstlayer;
-  while($thislayer!=0)
-  {
-	push @layersorder,$thislayer;
-	$thislayer=$layernext{$thislayer};
-  }
-  #print "Layers: ".join(",",@layersorder)."\n";
-  
-  #print "Active layers: ".scalar(keys %activelayer)."\n";
-    
-
-  my $layers="";
-  
-  foreach(sort {$a <=> $b} keys %layername)
-  {
-    my $name=$layername{$_}; $name=~s/ /./g;
-	my $diel=$dieltype{$_};
-	my $mech=$mechenabled{$_};
-	#print "name: $_ ".sprintf("%20s",$name)." $diel $mech\n";
-	my %dielmap=("1"=>"power","2"=>"power","0"=>"signal");
-	my $id=$_+50;
-	# KiCad currently only supports up to 32 layers :-(
-    #$layers.="    ($id $name ".$dielmap{$diel}.")\n";
-  }
-  
-  my $layerdoku=<<EOF
+my $layerdoku=<<EOF
 KiCad Design with 10 layers:
     (layers
     (0 F.Cu signal)
@@ -790,6 +664,143 @@ name: 82            Via.Holes 0 FALSE
 EOF
 ;
   
+our %altiumlayername=("1"=>"TOP","32"=>"BOTTOM","33"=>"TOPOVERLAY","34"=>"BOTTOMOVERLAY","37"=>"TOPSOLDER","38"=>"BOTTOMSOLDER","35"=>"TOPPASTE","36"=>"BOTTOMPASTE","74"=>"MULTILAYER","70"=>"MECHANICAL14");
+
+
+
+# At first we read the curated Altium->KiCad standard component mappings:
+my %modelhints=();
+my %originalhints=();
+foreach my $mod(glob('"pretty.pretty/*"'))
+{
+  my $content=readfile($mod);
+  if($content=~m/\(model ([.\w\/\-]*)\s*(.*)/s)
+  {
+    my($model,$value)=($1,$2);
+	$value=~s/\)\s*$//s;
+	if(defined($modelhints{$model}))
+	{
+	  print "Error: Redefining model for model $model hints in file $mod from file $originalhints{$model}.\nPlease delete one of the files\n";
+	  exit;
+	}
+    $modelhints{$model}=$value;
+	$originalhints{$model}=$mod;
+	#print "\n*$model* =>\n----------\n$value\n------------\n";
+  }
+  
+}
+
+
+my $trackwidth=10;
+
+# Now we start handling all the PCB files that were unpacked by unpack.pl already:
+my $filecounter=0;
+foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
+{
+  $filecounter++;
+  print "Handling $filename\n";
+  my $short=$filename; $short=~s/\/Root Entry\/Board6\/Data\.dat$//;
+
+  #foreach my $dat(glob("\"$short/Root Entry/Models/*.dat\""))
+  #{
+  #  next unless($dat=~m/\d+\.dat/);
+  #  #print "Uncompressing STEP File $dat\n";
+  #  my $f=readfile($dat);
+  #	 $f=~s/\r\n/\n/sg;
+  #  my $x = inflateInit();
+  #  my $dest = $x->inflate($f);
+  #  open OUT,">$dat.step";
+  #  binmode OUT;
+  #  print OUT $dest;
+  #  close OUT;
+  #}
+  
+  my %layername=();
+  my %dieltype=();
+  my %mechenabled=();
+  my %activelayer=();
+  my %layernext=();
+  my %layerprev=();
+  my $version="";
+  HandleBinFile($filename,"",0,0,sub {
+    my %d=%{$_[0]};
+	foreach(keys %d)
+	{
+	  if($_=~m/^LAYER(\d+)NAME$/)
+	  {
+	    $layername{$1}=$d{$_};
+		#print "$1 -> $d{$_}\n";
+	  }
+	  if($_=~m/^LAYER(\d+)DIELTYPE$/)
+	  {
+	    $dieltype{$1}=$d{$_};
+		#print "$1 -> $d{$_}\n";
+	  }
+	  if($_=~m/^LAYER(\d+)MECHENABLED$/)
+	  {
+	    $mechenabled{$1}=$d{$_};
+		#print "$1 -> $d{$_}\n";
+	  }
+	  if($_=~m/^LAYER(\d+)NEXT$/)
+	  {
+	    $layernext{$1}=$d{$_};
+		$activelayer{$1}=1 if($d{$_});
+		#print "$1 -> $d{$_}\n";
+	  }
+      if($_=~m/^LAYER(\d+)PREV$/)
+	  {
+	    $layerprev{$1}=$d{$_};
+		$activelayer{$1}=1 if($d{$_});
+		#print "$1 -> $d{$_}\n";
+	  }
+	  if($_=~m/^TRACKWIDTH$/)
+	  {
+	    #print "Track Width: $d{$_}\n";
+		$trackwidth=$d{$_};
+	  }
+	  if($_=~m/^VERSION$/)
+	  {
+	    #print "Version: $d{$_}\n";
+		$version=$d{$_};
+	  }
+	}
+  }); # Board
+  
+  my $firstlayer=0;
+  my $lastlayer=0;
+  my @layersorder=();
+  foreach(keys %activelayer)
+  {
+    $firstlayer=$_ if($layerprev{$_}==0 && $layernext{$_}!=0);
+	$lastlayer=$_ if($layerprev{$_}!=0 && $layernext{$_}==0);
+  }
+  
+  my $thislayer=$firstlayer;
+  while($thislayer!=0)
+  {
+	push @layersorder,$thislayer;
+	$thislayer=$layernext{$thislayer};
+  }
+  #print "Layers: ".join(",",@layersorder)."\n";
+  
+  #print "Active layers: ".scalar(keys %activelayer)."\n";
+    
+
+  my $layers="";
+  
+  foreach(sort {$a <=> $b} keys %layername)
+  {
+    my $name=$layername{$_}; $name=~s/ /./g;
+	my $diel=$dieltype{$_};
+	my $mech=$mechenabled{$_};
+	#print "name: $_ ".sprintf("%20s",$name)." $diel $mech\n";
+	my %dielmap=("1"=>"power","2"=>"power","0"=>"signal");
+	my $id=$_+50;
+	# KiCad currently only supports up to 32 layers :-(
+    #$layers.="    ($id $name ".$dielmap{$diel}.")\n";
+  }
+  
+  
   
   our %modelname=();
   our %modelrotx=();
@@ -829,12 +840,12 @@ EOF
 	my $conductorwidth=mil2mm($_[0]{'RELIEFCONDUCTORWIDTH'});
 	if(defined($clearance))
 	{
-	  print "Rule $rulekind $name gives clearance $clearance\n";
+	  #print "Rule $rulekind $name gives clearance $clearance\n";
 	  $rules{$name}=$clearance;
 	}
 	if(defined($gap))
 	{
-	  print "Rule $rulekind $name gives gap $gap\n";
+	  #print "Rule $rulekind $name gives gap $gap\n";
 	  $rules{$name}=$gap;
 	}
 	if(defined($airgap))
@@ -1080,10 +1091,10 @@ EOF
   
   foreach(1 .. scalar(@layersorder)-2)
   {
-     if($layermap{$layersorder[$_]} ne "In$_.Cu")
-	 {
-	   #print "Changing $_ $layersorder[$_] from old value $layermap{$layersorder[$_]} to In$_.Cu\n";
-	 }
+     #if(defined($layermap{$layersorder[$_]}) && $layermap{$layersorder[$_]} ne "In$_.Cu")
+	 #{
+	 #  #print "Changing $_ $layersorder[$_] from old value $layermap{$layersorder[$_]} to In$_.Cu\n";
+	 #}
      $layermap{$layersorder[$_]}="In$_.Cu";
   }
   
@@ -1132,7 +1143,6 @@ EOF
   our %unmappedLayers=();
   our %usedlayers=();
   our %layererrors=();
-  our %altiumlayername=("1"=>"TOP","32"=>"BOTTOM","33"=>"TOPOVERLAY","34"=>"BOTTOMOVERLAY","37"=>"TOPSOLDER","38"=>"BOTTOMSOLDER","35"=>"TOPPASTE","36"=>"BOTTOMPASTE","74"=>"MULTILAYER","70"=>"MECHANICAL14");
   
   
   # This function maps the Layer numbers or names to KiCad Layernames
@@ -1273,9 +1283,9 @@ EOF
 	  
 	  my $mdir=($dir==0)?"":" $dir";
 	  
-	  my %typemap=("2"=>"rect","1"=>"circle");
+	  my %typemap=("2"=>"rect","1"=>"circle","3"=>"slot","0"=>"Unknown"); # I am not sure, whether 3 is really slot
 	  my $otype=unpack("C",substr($value,$pos+72,1));
-      my $type=$typemap{$otype};	  
+      my $type=$typemap{$otype};
 	  
 	  $type="oval" if($type eq "circle" && $sx != $sy);
 	  
@@ -1296,7 +1306,7 @@ EOF
 	  $pos+=147;
   	  print AOUT bin2hex(substr($value,$pos,$len2))."\n";
       $pos+=$len2;
-	  my $olayer=$altiumlayername{$altlayer};
+	  my $olayer=$altiumlayername{$altlayer}||"";
 	  my $onettext=$onet>=0?"|NET=$onet":"";
 	  my $dump=bin2hex(substr($value,$npos,143));
 	  my $smem=$SOLDERMASKEXPANSION_MANUAL?"|SOLDERMASKEXPANSION_MANUAL=$SOLDERMASKEXPANSION_MANUAL":"";
@@ -1386,7 +1396,12 @@ if(0 && defined($stp));
 	my $dz=$mdz;
 	my $wrl=(defined($modelwrl{$id}) && -f $modelwrl{$id}) ? $modelwrl{$id} : undef;
 	mkdir "wrl";
-	writefile("wrl/$stp.wrl",readfile($wrl)) if(defined($stp)&& defined($wrl));
+	if(defined($stp)&& defined($wrl))
+	{
+	  $stp=~s/\w:\\.*\\//;
+	  #print "Copying $wrl to wrl/$stp.wrl\n";
+	  writefile("wrl/$stp.wrl",readfile($wrl));
+	}
 	$wrl="wrl/$stp.wrl" if(defined($stp));
 	
 	#print "wrl: $wrl\n" if(defined($modelwrl{$id}));
@@ -1830,7 +1845,9 @@ if(defined($stp));
 	my $counter=$_[3];
 	my $width=mil2mm($d{'TRACKWIDTH'}||1);
 	my $layer=mapLayer($d{'LAYER'}) || "F.Paste";
-	my $pourindex=$d{'POURINDEX'};
+	my $pourindex=$d{'POURINDEX'}||0;
+	$pourindex-=1000 if($pourindex>=1000);
+	$pourindex-=100 if($pourindex>=100);
 	if(defined($pourindex) && ( $pourindex<0 || $pourindex>100))
 	{
 	  print "Warning: Pourindex $pourindex out of the expected range (0 .. 100)\n";
@@ -2226,11 +2243,13 @@ EOF
 	return $r;
   }
   
+  my %mirrors=();
+  
   if(1)
   {
     print "Texts6...\n";
-	# It seems there are files with \r\n and files with \n but we don´t know how to distinguish those. Perhaps it depends on the Alitum version?
-    my $content=readfile("$short/Root Entry/Texts6/Data.dat"); $content=~s/\r\n/\n/sg unless($filename=~m/EDA/);
+	# It seems there are files with \r\n and files with \n but we don´t know how to distinguish those. Perhaps it depends on the Altium version?
+    my $content=readfile("$short/Root Entry/Texts6/Data.dat"); $content=~s/\r\n/\n/sg unless($version eq "5.01");
 	my $pos=0;
 	my %seen=();
 	while($pos<length($content))
@@ -2262,7 +2281,7 @@ EOF
 	  my $y1=sprintf("%.5f",+$ymove-bmil2mm(substr($content,$pos+17,4)));
       my $width=bmil2mm(substr($content,$pos+21,4));
 	  my $dir=unpack("d",substr($content,$pos+27,8)); 
-	  my $mirror=unpack("C",substr($content,$opos+39,1));
+	  my $mirror=unpack("C",substr($content,$pos+27+8,1));
 	  my $font=substr($content,$pos,$fontlen); 
 	  $pos+=$fontlen;
 	  my $fontname=ucs2utf(substr($font,46,64));
@@ -2274,6 +2293,7 @@ EOF
 	  print OUT "#Layer: $olayer Component:$component Type:".sprintf("%02X",$texttype)."\n" if($annotate);
 	  print OUT "#Commenton: ".$commenton{$component}." nameon: ".$nameon{$component}."\n" if($component>=0 && $annotate);
 	  print OUT "#Mirror: $mirror\n";
+	  $mirrors{$mirror}++;
 	  my $mirrortext=$mirror?" (justify mirror)":"";
 	  print OUT "#hide: $hide ($text)\n" if($annotate);
 	  $text=~s/"/''/g;
@@ -2456,6 +2476,13 @@ sub decodePcbLib($)
 	$typelen+=4+unpack("C",substr($content,$pos+$typelen+5,1)) if($type==5);
 	#$typelen=138 if($type==5);
 	$typelen=17 if($type==12);
+	
+	if(substr($content,$pos+$typelen+5-3,3) eq "\x40\x9C\x00")
+	{
+	  #print "409c00 detected!\n";
+	  $typelen+=5;
+	}
+	
 	if($prevtype==0)
 	{
 	  $pos+=4;
@@ -2475,21 +2502,144 @@ sub decodePcbLib($)
 	}
 	else
 	{
-	  print "type: $type ";
+	  print sprintf("type: %5d ",$type);
       my $value=substr($content,$pos+5,$typelen);
 	  if(substr($value,0,2)eq "V7")
 	  {
-        print "pos: ".sprintf("%5d 0x%02X",$pos,$pos)." typelen: ".sprintf("%5d",$typelen)." value: $value\n";
+        print "pos: ".sprintf("%6d 0x%06X",$pos,$pos)." typelen: ".sprintf("%5d",$typelen)." value: $value\n";
   	  }
  	  else
 	  {
-        print "pos: ".sprintf("%5d 0x%02X",$pos,$pos)." typelen: ".sprintf("%5d",$typelen)." value: ".bin2hex(substr($content,$pos,5))." ".bin2hex(substr($content,$pos+5,$typelen))."\n";	
+        print "pos: ".sprintf("%6d 0x%06X",$pos,$pos)." typelen: ".sprintf("%5d",$typelen)." value: ".bin2hex(substr($content,$pos,5)).(" "x(($type==2)?(310-$typelen*2):1)).bin2hex(substr($content,$pos+5,$typelen))."\n";	
   	  }
 	  
-	  #type: 0 => Contains V7-|seperated|values| , afterwards a list of coordinates follow
+	  if($type==0) # Contains V7-|seperated|values| , afterwards a list of coordinates follow
+	  {
+	  }
+	  elsif($type==1) # ???
+	  {
+	  }
+	  elsif($type==2) # Pad
+	  {
+	    my $counter=0;
+		$value=substr($content,$pos,$typelen+5);
+	    my $pos=0; # Warning: Overloading $pos here!
+		my $xmove=0; my $ymove=0;
+	    my $len=unpack("l",substr($value,$pos+1,4))-1;
+		print "len: $len\n";
+	    #print bin2hex(substr($value,$pos,5))." ";
+	    my $name=substr($value,$pos+6,$len);
+	    #print sprintf("A:%10s",$name)." ";
+	    $pos+=6+$len;
+        my $npos=$pos;
+        my $component=unpack("s",substr($value,$pos+30,2));	
+	    #print AOUT "component:$component net:$net\n";
+        my $x1=-$xmove+bmil2mm(substr($value,$pos+36,4));
+	    my $y1=$ymove-bmil2mm(substr($value,$pos+40,4));
+  	    #MarkPoint($x1,$y1) if($counter eq 2);
+	    #$x1-=$componentatx{$component} if($component>=0 && defined($componentatx{$component}));
+	    #$y1-=$componentaty{$component} if($component>=0 && defined($componentaty{$component}));
+ 
+        $x1=sprintf("%.5f",$x1);
+	    $y1=sprintf("%.5f",$y1);
+  	  
+        my $altlayer=unpack("C",substr($value,$pos+23,1));
+        my $layer=mapLayer($altlayer) || "F.Cu"; $layer="F.Cu B.Cu" if($altlayer==74);
+  	  
+	    $layer.=" F.Mask F.Paste" if($layer=~m/F\.Cu/);
+	    $layer.=" B.Mask B.Paste" if($layer=~m/B\.Cu/);
+
+	    my $sx=bmil2mm(substr($value,$pos+44,4));
+	    my $sy=bmil2mm(substr($value,$pos+48,4));
+	    my  $holesize=bmil2mm(substr($value,$pos+68,4));
+
+	    my $dir=unpack("d",substr($value,$pos+75,8)); 
+	  
+	    my $mdir=($dir==0)?"":" $dir";
+	   
+	    my %typemap=("2"=>"rect","1"=>"circle","3"=>"slot","0"=>"Unknown"); # I am not sure, whether 3 is really slot
+	    my $otype=unpack("C",substr($value,$pos+72,1));
+        my $type=$typemap{$otype};	  
+		print "Unknown otype:$otype\n" if(!defined($type) || $type eq "???");
+	  
+        $type="oval" if($type eq "circle" && $sx != $sy);
+	  
+        my %platemap=("0"=>"FALSE","1"=>"TRUE");
+        my $plated=$platemap{unpack("C",substr($value,$pos+83,1))};	  
+
+	    my $onet=unpack("s",substr($value,$pos+26,2));
+        my $net=$onet+2;	  
+	    my $netname=$net; # $netnames{$net};
+	  
+	    my %soldermaskexpansionmap=("1"=>"Rule","2"=>"Manual","0"=>"Unknown");
+	    my $soldermaskexpansionmode=$soldermaskexpansionmap{unpack("C",substr($value,$pos+125))};
+  	    my $SOLDERMASKEXPANSION_MANUAL=bmil2mm(substr($value,$pos+113,4)); #This is wrong !!! XXX
+	  
+	    #print "layer:$layer net:$net component=$component type:$type dir:$dir \n";
+	    print bin2hex(substr($value,$pos,143))." ";
+	    my $len2=unpack("l",substr($value,$pos+143,4));
+	    $pos+=147;
+  	    print bin2hex(substr($value,$pos,$len2))."\n";
+        $pos+=$len2;
+	    my $olayer=$altiumlayername{$altlayer};
+	    my $onettext=$onet>=0?"|NET=$onet":"";
+	    my $dump=bin2hex(substr($value,$npos,143));
+	    my $smem=$SOLDERMASKEXPANSION_MANUAL?"|SOLDERMASKEXPANSION_MANUAL=$SOLDERMASKEXPANSION_MANUAL":"";
+	    print "$dump |RECORD=Pad$onettext|COMPONENT=$component|INDEXFORSAVE=|SELECTION=FALSE|LAYER=$olayer|LOCKED=FALSE|POLYGONOUTLINE=FALSE|USERROUTED=TRUE|UNIONINDEX=0|SOLDERMASKEXPANSIONMODE=$soldermaskexpansionmode$SOLDERMASKEXPANSION_MANUAL|PASTEMASKEXPANSIONMODE=Rule|NAME=1|X=5511.1023mil|Y=3027.2441mil|XSIZE=39.3701mil|YSIZE=39.3701mil|SHAPE=RECTANGLE|HOLESIZE=0mil|ROTATION= 2.70000000000000E+0002|PLATED=TRUE|DAISYCHAIN=Load|CCSV=0|CPLV=0|CCWV=1|CENV=1|CAGV=1|CPEV=1|CSEV=1|CPCV=1|CPRV=1|CCW=25mil|CEN=4|CAG=10mil|CPE=0mil|CSE=2.7559mil|CPC=20mil|CPR=20mil|PADMODE=0|SWAPID_PAD=|SWAPID_GATE=|&|0|SWAPPEDPADNAME=|GATEID=0|OVERRIDEWITHV6_6SHAPES=FALSE|DRILLTYPE=0|HOLETYPE=0|HOLEWIDTH=0mil|HOLEROTATION= 0.00000000000000E+0000|PADXOFFSET0=0mil|PADYOFFSET0=0mil|PADXOFFSET1=0mil|PADYOFFSET1=0mil|PADXOFFSET2=0mil|PADYOFFSET2=0mil|PADXOFFSET3=0mil|PADYOFFSET3=0mil|PADXOFFSET4=0mil|PADYOFFSET4=0mil|PADXOFFSET5=0mil|PADYOFFSET5=0mil|PADXOFFSET6=0mil|PADYOFFSET6=0mil|PADXOFFSET7=0mil|PADYOFFSET7=0mil|PADXOFFSET8=0mil|PADYOFFSET8=0mil|PADXOFFSET9=0mil|PADYOFFSET9=0mil|PADXOFFSET10=0mil|PADYOFFSET10=0mil|PADXOFFSET11=0mil|PADYOFFSET11=0mil|PADXOFFSET12=0mil|PADYOFFSET12=0mil|PADXOFFSET13=0mil|PADYOFFSET13=0mil|PADXOFFSET14=0mil|PADYOFFSET14=0mil|PADXOFFSET15=0mil|PADYOFFSET15=0mil|PADXOFFSET16=0mil|PADYOFFSET16=0mil|PADXOFFSET17=0mil|PADYOFFSET17=0mil|PADXOFFSET18=0mil|PADYOFFSET18=0mil|PADXOFFSET19=0mil|PADYOFFSET19=0mil|PADXOFFSET20=0mil|PADYOFFSET20=0mil|PADXOFFSET21=0mil|PADYOFFSET21=0mil|PADXOFFSET22=0mil|PADYOFFSET22=0mil|PADXOFFSET23=0mil|PADYOFFSET23=0mil|PADXOFFSET24=0mil|PADYOFFSET24=0mil|PADXOFFSET25=0mil|PADYOFFSET25=0mil|PADXOFFSET26=0mil|PADYOFFSET26=0mil|PADXOFFSET27=0mil|PADYOFFSET27=0mil|PADXOFFSET28=0mil|PADYOFFSET28=0mil|PADXOFFSET29=0mil|PADYOFFSET29=0mil|PADXOFFSET30=0mil|PADYOFFSET30=0mil|PADXOFFSET31=0mil|PADYOFFSET31=0mil|PADJUMPERID=0\n";
+ 	  
+	    my $width=0.5;
+
+	    print "  (via (at $x1 $y1) (size $holesize) (layers $layer $layer) (net $net))\n" if($type eq "ROUND");
+        if($type eq "RECTANGLE" && 0)
+        {
+ 	      print <<EOF
+ (gr_text "PAD" (at $x1 $y1$mdir) (layer $layer)
+    (effects (font (size $width $width) (thickness 0.1)))
+  )
+EOF
+;
+        }
+
+	    my $tp=($holesize==0)?"smd":$plated eq "TRUE"?"thru_hole":"np_thru_hole";
+	    my $drill=($holesize==0)?"":" (drill $holesize) ";
+ 	    my $nettext=($net>1)?"(net $net \"$netname\")":"";
+        my $oposhex=sprintf("%X",$pos);
+	    print <<EOF
+#2590 counter:$counter pos:$pos(0x$oposhex) type:$otype net:$onet
+#$dump
+    (pad "$name" $tp $type (at $x1 $y1$mdir) (size $sx $sy) $drill
+      (layers $layer) $nettext
+    )
+EOF
+;
+	  }
+	  elsif($type==3) # ???
+	  {
+	  }
+	  elsif($type==4) # Track
+	  {
+	  }
+	  elsif($type==5) # ???
+	  {
+	  }
+	  elsif($type==6) # Fills
+	  {
+	  }
+	  elsif($type==11) # ???
+	  {
+	  }
+	  elsif($type==12) # ShapeBasedComponentBodies6 - First byte seems to contain the layer, the rest has been always the same until now
+	  {
+	  }
+	  else
+	  {
+		print "Unknown type: $type\n";
+	  }
+	  
+	  #type: 0 => 
 	  #type: 2 => Pad
 	  #type: 4 => Track
-	  #type: 12 => ShapeBasedComponentBodies6 - First byte seems to contain the layer, the rest has been always the same until now
+	  #type: 12 => S
       #type: 6 => Fills
 	  
 	  #MODEL.MODELTYPE=0 => Box / Extruded PolyLine)
