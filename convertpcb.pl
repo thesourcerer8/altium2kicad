@@ -22,7 +22,7 @@ use Cwd;
 # Loading the 3D viewer is slow, especially when the zones are filled. It only utilizes a single core.
 # The 3D view currently has a problem with relative pathes: https://bugs.launchpad.net/kicad/+bug/1417786  a workaround is available with the $absoluteWRLpath option
 
-# Things that are missing in Altium:
+# Things that are missing in Designer:
 # The Zone-Fill-Polygons are not saved in the file. Workaround: Press "b" in PcbNew or: select the zone tool, right-click on an empty area, then "Fill all zones"
 # Annotations in the fileformat
 
@@ -54,7 +54,7 @@ EmbeddedBoards6 # Empty
 EmbeddedFonts6 # 2 Fonts, we don´t need them
 Embeddeds6 # Empty
 ExtendedPrimitiveInformation # Empty
-FileVersionInfo # Messages for when the file is opened in older Altium versions that do not support certain features in this fileformat
+FileVersionInfo # Messages for when the file is opened in older Designer versions that do not support certain features in this fileformat
 Fills6 # Needs to be verified, are they really rectangular? 
 FromTos6 # Empty
 Models # Done
@@ -68,7 +68,7 @@ Rules6 #
 ShapeBasedComponentBodies6 # HALF-Done, do we need more?
 ShapeBasedRegions6 # Not needed, I guess
 SmartUnions # Empty
-Texts # Warnings for older Altium versions, I think we don´t need to support those ;-)
+Texts # Warnings for older Designer versions, I think we don´t need to support those ;-)
 Texts6 # Partly done, NEEDED
 Textures # Empty
 Tracks6 # Done
@@ -92,6 +92,10 @@ sub mil2mm($)
 sub bmil2mm($)
 {
   return sprintf("%.7f",unpack("l",$_[0])/$faktor/10000);
+}
+sub bmil2($)
+{
+  return (unpack("l",$_[0])/10000)."mil";
 }
 
 
@@ -149,6 +153,15 @@ sub near2d($$$$)
   return (sqrt(($_[0]-$_[1])*($_[0]-$_[1])+($_[2]-$_[3])*($_[2]-$_[3]))<$d);
 }
 
+
+sub enull($)
+{
+  my $d=$_[0];
+  $d=~s/E\+/E+0/; $d=~s/^/ /;
+  return $d;
+}
+
+my %alttruth=("0"=>"FALSE","1"=>"TRUE");
 
 # This is the main handling function that parses most of the binary files inside a .PcbDoc
 sub HandleBinFile 
@@ -664,11 +677,11 @@ name: 82            Via.Holes 0 FALSE
 EOF
 ;
   
-our %altiumlayername=("1"=>"TOP","32"=>"BOTTOM","33"=>"TOPOVERLAY","34"=>"BOTTOMOVERLAY","37"=>"TOPSOLDER","38"=>"BOTTOMSOLDER","35"=>"TOPPASTE","36"=>"BOTTOMPASTE","74"=>"MULTILAYER","70"=>"MECHANICAL14");
+our %altlayername=("1"=>"TOP","32"=>"BOTTOM","33"=>"TOPOVERLAY","34"=>"BOTTOMOVERLAY","35"=>"TOPPASTE","36"=>"BOTTOMPASTE","37"=>"TOPSOLDER","38"=>"BOTTOMSOLDER","59"=>"MECHANICAL3","69"=>"MECHANICAL13","70"=>"MECHANICAL14","74"=>"MULTILAYER");
 
 
 
-# At first we read the curated Altium->KiCad standard component mappings:
+# At first we read the curated Designer->KiCad standard component mappings:
 my %modelhints=();
 my %originalhints=();
 foreach my $mod(glob('"pretty.pretty/*"'))
@@ -691,6 +704,10 @@ foreach my $mod(glob('"pretty.pretty/*"'))
 }
 
 
+our %result=();
+our %cgoodbad=();
+
+
 my $trackwidth=10;
 
 # Now we start handling all the PCB files that were unpacked by unpack.pl already:
@@ -700,6 +717,61 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
   $filecounter++;
   print "Handling $filename\n";
   my $short=$filename; $short=~s/\/Root Entry\/Board6\/Data\.dat$//;
+  
+  my %verify=();
+  %result=();
+  our @asciilines=();
+  
+  sub assertdata
+  {
+    my ($record,$line,$name,$value)=@_;
+    return if(!defined($verify{$record}) || !defined($verify{$record}{$line}));
+    $result{$record}{$line}{$name}=$value;
+	return if($name=~m/^(UNIONINDEX|GROUPNUM|COUNT)$/);
+	my $vvalue=$verify{$record}{$line}{$name}||"";
+	$vvalue=~s/\s*$//; $value=~s/\s*$//;
+	my $good=$value eq $vvalue?1:0;
+    $cgoodbad{$record}{$name}{$good}++;
+	print "assert: $record $line $name $value".($good?"=":"<>").($vvalue||"")."\n" if(!$good);
+  }
+ 
+  
+  print "ASCII-$short.PcbDoc exists?\n";
+  if(-r "ASCII-$short.PcbDoc")
+  {
+    print "Yes! Loading verification values\n";
+    my $ascii=readfile("ASCII-$short.PcbDoc");
+	@asciilines=split "\n",$ascii;
+	
+	my %linenos=();
+	
+	foreach my $line (@asciilines)
+	{
+      my @a=split '\|',$line;
+	  my %d=();
+	  foreach my $c(@a)
+	  {
+  	    #print "$c\n";
+        if($c=~m/^([^=]*)=(.*)$/)
+	    {
+  	      my $name=$1;
+		  my $value=$2;
+		  $d{$name}=$value;
+	    }
+	  }
+	  if(defined($d{'RECORD'}))
+	  {
+	    my $lineno=$linenos{$d{'RECORD'}}++;
+		foreach(keys %d)
+		{
+	      $verify{$d{'RECORD'}}{$lineno}{$_}=$d{$_};
+		  #print "\$verify{$d{'RECORD'}}{$lineno}{$_}=$d{$_};\n";
+		}
+      }
+	  
+	}
+  
+  }
 
   #foreach my $dat(glob("\"$short/Root Entry/Models/*.dat\""))
   #{
@@ -726,6 +798,7 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
     my %d=%{$_[0]};
 	foreach(keys %d)
 	{
+	  #assertdata("Board",$_[3],$_,$d{$_});
 	  if($_=~m/^LAYER(\d+)NAME$/)
 	  {
 	    $layername{$1}=$d{$_};
@@ -874,6 +947,10 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
     #5: ?
     #6: Differential Pair-Classes
     #7: Polygon-Classes
+	
+	assertdata("Class",$_[3],"RECORD","Class");
+	assertdata("Class",$_[3],"INDEXFORSAVE",$_[3]);
+    assertdata("Class",$_[3],$_,$_[0]{$_}) foreach(keys %{$_[0]});
     if($superclass eq "FALSE" && $kind==0)
 	{
 	  foreach my $key(keys %{$_[0]})
@@ -898,6 +975,10 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
     my $line=$_[3]+2;
 	$nnets=$line+1;
     my $name=$_[0]{'NAME'};
+	assertdata("Net",$_[3],"RECORD","Net");
+	assertdata("Net",$_[3],"ID",$_[3]);
+	assertdata("Net",$_[3],"INDEXFORSAVE",$_[3]);
+	assertdata("Net",$_[3],$_,$_[0]{$_}) foreach(keys %{$_[0]});
 	$netnames{$line}=$name;
     $nets.= "  (net $line \"$name\")\n";
   });
@@ -1225,6 +1306,10 @@ EOF
 	$nameon{$componentid}=$d{'NAMEON'};
 	$commenton{$componentid}=$d{'COMMENTON'};
 	
+	assertdata("Component",$_[3],"RECORD","Component");
+	assertdata("Component",$_[3],"ID",$_[3]);
+	assertdata("Component",$_[3],"INDEXFORSAVE",$_[3]);
+	assertdata("Component",$_[3],$_,$_[0]{$_}) foreach(keys %{$_[0]});
 	
 	if(defined($kicadwrl{$componentid}))
 	{
@@ -1254,11 +1339,20 @@ EOF
 	  print AOUT bin2hex(substr($value,$pos,5))." ";
 	  print AOUT sprintf("A:%10s",bin2hex(substr($value,$pos+5,$len)))." ";
 	  my $name=substr($value,$pos+6,$len-1);
+	  
+	  assertdata("Pad",$counter,"RECORD","Pad");
+  	  assertdata("Pad",$counter,"INDEXFORSAVE",$counter);
+	  assertdata("Pad",$counter,"NAME",$name);
+	  
 	  $pos+=5+$len;
       my $npos=$pos;
       my $component=unpack("s",substr($value,$pos+30,2));	
+	  
+	  assertdata("Pad",$counter,"COMPONENT",$component) if($component>=0);
 
 	  #print AOUT "component:$component net:$net\n";
+	  assertdata("Pad",$counter,"X",bmil2(substr($value,$pos+36,4)));
+	  assertdata("Pad",$counter,"Y",bmil2(substr($value,$pos+40,4)));
       my $x1=-$xmove+bmil2mm(substr($value,$pos+36,4));
 	  my $y1=$ymove-bmil2mm(substr($value,$pos+40,4));
   	  #MarkPoint($x1,$y1) if($counter eq 2);
@@ -1269,6 +1363,8 @@ EOF
 	  $y1=sprintf("%.5f",$y1);
 	  
       my $altlayer=unpack("C",substr($value,$pos+23,1));
+  	  assertdata("Pad",$counter,"LAYER",$altlayername{$altlayer});
+
       my $layer=mapLayer($altlayer) || "F.Cu"; $layer="F.Cu B.Cu" if($altlayer==74);
 	  
 	  $layer.=" F.Mask F.Paste" if($layer=~m/F\.Cu/);
@@ -1276,29 +1372,45 @@ EOF
 
 	  my $sx=bmil2mm(substr($value,$pos+44,4));
 	  my $sy=bmil2mm(substr($value,$pos+48,4));
+  	  assertdata("Pad",$counter,"XSIZE",bmil2(substr($value,$pos+44,4)));
+  	  assertdata("Pad",$counter,"YSIZE",bmil2(substr($value,$pos+48,4)));
 	  my $holesize=bmil2mm(substr($value,$pos+68,4));
-
+  	  assertdata("Pad",$counter,"HOLESIZE",bmil2(substr($value,$pos+68,4)));
 	  
 	  my $dir=unpack("d",substr($value,$pos+75,8)); 
-	  
+	  assertdata("Pad",$counter,"ROTATION",enull(sprintf("%.14E",$dir)));
+	  	  
 	  my $mdir=($dir==0)?"":" $dir";
 	  
 	  my %typemap=("2"=>"rect","1"=>"circle","3"=>"slot","0"=>"Unknown"); # I am not sure, whether 3 is really slot
+	  my %typemapalt=("2"=>"RECTANGLE","1"=>"ROUND","3"=>"slot","0"=>"Unknown"); # I am not sure, whether 3 is really slot
 	  my $otype=unpack("C",substr($value,$pos+72,1));
+  	  assertdata("Pad",$counter,"SHAPE",$typemapalt{$otype});
       my $type=$typemap{$otype};
 	  
 	  $type="oval" if($type eq "circle" && $sx != $sy);
 	  
       my %platemap=("0"=>"FALSE","1"=>"TRUE");
       my $plated=$platemap{unpack("C",substr($value,$pos+83,1))};	  
+	  assertdata("Pad",$counter,"PLATED",$alttruth{unpack("C",substr($value,$pos+83,1))});
 
 	  my $onet=unpack("s",substr($value,$pos+26,2));
+  	  assertdata("Pad",$counter,"NET",$onet) if($onet>=0);
       my $net=$onet+2;	  
 	  my $netname=$netnames{$net};
 	  
 	  my %soldermaskexpansionmap=("1"=>"Rule","2"=>"Manual");
-	  my $soldermaskexpansionmode=$soldermaskexpansionmap{unpack("C",substr($value,$pos+125))};
-  	  my $SOLDERMASKEXPANSION_MANUAL=bmil2mm(substr($value,$pos+113,4)); #This is wrong !!! XXX
+  	  assertdata("Pad",$counter,"SOLDERMASKEXPANSIONMODE",$soldermaskexpansionmap{unpack("C",substr($value,$pos+125,1))});
+	  my $soldermaskexpansionmode=$soldermaskexpansionmap{unpack("C",substr($value,$pos+125,1))};
+
+  	  assertdata("Pad",$counter,"CSE",bmil2(substr($value,$pos+113,4)));
+  	  my $CSE=bmil2mm(substr($value,$pos+113,4)); 
+
+  	  #assertdata("Pad",$counter,"SOLDERMASKEXPANSION_MANUAL",bmil2(substr($value,$pos+126,4)));
+  	  my $SOLDERMASKEXPANSION_MANUAL=bmil2mm(substr($value,$pos+113,4)); #Where is the SOLDERMASKEXPANSION_MANUAL stored?!? Is it in the CSE field?
+	  
+	  
+
 	  
 	  #print "layer:$layer net:$net component=$component type:$type dir:$dir \n";
 	  print AOUT bin2hex(substr($value,$pos,143))." ";
@@ -1306,7 +1418,7 @@ EOF
 	  $pos+=147;
   	  print AOUT bin2hex(substr($value,$pos,$len2))."\n";
       $pos+=$len2;
-	  my $olayer=$altiumlayername{$altlayer}||"";
+	  my $olayer=$altlayername{$altlayer}||"";
 	  my $onettext=$onet>=0?"|NET=$onet":"";
 	  my $dump=bin2hex(substr($value,$npos,143));
 	  my $smem=$SOLDERMASKEXPANSION_MANUAL?"|SOLDERMASKEXPANSION_MANUAL=$SOLDERMASKEXPANSION_MANUAL":"";
@@ -1354,6 +1466,9 @@ EOF
     my %d=%{$_[0]};
 	my $header=$_[2];
 	my $component=unpack("s",substr($header,12,2));
+	
+	assertdata("ComponentBody",$_[3],"RECORD","ComponentBody");
+	assertdata("ComponentBody",$_[3],"COMPONENT",$component);
 	print OUT "#\$pads{$component}\n" if($annotate);
 	#print "Component:$component\n";
 	my $id=$d{'MODELID'};
@@ -1491,9 +1606,12 @@ EOF
     #print "#ShapeBasedComponentBodies#".$_[3]."\n" if($annotate);
 	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
 	my $component=unpack("s",substr($value,7,2));
+	assertdata("ShapeBasedComponentBody",$_[3],"COMPONENT",$component);
+	
     print OUT "# ".bin2hex($unknownheader)."\n" if($annotate);
     my $textlen=unpack("l",substr($value,18,4));
 	my $text=substr($value,22,$textlen);$text=~s/\x00$//;
+	assertdata("ShapeBasedComponentBody",$_[3],"TEXT",$text);
 	print OUT "#Text:$text\n" if($annotate);
 	my @a=split '\|',$text;
 	my %d=();
@@ -1707,16 +1825,26 @@ if(defined($stp));
     my $fn=$_[0]{'NAME'};
     my $value=$_[1];
 	my $net=unpack("s",substr($value,3,2));
+	assertdata("Arc",$_[3],"RECORD","Arc");
+	assertdata("Arc",$_[3],"INDEXFORSAVE",$_[3]);
+	assertdata("Arc",$_[3],"NET",$net) if($net>0);
 	my $component=unpack("s",substr($value,7,2));
+	assertdata("Arc",$_[3],"COMPONENT",$component) if($component>=0);
 	my $xorig=unpack("l",substr($value,13,4));
+	assertdata("Arc",$_[3],"LOCATION.X",bmil2(substr($value,13,4)));
 	my $yorig=unpack("l",substr($value,17,4));
+	assertdata("Arc",$_[3],"LOCATION.Y",bmil2(substr($value,17,4)));
   	my $x=sprintf("%.5f",-$xmove+bmil2mm(substr($value,13,4)));
 	my $y=sprintf("%.5f",+$ymove-bmil2mm(substr($value,17,4)));
 	my $r=bmil2mm(substr($value,21,4));
+	assertdata("Arc",$_[3],"RADIUS",bmil2(substr($value,21,4)));
 	my $layerorig=unpack("C",substr($value,0,1));
+	assertdata("Arc",$_[3],"LAYER",$altlayername{$layerorig}||$layerorig);
 	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "F.SilkS";
     my $sa=unpack("d",substr($value,25,8));
+	assertdata("Arc",$_[3],"STARTANGLE",enull(sprintf("%.14E",$sa)));
     my $ea=unpack("d",substr($value,33,8)); 
+	assertdata("Arc",$_[3],"ENDANGLE",enull(sprintf("%.14E",$ea)));
 
     my $angle=$ea-$sa; $angle=360+$ea-$sa if($ea<$sa);
 
@@ -1728,6 +1856,7 @@ if(defined($stp));
     my $sarad=$sa/180*$pi;
 	my $earad=$ea/180*$pi;
 	my $width=bmil2mm(substr($value,41,4));
+	assertdata("Arc",$_[3],"WIDTH",bmil2(substr($value,41,4)));
 	
 	
     my $x1=sprintf("%.5f",$x+cos($sarad)*$r);
@@ -1771,17 +1900,22 @@ if(defined($stp));
 	print OUT "#Vias#".$_[3].": ".bin2hex($value)."\n" if($annotate);
     my $debug=($count<100);
     my $x=sprintf("%.5f",-$xmove+bmil2mm(substr($value,13,4)));
+	assertdata("Via",$_[3],"X",bmil2(substr($value,13,4)));
 	my $y=sprintf("%.5f",+$ymove-bmil2mm(substr($value,17,4)));
+	assertdata("Via",$_[3],"Y",bmil2(substr($value,17,4)));
 	my $width=bmil2mm(substr($value,21,4));
+	assertdata("Via",$_[3],"DIAMETER",bmil2(substr($value,21,4)));
+	
 	my $layer1="F.Cu"; # mapLayer(unpack("C",substr($value,0,1))); # || "F.Cu"; # Since Novena does not have any Blind or Buried Vias
 	my $layer2="B.Cu"; # mapLayer(unpack("C",substr($value,1,1))); # || "B.Cu";
 	my $net=unpack("s",substr($value,3,2))+2;
+	assertdata("Via",$_[3],"NET",unpack("s",substr($value,3,2)));
 	
 	#print "Layer: $layer1 -> $layer2\n";
 	#print "Koordinaten:\n" if($debug);
 	#print "x:$x y:$y width:$width\n" if($debug);
 	print OUT "  (via (at $x $y) (size $width) (layers $layer1 $layer2) (net $net))\n" if($annotate);
-	
+
 
 	# The following was an experimental automatic reverse-engineering try. The code is disabled now.
 	if(0) # $count>19000 && !($count%50))
@@ -1912,16 +2046,26 @@ EOF
     my $value=$_[1];
 	print OUT "#Tracks#".$_[3].": ".bin2hex($value)."\n" if($annotate);
 
-    my $net=unpack("s",substr($value,3,2))+2;	  
+    my $net=unpack("s",substr($value,3,2))+2;	 
+	assertdata("Track",$_[3],"RECORD","Track");
+	assertdata("Track",$_[3],"INDEXFORSAVE",$_[3]);
+	assertdata("Track",$_[3],"NET",unpack("s",substr($value,3,2))) if($net>=2);
     my $netname=$netnames{$net};
 	my $component=unpack("s",substr($value,7,2));
+	assertdata("Track",$_[3],"COMPONENT",unpack("s",substr($value,7,2)));
     my $x1=sprintf("%.5f",-$xmove+bmil2mm(substr($value,13,4)));
+	assertdata("Track",$_[3],"X1",bmil2(substr($value,13,4)));
 	my $y1=sprintf("%.5f",+$ymove-bmil2mm(substr($value,17,4)));
+	assertdata("Track",$_[3],"Y1",bmil2(substr($value,17,4)));
 	my $x2=sprintf("%.5f",-$xmove+bmil2mm(substr($value,21,4)));
+	assertdata("Track",$_[3],"X2",bmil2(substr($value,21,4)));
 	my $y2=sprintf("%.5f",+$ymove-bmil2mm(substr($value,25,4)));
+	assertdata("Track",$_[3],"Y2",bmil2(substr($value,25,4)));
 	my $width=bmil2mm(substr($value,29,4));
+	assertdata("Track",$_[3],"WIDTH",bmil2(substr($value,29,4)));
 	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "Cmts.User";
-	
+	assertdata("Track",$_[3],"LAYER",$altlayername{unpack("C",substr($value,0,1))});
+
 	if($layer =~m/(Edge\.Cuts|Silk|CrtYd|Adhes|Paste)/i)
 	{
 	  $cutcounter++;
@@ -2026,13 +2170,20 @@ EOF
     print OUT "#Fills#".$_[3].": ".bin2hex($value)."\n" if($annotate);
 
 	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "Cmts.User";
+    assertdata("Fill",$_[3],"LAYER",$altlayername{unpack("C",substr($value,0,1))});
     my $net=unpack("s",substr($value,3,2))+2;	  
+    assertdata("Fill",$_[3],"NET",unpack("s",substr($value,3,2))) if($net>1);
     my $netname=$netnames{$net};
     my $x1=sprintf("%.5f",-$xmove+bmil2mm(substr($value,13,4)));
+    assertdata("Fill",$_[3],"X1",bmil2(substr($value,13,4)));
 	my $y1=sprintf("%.5f",+$ymove-bmil2mm(substr($value,17,4)));
+    assertdata("Fill",$_[3],"Y1",bmil2(substr($value,17,4)));
 	my $x2=sprintf("%.5f",-$xmove+bmil2mm(substr($value,21,4)));
+    assertdata("Fill",$_[3],"X2",bmil2(substr($value,21,4)));
 	my $y2=sprintf("%.5f",+$ymove-bmil2mm(substr($value,25,4)));
+    assertdata("Fill",$_[3],"Y2",bmil2(substr($value,25,4)));
     my $dir=sprintf('%.5f',unpack("d",substr($value,29,8))); 
+    assertdata("Fill",$_[3],"ROTATION",enull(sprintf("%.14E",unpack("d",substr($value,29,8)))));
 	
     my $dir2=sprintf('%.5f',unpack("d",substr($value,38,8))||0); 
 
@@ -2063,6 +2214,7 @@ EOF
 	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
     my $textlen=unpack("l",substr($value,18,4));
 	my $text=substr($value,22,$textlen);$text=~s/\x00$//;
+    #assertdata("Region",$_[3],"TEXT",$text);
 	print OUT "#$text\n" if($annotate);
 	my @a=split '\|',$text;
 	my %d=();
@@ -2072,6 +2224,7 @@ EOF
       if($c=~m/^([^=]*)=(.*)$/)
 	  {
 	    $d{$1}=$2;
+        assertdata("Region",$_[3],$1,$2);
 	  }
 	}
 	my $layer=mapLayer($d{'V7_LAYER'});
@@ -2248,10 +2401,11 @@ EOF
   if(1)
   {
     print "Texts6...\n";
-	# It seems there are files with \r\n and files with \n but we don´t know how to distinguish those. Perhaps it depends on the Altium version?
+	# It seems there are files with \r\n and files with \n but we don´t know how to distinguish those. Perhaps it depends on the Designer version?
     my $content=readfile("$short/Root Entry/Texts6/Data.dat"); $content=~s/\r\n/\n/sg unless($version eq "5.01");
 	my $pos=0;
 	my %seen=();
+	my $counter=0;
 	while($pos<length($content))
 	{
 	  my $opos=$pos;
@@ -2260,8 +2414,13 @@ EOF
 	  $pos++;
       my $fontlen=unpack("l",substr($content,$pos,4)); 
 	  $pos+=4;
+	  assertdata("Text",$counter,"RECORD","Text");
+	  assertdata("Text",$counter,"INDEXFORSAVE",$counter);
+
 	  my $component=unpack("s",substr($content,$pos+7,2));
+	  assertdata("Text",$counter,"COMPONENT",$component) if($component>0);
 	  my $texttype=unpack("C",substr($content,$pos+21,1));
+	  assertdata("Text",$counter,"TYPE",$texttype);
 	  my $hide=0;
 	  if($component>=0)
 	  {
@@ -2277,17 +2436,38 @@ EOF
 	  
 	  my $layer=mapLayer(unpack("C",substr($content,$pos,1))) || "Cmts.User";
 	  my $olayer=unpack("C",substr($content,$pos,1));
+  	  assertdata("Text",$counter,"LAYER",$altlayername{$olayer});
+	  
+	  my $x=sprintf("%.5f",-$xmove+bmil2mm(substr($content,$pos+13,4)));
+	  assertdata("Text",$counter,"X",bmil2(substr($content,$pos+13,4)));
+	  my $y=sprintf("%.5f",+$ymove-bmil2mm(substr($content,$pos+17,4)));
+      assertdata("Text",$counter,"Y",bmil2(substr($content,$pos+17,4)));
+	  
+
 	  my $x1=sprintf("%.5f",-$xmove+bmil2mm(substr($content,$pos+13,4)));
+	  assertdata("Text",$counter,"X1",bmil2(substr($content,$pos+13,4)));
 	  my $y1=sprintf("%.5f",+$ymove-bmil2mm(substr($content,$pos+17,4)));
-      my $width=bmil2mm(substr($content,$pos+21,4));
+      assertdata("Text",$counter,"Y1",bmil2(substr($content,$pos+17,4)));
+	  my $x2=sprintf("%.5f",-$xmove+bmil2mm(substr($content,$pos+13,4)));
+	  assertdata("Text",$counter,"X2",bmil2(substr($content,$pos+13,4)));
+	  my $y2=sprintf("%.5f",+$ymove-bmil2mm(substr($content,$pos+17,4)));
+      assertdata("Text",$counter,"Y2",bmil2(substr($content,$pos+17,4)));
+
+	  
+	  my $width=bmil2mm(substr($content,$pos+21,4));
+      assertdata("Text",$counter,"HEIGHT",bmil2(substr($content,$pos+21,4)));
 	  my $dir=unpack("d",substr($content,$pos+27,8)); 
+      assertdata("Text",$counter,"ROTATION",enull(sprintf("%.14E",unpack("d",substr($content,$pos+27,8)))));
 	  my $mirror=unpack("C",substr($content,$pos+27+8,1));
+	  assertdata("Text",$counter,"MIRROR",$alttruth{$mirror});
 	  my $font=substr($content,$pos,$fontlen); 
 	  $pos+=$fontlen;
 	  my $fontname=ucs2utf(substr($font,46,64));
+	  assertdata("Text",$counter,"FONTNAME",$fontname);
       my $textlen=unpack("l",substr($content,$pos,4)); 
 	  $pos+=4;
 	  my $text=substr($content,$pos+1,$textlen-1); 
+  	  assertdata("Text",$counter,"TEXT",$text);
 	  $pos+=$textlen;
 	  print OUT "#Texts#".$opos.": ".bin2hex(substr($content,$opos,$pos-$opos))."\n" if($annotate);
 	  print OUT "#Layer: $olayer Component:$component Type:".sprintf("%02X",$texttype)."\n" if($annotate);
@@ -2298,11 +2478,12 @@ EOF
 	  print OUT "#hide: $hide ($text)\n" if($annotate);
 	  $text=~s/"/''/g;
 	  print OUT <<EOF
- (gr_text "$text" (at $x1 $y1 $dir) (layer $layer)
+ (gr_text "$text" (at $x $y $dir) (layer $layer)
     (effects (font (size $width $width) (thickness 0.1)) (justify left)$mirrortext)
   )
 EOF
         if(!$hide);
+	  $counter++;
 	}
   } 
 
@@ -2322,6 +2503,40 @@ EOF
     #print "Used layer: $_ $lname/$name -> $kic\n";
   }
   
+  if(scalar(@asciilines))
+  {
+    open HTML,">$short-ascii.html";
+	print HTML "<html><body><pre>";
+	my %linenos=();
+  	foreach my $line (@asciilines)
+	{
+      my @a=split '\|',$line;
+	  my %d=();
+	  my $lineno=0;
+	  foreach my $c(@a)
+	  {
+  	    #print "$c\n";
+        if($c=~m/^([^=]*)=(.*)$/)
+	    {
+  	      my $name=$1;
+		  my $value=$2; $value=~s/[\r\n]$//;
+		  $d{$name}=$value;
+		  $lineno=$linenos{$value}++ if($name eq "RECORD");
+		  my $resultvalue=$result{$d{'RECORD'}}{$lineno}{$name};
+	      my $good=(defined($resultvalue) && $resultvalue eq $value) ? 1:0;
+		  
+		  print HTML "<span style='background-color:".(defined($resultvalue)?($good?"#80ff80":"#ff8080"):"#ffffff")."'>".$name."=".$value."</span>";
+		  print HTML "<span style='background-color:#8080ff'>$resultvalue</span>" if(defined($resultvalue) && !$good);
+		  print HTML "|";
+	    }
+	  }
+	  print HTML "\n";
+	}
+	print HTML "</pre></body></html>";
+	close HTML;
+  }
+  
+  
   print OUT ")\n";
 }
 if(!$filecounter)
@@ -2336,7 +2551,7 @@ sub rem0($)
   return $d;
 }
 
-# The following function decodes an old Alitum version 9? .lib file
+# The following function decodes an old Designer version 9? .lib file
 sub decodeLib($)
 {
   my $content=readfile($_[0]);
@@ -2457,7 +2672,7 @@ foreach(glob("'library/Miscellaneous Devices/Root Entry/SchLib/0/Root Entry/*/Da
  # decodeSchLib($_);
 }
 
-# This function decodes a new Altium .PcbLib file
+# This function decodes a new .PcbLib file
 sub decodePcbLib($)
 {
   my $content=readfile($_[0]);
@@ -2581,7 +2796,7 @@ sub decodePcbLib($)
 	    $pos+=147;
   	    print bin2hex(substr($value,$pos,$len2))."\n";
         $pos+=$len2;
-	    my $olayer=$altiumlayername{$altlayer};
+	    my $olayer=$altlayername{$altlayer};
 	    my $onettext=$onet>=0?"|NET=$onet":"";
 	    my $dump=bin2hex(substr($value,$npos,143));
 	    my $smem=$SOLDERMASKEXPANSION_MANUAL?"|SOLDERMASKEXPANSION_MANUAL=$SOLDERMASKEXPANSION_MANUAL":"";
