@@ -3,7 +3,7 @@ use strict;
 use Compress::Zlib;
 use Math::Geometry::Planar;
 use Data::Dumper;
-use Cwd;
+use Cwd qw(abs_path cwd getcwd);
 #use Math::Bezier;
 
 # Things that are missing in KiCad:
@@ -21,6 +21,7 @@ use Cwd;
 # Novena had too many netclasses for KiCad <BZR 5406, the NetClass editor in the Design Rules Editor vanished due to GUI layout when there are too many netclasses: https://bugs.launchpad.net/kicad/+bug/1418135
 # Loading the 3D viewer is slow, especially when the zones are filled. It only utilizes a single core.
 # The 3D view currently has a problem with relative pathes: https://bugs.launchpad.net/kicad/+bug/1417786  a workaround is available with the $absoluteWRLpath option
+# Additional paramters in PCBnew for components that could be used for the BOM
 
 # Things that are missing in Designer:
 # The Zone-Fill-Polygons are not saved in the file. Workaround: Press "b" in PcbNew or: select the zone tool, right-click on an empty area, then "Fill all zones"
@@ -81,6 +82,7 @@ my $pi=3.14159265359;
 my $faktor=39.370078740158;
 my $fak="0.39370078740158";
 
+# Convert mil to millimeters
 sub mil2mm($)
 {
   return undef unless(defined($_[0]));
@@ -89,10 +91,12 @@ sub mil2mm($)
   $data/=$faktor;
   return sprintf("%.6f",$data); 
 }
+# Convert binary mil to millimeter
 sub bmil2mm($)
 {
   return sprintf("%.7f",unpack("l",$_[0])/$faktor/10000);
 }
+# Convert binary mil to ascii mil
 sub bmil2($)
 {
   return (unpack("l",$_[0])/10000)."mil";
@@ -147,13 +151,14 @@ sub near($$)
   return ($_[0]>$_[1]-$d && $_[0]<$_[1]+$d);
 }
 
+# Are 2 points near each other? near2d(x1,x2,y1,y2)
 sub near2d($$$$)
 {
   my $d=0.0001;
   return (sqrt(($_[0]-$_[1])*($_[0]-$_[1])+($_[2]-$_[3])*($_[2]-$_[3]))<$d);
 }
 
-
+# Reformat scientific notation for angles for ascii format
 sub enull($)
 {
   my $d=$_[0];
@@ -161,9 +166,33 @@ sub enull($)
   return $d;
 }
 
+# Truth values
 my %alttruth=("0"=>"FALSE","1"=>"TRUE");
 
+# Guess the binary encoding of a given field value
+# Alternatively, we might want to output a list of all possible encodings for a given field value
+sub EstimateEncoding($)
+{
+  my $v=$_[0];
+  if($v=~m/-?\d+\.?\d*mil$/)
+  {
+    $v=~s/mil$//;
+    return pack("l",$v*10000);
+  }
+  if($v=~m/^ ?(\d+\.\d+E\+\d+)$/)
+  {
+    return pack("d",$1);
+  }
+  return "\x01" if($v eq "TRUE");
+  return "\x00" if($v eq "FALSE");
+  return pack("C",$v) if($v =~m/^\d{1,3}$/ && $v<256);
+  return pack("s",$v) if($v =~m/^-?\d{1,4}$/ && $v>=-65536 && $v <65536);
+  return $v;
+}
+
+
 # This is the main handling function that parses most of the binary files inside a .PcbDoc
+# It iterates over all records in the given file, and callback´s a given function for every record given
 sub HandleBinFile 
 {
   my ($filename,$recordtype,$headerlen,$nskip,$piped)=@_;
@@ -260,6 +289,7 @@ sub HandleBinFile
   close HBOUT;
 }
 
+# Generates the 3D WRL content for a Box
 sub Box($$$$$$$$)
 {
   my ($translation,$rotation,$scale,$color,$shininess,$sx,$sy,$sz)=@_;
@@ -321,6 +351,7 @@ EOF
 }
 
 
+# Generates the 3D WRL content for an extruded Polygon
 sub ExtrudedPolygon($$$$$$$)
 {
   my ($translation,$rotation,$scale,$color,$shininess,$height,$polygon)=@_;
@@ -410,7 +441,7 @@ EOF
 }
 
 
-
+# Generates the 3D WRL content for a Cylinder
 sub Cylinder($$$$$$$)
 {
   my ($translation,$rotation,$scale,$color,$shininess,$r,$h)=@_;
@@ -480,6 +511,7 @@ EOF
 ;
 }
 
+# Generates the 3D WRL content for a Cone
 sub Cone($$$$$$$)
 {
   my ($translation,$rotation,$scale,$color,$shininess,$r,$h)=@_;
@@ -677,8 +709,13 @@ name: 82            Via.Holes 0 FALSE
 EOF
 ;
   
-our %altlayername=("1"=>"TOP","32"=>"BOTTOM","33"=>"TOPOVERLAY","34"=>"BOTTOMOVERLAY","35"=>"TOPPASTE","36"=>"BOTTOMPASTE","37"=>"TOPSOLDER","38"=>"BOTTOMSOLDER","59"=>"MECHANICAL3","69"=>"MECHANICAL13","70"=>"MECHANICAL14","74"=>"MULTILAYER");
-
+our %altlayername=("1"=>"TOP","2"=>"MIDLAYER1","3"=>"L3","4"=>"L4","5"=>"MID4","6"=>"MID5","7"=>"MID6","8"=>"MID7","9"=>"MID8","10"=>"MID9","11"=>"L7","12"=>"L8","32"=>"BOTTOM","33"=>"TOPOVERLAY",
+  "34"=>"BOTTOMOVERLAY","35"=>"TOPPASTE","36"=>"BOTTOMPASTE",
+  "37"=>"TOPSOLDER","38"=>"BOTTOMSOLDER","39"=>"L2-GND","40"=>"L4-PWR","41"=>"L5-PWR","42"=>"L9-GND","56"=>"KEEPOUT",
+  "57"=>"MECHANICAL1","58"=>"MECHANICAL2",
+  "59"=>"MECHANICAL3","60"=>"MECHANICAL4","61"=>"MECHANICAL5","62"=>"MECHANICAL6","63"=>"MECHANICAL7","64"=>"MECHANICAL8","65"=>"MECHANICAL9",
+  "66"=>"MECHANICAL10","67"=>"MECHANICAL11","68"=>"MECHANICAL12",
+  "69"=>"MECHANICAL13","70"=>"MECHANICAL14","71"=>"MECHANICAL15","73"=>"DRILL","74"=>"MULTILAYER");
 
 
 # At first we read the curated Designer->KiCad standard component mappings:
@@ -706,26 +743,42 @@ foreach my $mod(glob('"pretty.pretty/*"'))
 
 our %result=();
 our %cgoodbad=();
-
+our %rawbinary=();
 
 my $trackwidth=10;
 
+# Looking, whether we have to unpack the files first:
+# The current behaviour is that additional new or modified files are not processed
+my @files=glob('"*/Root Entry/Board6/Data.dat"');
+if(!scalar(@files))
+{
+  print "No unpacked .PcbDoc documents found. Trying to unpack it:\n";
+  # Where can we find the unpack.pl? Should we run it from the same directory, convertpcb.pl comes from
+  my $path=abs_path($0); $path=~s/convertpcb\.pl$//;
+  #print STDERR "$path\n";
+  system "$path/unpack.pl";
+  @files=glob('"*/Root Entry/Board6/Data.dat"')
+}
+
 # Now we start handling all the PCB files that were unpacked by unpack.pl already:
 my $filecounter=0;
-foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
+foreach my $filename(@files)
 {
   $filecounter++;
   print "Handling $filename\n";
   my $short=$filename; $short=~s/\/Root Entry\/Board6\/Data\.dat$//;
   
-  my %verify=();
+  our %verify=();
   %result=();
   our @asciilines=();
+  our %positions=();
   
+  # assertdata asserts that a parsed binary field has been parsed properly, by comparing it to the ascii variant.
   sub assertdata
   {
     my ($record,$line,$name,$value)=@_;
     return if(!defined($verify{$record}) || !defined($verify{$record}{$line}));
+	print STDERR "Undefined value in $record $line $name\n" if(!defined($value));
     $result{$record}{$line}{$name}=$value;
 	return if($name=~m/^(UNIONINDEX|GROUPNUM|COUNT)$/);
 	my $vvalue=$verify{$record}{$line}{$name}||"";
@@ -735,7 +788,7 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
 	print "assert: $record $line $name $value".($good?"=":"<>").($vvalue||"")."\n" if(!$good);
   }
  
-  
+  # Reading the ASCII version of the .PcbDoc into %verify if it exists, so that we can compare the binary version against it
   print "ASCII-$short.PcbDoc exists?\n";
   if(-r "ASCII-$short.PcbDoc")
   {
@@ -794,6 +847,7 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
   my %layernext=();
   my %layerprev=();
   my $version="";
+  # At first we extract Layer-information and other Board-related information from the Board file
   HandleBinFile($filename,"",0,0,sub {
     my %d=%{$_[0]};
 	foreach(keys %d)
@@ -839,6 +893,7 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
 	}
   }); # Board
   
+  # We search for the first and last layer
   my $firstlayer=0;
   my $lastlayer=0;
   my @layersorder=();
@@ -848,6 +903,7 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
 	$lastlayer=$_ if($layerprev{$_}!=0 && $layernext{$_}==0);
   }
   
+  # Now we create a list of the layers in the correct order
   my $thislayer=$firstlayer;
   while($thislayer!=0)
   {
@@ -855,12 +911,11 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
 	$thislayer=$layernext{$thislayer};
   }
   #print "Layers: ".join(",",@layersorder)."\n";
-  
   #print "Active layers: ".scalar(keys %activelayer)."\n";
     
 
   my $layers="";
-  
+  # If needed, you can display a list of all the layers and their names 
   foreach(sort {$a <=> $b} keys %layername)
   {
     my $name=$layername{$_}; $name=~s/ /./g;
@@ -887,7 +942,8 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
   
   our %nameon=();
   our %commenton=();
-   
+  
+  # We extract the filenames and rotation information for the 3D models:
   HandleBinFile("$short/Root Entry/Models/Data.dat","",0,0,sub 
   { 
     my $fn=$_[0]{'NAME'};
@@ -902,6 +958,7 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
 	$modelwrl{$_[0]{'ID'}}="$short/Root Entry/Models/$_[3].wrl";
   });
 
+  # Now we extract the DRC design rules, which we will have to assign to zones, ...
   our %rules=();
   HandleBinFile("$short/Root Entry/Rules6/Data.dat","",2,0,sub 
   {
@@ -931,6 +988,7 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
 	}
   });
   
+  # Analyzing the Net-Classes, currently ignoring all other classes
   our %netclass=();
   our %netclassrev=();
   HandleBinFile("$short/Root Entry/Classes6/Data.dat","",0,0,sub 
@@ -947,7 +1005,6 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
     #5: ?
     #6: Differential Pair-Classes
     #7: Polygon-Classes
-	
 	assertdata("Class",$_[3],"RECORD","Class");
 	assertdata("Class",$_[3],"INDEXFORSAVE",$_[3]);
     assertdata("Class",$_[3],$_,$_[0]{$_}) foreach(keys %{$_[0]});
@@ -964,9 +1021,11 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
 	}
   });
 
+  # Now we start to output the PCB file for KiCad
   print "Writing PCB to $short.kicad_pcb\n";
   open OUT,">$short.kicad_pcb";
 
+  # We create the Net-list, $nets will be embedded into the file-header
   our $nets="";
   our $nnets=2;
   our %netnames=("1"=>"Net1");
@@ -987,6 +1046,7 @@ foreach my $filename(glob('"*/Root Entry/Board6/Data.dat"'))
   my $clearance=$rules{'Clearance'} || "0.127";
   my $tracewidth=mil2mm($trackwidth);
 
+  # We create the Layer-list, $layertext will be embedded into the file-header
   my $layertext="";
   foreach(1 .. scalar(@layersorder)-2)
   {
@@ -1123,13 +1183,16 @@ EOF
   }
 
 
-  
+  # The following are the movement coordinates to align the Novena PCB to Gerber-Imports
   my $xmove=95.3; 
   my $ymove=79.6; 
+  # The following are the movement coordinates to put the board into the normal workspace
   #$xmove=50;$ymove=250; # Enable to move Novena mainboard into the frame, or disable to move it to align to the Gerber-Imports
+  
   $xmove=0; $ymove=0; # Enable to align GPBB to the Gerber Imports
   
-  my %layermap=(
+  # Mapping the original Layer Numbers to KiCad Layer names
+  our %layermap=(
   "1"=>"F.Cu",
   "2"=>"In4.Cu", # ???  Signal Layer 2/Mid
   "3"=>"In2.Cu",
@@ -1170,6 +1233,7 @@ EOF
   "74"=>"Dwgs.User",
   );
   
+  # Adding internal copper layers
   foreach(1 .. scalar(@layersorder)-2)
   {
      #if(defined($layermap{$layersorder[$_]}) && $layermap{$layersorder[$_]} ne "In$_.Cu")
@@ -1215,6 +1279,7 @@ EOF
   $layermap{"MULTILAYER"}=$layermap{74};
   $layermap{"MECHANICAL14"}=$layermap{70};
  
+  # Dumping the resulting layer map
   foreach(sort keys %layermap)
   {
     #print "SORT: $_ -> $layermap{$_}\n";
@@ -1227,6 +1292,7 @@ EOF
   
   
   # This function maps the Layer numbers or names to KiCad Layernames
+  # It also logs which Layers are effectively used and which layers are needed but not mapped yet.
   sub mapLayer($)
   {
     my $lay=$_[0];
@@ -1281,13 +1347,14 @@ EOF
     "commonpcb.lib/JST_S3B_EH"=>"Pin_Headers/Pin_Header_Straight_1x3.wrl",
 	);
 		
+		
+  #Parsing the Components into the hashes for later use
   our $componentid=0;
   our %componentatx=();
   our %componentaty=();
   our %componentlayer=();
   our %kicadwrl=();
   our %kicadwrlerror=();
-  
   HandleBinFile("$short/Root Entry/Components6/Data.dat","",0,0, sub 
   { 
     my %d=%{$_[0]};
@@ -1323,7 +1390,8 @@ EOF
     $componentid++;
   });
 
-  
+
+  #Converting the Pads  
   #HandleBinFile("$short/Root Entry/Pads6/Data.dat","\x02",0,0, sub 
   {
     my $value=readfile("$short/Root Entry/Pads6/Data.dat");
@@ -1339,6 +1407,7 @@ EOF
 	  print AOUT bin2hex(substr($value,$pos,5))." ";
 	  print AOUT sprintf("A:%10s",bin2hex(substr($value,$pos+5,$len)))." ";
 	  my $name=substr($value,$pos+6,$len-1);
+
 	  
 	  assertdata("Pad",$counter,"RECORD","Pad");
   	  assertdata("Pad",$counter,"INDEXFORSAVE",$counter);
@@ -1346,6 +1415,9 @@ EOF
 	  
 	  $pos+=5+$len;
       my $npos=$pos;
+	  
+      $rawbinary{"Pad"}{$counter}=substr($value,$pos,147);
+
       my $component=unpack("s",substr($value,$pos+30,2));	
 	  
 	  assertdata("Pad",$counter,"COMPONENT",$component) if($component>=0);
@@ -1409,9 +1481,6 @@ EOF
   	  #assertdata("Pad",$counter,"SOLDERMASKEXPANSION_MANUAL",bmil2(substr($value,$pos+126,4)));
   	  my $SOLDERMASKEXPANSION_MANUAL=bmil2mm(substr($value,$pos+113,4)); #Where is the SOLDERMASKEXPANSION_MANUAL stored?!? Is it in the CSE field?
 	  
-	  
-
-	  
 	  #print "layer:$layer net:$net component=$component type:$type dir:$dir \n";
 	  print AOUT bin2hex(substr($value,$pos,143))." ";
 	  my $len2=unpack("l",substr($value,$pos+143,4));
@@ -1458,7 +1527,7 @@ EOF
   
   }#);
 
-
+  #Converting Component Bodies
   HandleBinFile("$short/Root Entry/ComponentBodies6/Data.dat","",23,16, sub 
   { 
     print OUT "#ComponentBodies#".$_[3].": ".bin2hex($_[2])." ".$_[1]."\n" if($annotate);
@@ -1469,6 +1538,7 @@ EOF
 	
 	assertdata("ComponentBody",$_[3],"RECORD","ComponentBody");
 	assertdata("ComponentBody",$_[3],"COMPONENT",$component);
+	$rawbinary{"ComponentBody"}{$_[3]}=$_[2];
 	print OUT "#\$pads{$component}\n" if($annotate);
 	#print "Component:$component\n";
 	my $id=$d{'MODELID'};
@@ -1607,7 +1677,7 @@ EOF
 	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
 	my $component=unpack("s",substr($value,7,2));
 	assertdata("ShapeBasedComponentBody",$_[3],"COMPONENT",$component);
-	
+	$rawbinary{"ShapeBasedComponentBody"}{$_[3]}=$_[2];
     print OUT "# ".bin2hex($unknownheader)."\n" if($annotate);
     my $textlen=unpack("l",substr($value,18,4));
 	my $text=substr($value,22,$textlen);$text=~s/\x00$//;
@@ -1659,7 +1729,7 @@ EOF
 	
 	my $wrl="wrlshp/".substr($d{'MODELID'},0,14).".wrl"; $wrl=~s/[\{\}]//g;
 	
-    if($d{'MODEL.MODELTYPE'} == 0)
+    if($d{'MODEL.MODELTYPE'} == 0) # Extruded Polygon
 	{
 	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=100; 
 	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=100; 
@@ -1683,7 +1753,7 @@ EOF
 	  $shapes{$wrl}.=ExtrudedPolygon("0 0 $pz","0 0 0  0","$fak $fak 1",$color,"1",$sz,\@poly)."," if($good);
 	}
 
-	if($d{'MODEL.MODELTYPE'} == 1)
+	if($d{'MODEL.MODELTYPE'} == 1) #Cone
 	{
 	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=100; 
 	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=100; 
@@ -1692,7 +1762,7 @@ EOF
       #$shapes{$wrl}.=Cone("0 0 0 ","0 0 0  0","1 1 1",$color,"1",$sz,"3").",";
 	}
 
-    if($d{'MODEL.MODELTYPE'} == 2)
+    if($d{'MODEL.MODELTYPE'} == 2) #Cylinder
 	{
 	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=100; 
 	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=100; 
@@ -1703,7 +1773,7 @@ EOF
       #$shapes{$wrl}.=Cylinder("0 0 0 ","0 0 0  0","1 1 1",$color,"1",$r,$h).",";
 	}
 
-    if($d{'MODEL.MODELTYPE'} == 3) #  Sphere
+    if($d{'MODEL.MODELTYPE'} == 3) # Sphere
 	{
 	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=100; 
 	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=100; 
@@ -1713,10 +1783,7 @@ EOF
 	  #my $r=$d{'MODEL.CYLINDER.RADIUS'};$r=~s/mil//; $r/=100; $r=sprintf("%.7f",$r);
       #$shapes{$wrl}.=Sphere("0 0 0 ","0 0 0  0","1 1 1",$color,"1",$r,$pz).",";
 	}
-
 	
-
-    
     $pads{$component}.=<<EOF
 #1365
 	(model "$wrlprefix/$wrl"
@@ -1731,7 +1798,6 @@ EOF
 	#print "text: $text\n";
 	#print "\n";
   });
-
 
 
   
@@ -1803,13 +1869,21 @@ EOF
 	  #print "Result: $pad\n";
 	}
 	
-	
 	#print "stp -> $rot\n";
+	my $SOURCEDESCRIPTION=$d{'SOURCEDESCRIPTION'};
+	my $FOOTPRINTDESCRIPTION=$d{'FOOTPRINTDESCRIPTION'};
     print OUT <<EOF
  (module $stp (layer $layer) (tedit 4289BEAB) (tstamp 539EEDBF)
     (at $atx $aty)
     (path /539EEC0F)
     (attr smd)
+	(fp_text reference "$SOURCEDESCRIPTION" (at 0 0) (layer F.SilkS) hide
+      (effects (font (thickness 0.05)))
+    )
+    (fp_text value "$FOOTPRINTDESCRIPTION" (at 0 0) (layer F.SilkS) hide
+      (effects (font (thickness 0.05)))
+    )
+
 	$pad
   )
 EOF
@@ -1819,12 +1893,12 @@ if(defined($stp));
 
 
 
-
   HandleBinFile("$short/Root Entry/Arcs6/Data.dat","\x01",0,0,sub 
   { 
     my $fn=$_[0]{'NAME'};
     my $value=$_[1];
 	my $net=unpack("s",substr($value,3,2));
+    $rawbinary{"Arc"}{$_[3]}=$_[1];
 	assertdata("Arc",$_[3],"RECORD","Arc");
 	assertdata("Arc",$_[3],"INDEXFORSAVE",$_[3]);
 	assertdata("Arc",$_[3],"NET",$net) if($net>0);
@@ -1897,6 +1971,7 @@ if(defined($stp));
   HandleBinFile("$short/Root Entry/Vias6/Data.dat","\x03",0,0, sub 
   { 
     my $value=$_[1];
+	$rawbinary{"Via"}{$_[3]}=$_[1];
 	print OUT "#Vias#".$_[3].": ".bin2hex($value)."\n" if($annotate);
     my $debug=($count<100);
     my $x=sprintf("%.5f",-$xmove+bmil2mm(substr($value,13,4)));
@@ -2045,7 +2120,7 @@ EOF
   { 
     my $value=$_[1];
 	print OUT "#Tracks#".$_[3].": ".bin2hex($value)."\n" if($annotate);
-
+    $rawbinary{"Track"}{$_[3]}=$_[1];
     my $net=unpack("s",substr($value,3,2))+2;	 
 	assertdata("Track",$_[3],"RECORD","Track");
 	assertdata("Track",$_[3],"INDEXFORSAVE",$_[3]);
@@ -2063,9 +2138,12 @@ EOF
 	assertdata("Track",$_[3],"Y2",bmil2(substr($value,25,4)));
 	my $width=bmil2mm(substr($value,29,4));
 	assertdata("Track",$_[3],"WIDTH",bmil2(substr($value,29,4)));
-	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "Cmts.User";
-	assertdata("Track",$_[3],"LAYER",$altlayername{unpack("C",substr($value,0,1))});
+    my $olayer=unpack("C",substr($value,0,1));
+	my $layer=mapLayer($olayer) || "Cmts.User";
+	assertdata("Track",$_[3],"LAYER",$altlayername{$olayer}) if(defined($altlayername{$olayer}));
+	print STDERR "altlayername{$olayer} undefined\n" if(!defined($altlayername{$olayer}));
 
+	# On Edge, Silkscreen, ... layers, we have to use lines, on copper layers we have to use segments
 	if($layer =~m/(Edge\.Cuts|Silk|CrtYd|Adhes|Paste)/i)
 	{
 	  $cutcounter++;
@@ -2077,6 +2155,8 @@ EOF
 	{
 	  print OUT "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer $layer) (net 1))\n";
 	}
+	
+	# Automated verification against the Gerbers
 	if(0) # $count>19000 && !($count%50))
 	{
 	  #print OUT "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer $layer) (net 1))\n";
@@ -2115,7 +2195,6 @@ EOF
 	}
 	$count++;
   });
-  
   foreach my $width(sort keys %widths)
   {
     print $width.": ".$_."\n" foreach(@{$widths{$width}}); 
@@ -2168,7 +2247,7 @@ EOF
   { 
     my $value=$_[1];
     print OUT "#Fills#".$_[3].": ".bin2hex($value)."\n" if($annotate);
-
+    $rawbinary{"Fill"}{$_[3]}=$_[1];
 	my $layer=mapLayer(unpack("C",substr($value,0,1))) || "Cmts.User";
     assertdata("Fill",$_[3],"LAYER",$altlayername{unpack("C",substr($value,0,1))});
     my $net=unpack("s",substr($value,3,2))+2;	  
@@ -2210,6 +2289,7 @@ EOF
   HandleBinFile("$short/Root Entry/Regions6/Data.dat","\x0b",0,0, sub 
   { 
     my $value=$_[1];
+	$rawbinary{"Region"}{$_[3]}=$_[1];
     print OUT "#Regions#".$_[3].": ".bin2hex(substr($value,0,1000))."\n" if($annotate);
 	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
     my $textlen=unpack("l",substr($value,18,4));
@@ -2235,7 +2315,7 @@ EOF
   });
   
   
-
+  # A demo-board is created with the whole sortiment of used parts, for verification of the correct 3D models
   open VOUT,">wrlshapes.kicad_pcb";
   print VOUT <<EOF
   (kicad_pcb (version 4) (host pcbnew "(2014-07-21 BZR 5016)-product")
@@ -2351,10 +2431,8 @@ $layers
     (uvia_drill 0.127)
 	(add_net Net1)
   )
-  
 EOF
 ;
-
   my $nshape=0;
   foreach(sort keys %shapes)
   {
@@ -2388,8 +2466,9 @@ EOF
   print VOUT ")\n";
   close VOUT;
   print OUT "#Finished handling Shape Based Bodies.\n";
-
   
+  
+  # Converting from UCS2 to UTF-8 by removing all 0-Bytes
   sub ucs2utf($)
   {
     my $r=$_[0]; $r=~s/\x00//gs;
@@ -2416,7 +2495,7 @@ EOF
 	  $pos+=4;
 	  assertdata("Text",$counter,"RECORD","Text");
 	  assertdata("Text",$counter,"INDEXFORSAVE",$counter);
-
+      $rawbinary{"Via"}{$counter}=substr($content,$pos,100);
 	  my $component=unpack("s",substr($content,$pos+7,2));
 	  assertdata("Text",$counter,"COMPONENT",$component) if($component>0);
 	  my $texttype=unpack("C",substr($content,$pos+21,1));
@@ -2436,7 +2515,8 @@ EOF
 	  
 	  my $layer=mapLayer(unpack("C",substr($content,$pos,1))) || "Cmts.User";
 	  my $olayer=unpack("C",substr($content,$pos,1));
-  	  assertdata("Text",$counter,"LAYER",$altlayername{$olayer});
+  	  assertdata("Text",$counter,"LAYER",$altlayername{$olayer}) if(defined($altlayername{$olayer}));
+	  print STDERR "Undefined Text layer $olayer\n" if(!$altlayername{$olayer});
 	  
 	  my $x=sprintf("%.5f",-$xmove+bmil2mm(substr($content,$pos+13,4)));
 	  assertdata("Text",$counter,"X",bmil2(substr($content,$pos+13,4)));
@@ -2486,6 +2566,8 @@ EOF
 	  $counter++;
 	}
   } 
+  
+  
 
   # We are done with converting a .PcbDoc file, now we print some statistical information: 
   if(keys %unmappedLayers)
@@ -2495,6 +2577,7 @@ EOF
     print "\n";
   }
   
+  # We can print the used layers
   foreach(sort keys %usedlayers)
   {
     my $name="undefined"; $name=$1 if($layerdoku=~m/name: *$_ *([\w.]+)/);
@@ -2503,11 +2586,29 @@ EOF
     #print "Used layer: $_ $lname/$name -> $kic\n";
   }
   
+  sub findall($$)
+  {
+    my @ret=();
+    my $result = index($_[0], $_[1], 0);
+    while ($result != -1) 
+    {
+      push @ret,$result;
+      $result = index($_[0], $_[1], $result+1);
+	}
+	return @ret;
+  }
+
+
+  
+  
+  # Verification of binary parsing against the ascii fileformat:
   if(scalar(@asciilines))
   {
+    print "Writing report to $short-ascii.html\n";
     open HTML,">$short-ascii.html";
 	print HTML "<html><body><pre>";
 	my %linenos=();
+	my %tosearch=();
   	foreach my $line (@asciilines)
 	{
       my @a=split '\|',$line;
@@ -2528,12 +2629,37 @@ EOF
 		  print HTML "<span style='background-color:".(defined($resultvalue)?($good?"#80ff80":"#ff8080"):"#ffffff")."'>".$name."=".$value."</span>";
 		  print HTML "<span style='background-color:#8080ff'>$resultvalue</span>" if(defined($resultvalue) && !$good);
 		  print HTML "|";
+		  
+		  if(defined($result{'RECORD'} && !$good))
+		  {
+			my $tosearch=EstimateEncoding($value);
+			my $plain=$rawbinary{$d{'RECORD'}}{$name};
+            $positions{$d{'RECORD'}}{$name}{$_}++ foreach(findall($tosearch,$plain));
+	      }
 	    }
 	  }
 	  print HTML "\n";
 	}
-	print HTML "</pre></body></html>";
+	print HTML "</pre>";
+	
+    foreach my $record (sort keys %positions)
+	{
+	  print "RECORD=$record:\n";
+	  foreach my $name(sort keys %{$positions{$record}})
+	  {
+	    print "$name:\n";
+        foreach my $pos(sort {$positions{$record}{$name}{$a} <=> $positions{$record}{$name}{$b} } keys %{$positions{$record}{$name}})
+		{
+		  print "  $pos: $_ (".$positions{$record}{$name}{$_}.")\n";
+		}
+	  }
+	}
+	
+	print HTML "</body></html>";
 	close HTML;
+	
+   	
+	
   }
   
   
@@ -2541,7 +2667,7 @@ EOF
 }
 if(!$filecounter)
 {
-  print "There were no unpacked PcbDoc files found. Please unpack them with unpack.pl before running convertpcb.pl\n";
+  print "There were no unpacked PcbDoc files found.\n";
 }
 
 
@@ -2682,7 +2808,7 @@ sub decodePcbLib($)
   
   my $pos=4+$namelen;
   my $prevtype=-1;
-  while($pos<length($content))
+  while($pos+3<length($content))
   {
     my $type=unpack("C",substr($content,$pos,1));
     my $typelen=unpack("S",substr($content,$pos+1,2));
@@ -2692,9 +2818,10 @@ sub decodePcbLib($)
 	#$typelen=138 if($type==5);
 	$typelen=17 if($type==12);
 	
-	if(substr($content,$pos+$typelen+5-3,3) eq "\x40\x9C\x00")
+	
+	if($type==2 && substr($content,$pos+$typelen+5-3,3) eq "\x40\x9C\x00")
 	{
-	  #print "409c00 detected!\n";
+	  print "409c00 detected in type:$type!\n";
 	  $typelen+=5;
 	}
 	
@@ -2747,6 +2874,11 @@ sub decodePcbLib($)
 	    #print sprintf("A:%10s",$name)." ";
 	    $pos+=6+$len;
         my $npos=$pos;
+		if($pos+44>length($value))
+		{
+		  print "Error in paring file $_[0]\n";
+		  last;
+		}
         my $component=unpack("s",substr($value,$pos+30,2));	
 	    #print AOUT "component:$component net:$net\n";
         my $x1=-$xmove+bmil2mm(substr($value,$pos+36,4));
@@ -2889,6 +3021,7 @@ foreach my $dir (glob("'*/Root Entry/Library'"))
   }
 }
 
+# Calculating statistics for ASCII*.PcbDoc files into ASCII*.PcbDoc.txt files
 foreach(glob("ASCII*.PcbDoc"))
 {
   next;
@@ -2922,9 +3055,6 @@ foreach(glob("ASCII*.PcbDoc"))
 		$h{$d{"RECORD"}.($d{'MODEL.MODELTYPE'}||"")}{$name}{$value}=1;
       }
  	}
-
-
-    
   }
   close IN;
   open OUT,">$_.txt";
