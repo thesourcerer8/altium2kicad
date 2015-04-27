@@ -1870,14 +1870,16 @@ EOF
 	}
 	
 	#print "stp -> $rot\n";
+	# We have to handle (attr smd) and (tag ...) here ...
+	my $PATTERN=$d{'PATTERN'};
 	my $SOURCEDESCRIPTION=$d{'SOURCEDESCRIPTION'};
 	my $FOOTPRINTDESCRIPTION=$d{'FOOTPRINTDESCRIPTION'};
     print OUT <<EOF
- (module $stp (layer $layer) (tedit 4289BEAB) (tstamp 539EEDBF)
+ (module "$PATTERN" (layer $layer) (tedit 4289BEAB) (tstamp 539EEDBF)
     (at $atx $aty)
     (path /539EEC0F)
     (attr smd)
-	(fp_text reference "$SOURCEDESCRIPTION" (at 0 0) (layer F.SilkS) hide
+	(fp_text reference "$stp" (at 0 0) (layer F.SilkS) hide
       (effects (font (thickness 0.05)))
     )
     (fp_text value "$FOOTPRINTDESCRIPTION" (at 0 0) (layer F.SilkS) hide
