@@ -15,6 +15,8 @@ push @files,<*.IntLib>;
 push @files,<*.PcbLib>;
 push @files,<*.SchLib>;
 
+my $debug=$ARGV[0] || 0;
+
 foreach my $file (@files)
 {
   #next if($file=~m/^ASCII/i); # We have to skip ASCII formatted PCB Files
@@ -64,7 +66,7 @@ foreach my $file (@files)
   next unless($revision==62); # We might stumble across other ASCII files that way
 
   our $MSAT=$firstpartMSAT;
-  if(0)
+  if($debug)
   {
   print "maximum number of blocks: ".((length($content)-512)/$sectorsize)."\n";
   #print "header: $header\n";
@@ -119,12 +121,14 @@ foreach my $file (@files)
   {
     push @MSAT,unpack($v,substr($MSAT,$_*4,4));
   }
-  print "MSAT logged to log_msat.txt\n";
-  open MSAT ,">log_msat.txt";
-  print MSAT join(",",@MSAT)."\n";
-  close MSAT;
-
-  #print "sectorsize: $sectorsize\n";
+  if($debug)
+  {
+    print "MSAT logged to log_msat.txt\n";
+    open MSAT ,">log_msat.txt";
+    print MSAT join(",",@MSAT)."\n";
+    close MSAT;
+    print "sectorsize: $sectorsize\n";
+  }
 
 
   # Collecting the whole SAT Table:
@@ -143,11 +147,13 @@ foreach my $file (@files)
     push @SAT,unpack($v,substr($SAT1,$_*4,4));
   }
 
-  print "SAT logged to log_sat.txt\n";
-  open SAT ,">log_sat.txt";
-  print SAT join(",",@SAT)."\n";
-  close SAT;
-  
+  if($debug)
+  {
+    print "SAT logged to log_sat.txt\n";
+    open SAT ,">log_sat.txt";
+    print SAT join(",",@SAT)."\n";
+    close SAT;
+  }
 
   sub getLongFile($$$$$)
   {
@@ -266,12 +272,13 @@ foreach my $file (@files)
   {
     push @SSAT,unpack($v,substr($SSAT,$_*4,4));
   }
-  
-  print "SSAT logged to log_ssat.txt\n";
-  open SSAT ,">log_ssat.txt";
-  print SSAT join(",",@SSAT)."\n";
-  close SSAT;
-  
+  if($debug)
+  {
+    print "SSAT logged to log_ssat.txt\n";
+    open SSAT ,">log_ssat.txt";
+    print SSAT join(",",@SSAT)."\n";
+    close SSAT;
+  }
 
   my $DirStream=getLongFile($SecIdDirStream,0,\@SAT,$file,$content);
   my @DirStream=();
@@ -280,7 +287,6 @@ foreach my $file (@files)
     my $DirEntry=substr($DirStream,$_*128,128);
     push @DirStream,$DirEntry;
   }
- 
 
   sub HandleColor
   {
