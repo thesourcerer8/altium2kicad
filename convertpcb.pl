@@ -38,6 +38,8 @@ my $absoluteWRLpath=1;
 
 my $wrlprefix=$absoluteWRLpath ? Cwd::cwd() : ".";
 
+
+
 my $current_status=<<EOF
 Advanced Placer Options6 # Not needed
 Arcs6 # Likely Done
@@ -190,6 +192,17 @@ sub EstimateEncoding($)
   return $v;
 }
 
+our $version="";
+
+sub getCRLF($)
+{
+  my $d=$_[0];
+  return $d if($d=~m/[^\r]\n/);	
+  return $d if(defined($ARGV[0]) && $ARGV[0] eq "CRLF");
+  $d=~s/\r\n/\n/sg unless($version eq "5.01");
+  return $d;
+}
+
 
 # This is the main handling function that parses most of the binary files inside a .PcbDoc
 # It iterates over all records in the given file, and callback´s a given function for every record given
@@ -205,7 +218,7 @@ sub HandleBinFile
   my $content=readfile($filename);
 
   return unless defined($content);
-  $content=~s/\x0d\x0a/\x0a/gs;
+  $content=getCRLF($content);
   return unless length($content)>4;
   
   my $text="";
@@ -222,9 +235,20 @@ sub HandleBinFile
     my $header=substr($content,$pos,$headerlen);
     $pos+=$headerlen;
     my $rtyp=substr($content,$pos,length($recordtype));
-	if($rtyp ne $recordtype)
+	if($rtyp ne $recordtype && !($recordtype eq "\x01\x00" && $rtyp=~m/^(\x01|\x03|\x05|\x07)\x00$/)) # Dimensions have both 01:00 and 05:00 record types
 	{
-	  print "Error: Wrong recordtype: $rtyp, expected $recordtype\n";
+	  print "Error: Wrong recordtype: ".bin2hex($rtyp).", expected ".bin2hex($recordtype)."\n";
+	  if(!$ARGV[0] eq "CRLF")
+	  {
+	    print "The wrong record type could be a new record type, or a decoding error due to wrong CRLF encoding.\n";
+		print "We are trying again now with a different CRLF encoding.\n";
+	    system "$0 CRLF";
+		exit;
+	  }
+	  else
+	  {
+	    print "This record type is really unknown. Please contact the developer to add it.\n";
+	  }
 	  last;
 	}
 	$pos+=length($recordtype);
@@ -715,7 +739,7 @@ our %altlayername=("1"=>"TOP","2"=>"MIDLAYER1","3"=>"L3","4"=>"L4","5"=>"MID4","
   "57"=>"MECHANICAL1","58"=>"MECHANICAL2",
   "59"=>"MECHANICAL3","60"=>"MECHANICAL4","61"=>"MECHANICAL5","62"=>"MECHANICAL6","63"=>"MECHANICAL7","64"=>"MECHANICAL8","65"=>"MECHANICAL9",
   "66"=>"MECHANICAL10","67"=>"MECHANICAL11","68"=>"MECHANICAL12",
-  "69"=>"MECHANICAL13","70"=>"MECHANICAL14","71"=>"MECHANICAL15","73"=>"DRILL","74"=>"MULTILAYER");
+  "69"=>"MECHANICAL13","70"=>"MECHANICAL14","71"=>"MECHANICAL15","72"=>"MECHANICAL16","73"=>"DRILL","74"=>"MULTILAYER");
 
 
 # At first we read the curated Designer->KiCad standard component mappings:
@@ -846,7 +870,6 @@ foreach my $filename(@files)
   my %activelayer=();
   my %layernext=();
   my %layerprev=();
-  my $version="";
   # At first we extract Layer-information and other Board-related information from the Board file
   HandleBinFile($filename,"",0,0,sub {
     my %d=%{$_[0]};
@@ -887,7 +910,7 @@ foreach my $filename(@files)
 	  }
 	  if($_=~m/^VERSION$/)
 	  {
-	    #print "Version: $d{$_}\n";
+	    print "Version: $d{$_}\n";
 		$version=$d{$_};
 	  }
 	}
@@ -1278,7 +1301,8 @@ EOF
   $layermap{"BOTTOMPASTE"}=$layermap{36};
   $layermap{"MULTILAYER"}=$layermap{74};
   $layermap{"MECHANICAL14"}=$layermap{70};
- 
+  $layermap{"MECHANICAL2"}="Eco1.User";
+  
   # Dumping the resulting layer map
   foreach(sort keys %layermap)
   {
@@ -1872,8 +1896,8 @@ EOF
 	#print "stp -> $rot\n";
 	# We have to handle (attr smd) and (tag ...) here ...
 	my $PATTERN=$d{'PATTERN'};
-	my $SOURCEDESCRIPTION=$d{'SOURCEDESCRIPTION'};
-	my $FOOTPRINTDESCRIPTION=$d{'FOOTPRINTDESCRIPTION'};
+	my $SOURCEDESCRIPTION=$d{'SOURCEDESCRIPTION'}||"";
+	my $FOOTPRINTDESCRIPTION=$d{'FOOTPRINTDESCRIPTION'}||"";
     print OUT <<EOF
  (module "$PATTERN" (layer $layer) (tedit 4289BEAB) (tstamp 539EEDBF)
     (at $atx $aty)
@@ -2309,7 +2333,7 @@ EOF
         assertdata("Region",$_[3],$1,$2);
 	  }
 	}
-	my $layer=mapLayer($d{'V7_LAYER'});
+	my $layer=defined($d{'V7_LAYER'})?mapLayer($d{'V7_LAYER'}):"Eco1.User";
 	my $datalen=unpack("l",substr($value,22+$textlen,4))*16;
 	my $data=substr($value,22+$textlen+4,$datalen);
 	#print bin2hex($data)."\n";
@@ -2483,7 +2507,7 @@ EOF
   {
     print "Texts6...\n";
 	# It seems there are files with \r\n and files with \n but we don´t know how to distinguish those. Perhaps it depends on the Designer version?
-    my $content=readfile("$short/Root Entry/Texts6/Data.dat"); $content=~s/\r\n/\n/sg unless($version eq "5.01");
+    my $content=getCRLF(readfile("$short/Root Entry/Texts6/Data.dat"));
 	my $pos=0;
 	my %seen=();
 	my $counter=0;
