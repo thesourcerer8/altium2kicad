@@ -7,6 +7,7 @@ use Cwd qw(abs_path cwd getcwd);
 #use Math::Bezier;
 
 # Things that are missing in KiCad:
+# Octagonal pads, needed for Arduino designs (converting them to circles can cause overlaps!)
 # More than 32 layers
 # Multi-line Text Frames (Workaround: The text can be rendered by the converter)
 # A GND symbol with multiple horizontal lines arranged as a triangle
@@ -164,7 +165,7 @@ sub near2d($$$$)
 sub enull($)
 {
   my $d=$_[0];
-  $d=~s/E\+/E+0/; $d=~s/^/ /;
+  $d=~s/E\+/E+0/; $d=~s/E\-/E-0/;  $d=~s/^/ /;
   return $d;
 }
 
@@ -398,10 +399,24 @@ sub ExtrudedPolygon($$$$$$$)
   }
 
   #print Dumper(\@polyarray);
+  if(scalar(@polyarray)<3)
+  {
+    return undef;
+  }
+  #print "Count: ".scalar(@polyarray)."\n";
   
   my $poly = Math::Geometry::Planar->new;
   $poly->points(\@polyarray);
+  $poly->cleanup();
+  #print "Convex: ".$poly->isconvex()."\n";
+  #print "IsSimple: ".$poly->issimple()."\n";
+  if(!$poly->isconvex()) # We should also allow concave, non-self-crossing polygons
+  #if(!$poly->issimple()) # This unfortunately does not work
+  {
+    return undef;
+  }
   my @triangles=$poly->triangulate();
+  #print "Done\n";
   
   my $pos=$n*2;
   #print Dumper(\@triangles);
@@ -735,11 +750,11 @@ EOF
   
 our %altlayername=("1"=>"TOP","2"=>"MIDLAYER1","3"=>"L3","4"=>"L4","5"=>"MID4","6"=>"MID5","7"=>"MID6","8"=>"MID7","9"=>"MID8","10"=>"MID9","11"=>"L7","12"=>"L8","32"=>"BOTTOM","33"=>"TOPOVERLAY",
   "34"=>"BOTTOMOVERLAY","35"=>"TOPPASTE","36"=>"BOTTOMPASTE",
-  "37"=>"TOPSOLDER","38"=>"BOTTOMSOLDER","39"=>"L2-GND","40"=>"L4-PWR","41"=>"L5-PWR","42"=>"L9-GND","56"=>"KEEPOUT",
-  "57"=>"MECHANICAL1","58"=>"MECHANICAL2",
+  "37"=>"TOPSOLDER","38"=>"BOTTOMSOLDER","39"=>"PLANE1","40"=>"PLANE2","41"=>"PLANE3","42"=>"PLANE4","43"=>"PLANE5","44"=>"PLANE6",
+  "55"=>"DRILLGUIDE","56"=>"KEEPOUT","57"=>"MECHANICAL1","58"=>"MECHANICAL2",
   "59"=>"MECHANICAL3","60"=>"MECHANICAL4","61"=>"MECHANICAL5","62"=>"MECHANICAL6","63"=>"MECHANICAL7","64"=>"MECHANICAL8","65"=>"MECHANICAL9",
   "66"=>"MECHANICAL10","67"=>"MECHANICAL11","68"=>"MECHANICAL12",
-  "69"=>"MECHANICAL13","70"=>"MECHANICAL14","71"=>"MECHANICAL15","72"=>"MECHANICAL16","73"=>"DRILL","74"=>"MULTILAYER");
+  "69"=>"MECHANICAL13","70"=>"MECHANICAL14","71"=>"MECHANICAL15","72"=>"MECHANICAL16","73"=>"DRILLDRAWING","74"=>"MULTILAYER");
 
 
 # At first we read the curated Designer->KiCad standard component mappings:
@@ -805,9 +820,10 @@ foreach my $filename(@files)
 	print STDERR "Undefined value in $record $line $name\n" if(!defined($value));
     $result{$record}{$line}{$name}=$value;
 	return if($name=~m/^(UNIONINDEX|GROUPNUM|COUNT)$/);
-	my $vvalue=$verify{$record}{$line}{$name}||"";
+	my $vvalue=defined($verify{$record}{$line}{$name})?$verify{$record}{$line}{$name}:"";
 	$vvalue=~s/\s*$//; $value=~s/\s*$//;
-	my $good=$value eq $vvalue?1:0;
+	my $good=$value eq $vvalue?1:0; 
+	$good=uc($value) eq uc($vvalue)?1:0 if($value=~m/^(True|False)$/i);
     $cgoodbad{$record}{$name}{$good}++;
 	print "assert: $record $line $name $value".($good?"=":"<>").($vvalue||"")."\n" if(!$good);
   }
@@ -910,7 +926,7 @@ foreach my $filename(@files)
 	  }
 	  if($_=~m/^VERSION$/)
 	  {
-	    print "Version: $d{$_}\n";
+	    #print "Version: $d{$_}\n";
 		$version=$d{$_};
 	  }
 	}
@@ -1029,8 +1045,8 @@ foreach my $filename(@files)
     #6: Differential Pair-Classes
     #7: Polygon-Classes
 	assertdata("Class",$_[3],"RECORD","Class");
-	assertdata("Class",$_[3],"INDEXFORSAVE",$_[3]);
-    assertdata("Class",$_[3],$_,$_[0]{$_}) foreach(keys %{$_[0]});
+	assertdata("Class",$_[3],"INDEXFORSAVE",sprintf("%d",$_[3]));
+    #assertdata("Class",$_[3],$_,$_[0]{$_}) foreach(keys %{$_[0]});
     if($superclass eq "FALSE" && $kind==0)
 	{
 	  foreach my $key(keys %{$_[0]})
@@ -1145,7 +1161,7 @@ $layers
     (pad_drill 0.6)
     (pad_to_mask_clearance 0)
     (aux_axis_origin 0 0)
-    (visible_elements FFFFFF7F)
+    (visible_elements 7FFFF77F)
     (pcbplotparams
       (layerselection 262143)
       (usegerberextensions false)
@@ -1302,6 +1318,8 @@ EOF
   $layermap{"MULTILAYER"}=$layermap{74};
   $layermap{"MECHANICAL14"}=$layermap{70};
   $layermap{"MECHANICAL2"}="Eco1.User";
+  $layermap{"MECHANICAL1"}="Eco1.User";
+  $layermap{"55"}="Cmts.User";
   
   # Dumping the resulting layer map
   foreach(sort keys %layermap)
@@ -1423,7 +1441,7 @@ EOF
 	open AOUT,">$short/Root Entry/Pads6/Data.dat.txt";
 	open DOUT,">Pads.txt";
 	my $pos=0;
-	my $counter=0;
+	my $counter="0";
 	while($pos+140<length($value))
 	{
 	  my $opos=$pos;
@@ -1478,13 +1496,19 @@ EOF
 	  	  
 	  my $mdir=($dir==0)?"":" $dir";
 	  
-	  my %typemap=("2"=>"rect","1"=>"circle","3"=>"slot","0"=>"Unknown"); # I am not sure, whether 3 is really slot
-	  my %typemapalt=("2"=>"RECTANGLE","1"=>"ROUND","3"=>"slot","0"=>"Unknown"); # I am not sure, whether 3 is really slot
+	  my %typemap=("2"=>"rect","1"=>"circle","3"=>"oval","0"=>"Unknown"); 
+	  my %typemapalt=("2"=>"RECTANGLE","1"=>"ROUND","3"=>"OCTAGONAL","0"=>"Unknown"); 
 	  my $otype=unpack("C",substr($value,$pos+72,1));
   	  assertdata("Pad",$counter,"SHAPE",$typemapalt{$otype});
       my $type=$typemap{$otype};
+
+	  if($otype eq "3")
+	  {
+	     print "Warning: Octagonal pads are currently not supported by KiCad. We convert them to oval for now, please verify the PCB design afterwards.\n";
+	  }
 	  
 	  $type="oval" if($type eq "circle" && $sx != $sy);
+	  
 	  
       my %platemap=("0"=>"FALSE","1"=>"TRUE");
       my $plated=$platemap{unpack("C",substr($value,$pos+83,1))};	  
@@ -1774,7 +1798,12 @@ EOF
 		$prevx=$x1;
 		$prevy=$y1;
       }
-	  $shapes{$wrl}.=ExtrudedPolygon("0 0 $pz","0 0 0  0","$fak $fak 1",$color,"1",$sz,\@poly)."," if($good);
+	  #print "Extruding polygon... $pz\n";
+	  if($good)
+	  {
+	    my $addition=ExtrudedPolygon("0 0 $pz","0 0 0  0","$fak $fak 1",$color,"1",$sz,\@poly);
+	    $shapes{$wrl}.=$addition."," if(defined($addition));
+	  }
 	}
 
 	if($d{'MODEL.MODELTYPE'} == 1) #Cone
@@ -2153,7 +2182,7 @@ EOF
 	assertdata("Track",$_[3],"NET",unpack("s",substr($value,3,2))) if($net>=2);
     my $netname=$netnames{$net};
 	my $component=unpack("s",substr($value,7,2));
-	assertdata("Track",$_[3],"COMPONENT",unpack("s",substr($value,7,2)));
+	assertdata("Track",$_[3],"COMPONENT",unpack("s",substr($value,7,2))) if($component>=0);
     my $x1=sprintf("%.5f",-$xmove+bmil2mm(substr($value,13,4)));
 	assertdata("Track",$_[3],"X1",bmil2(substr($value,13,4)));
 	my $y1=sprintf("%.5f",+$ymove-bmil2mm(substr($value,17,4)));
@@ -2330,7 +2359,10 @@ EOF
       if($c=~m/^([^=]*)=(.*)$/)
 	  {
 	    $d{$1}=$2;
-        assertdata("Region",$_[3],$1,$2);
+		my $name=$1;
+		my $value=$2;
+		$name=~s/^V7_//;
+        assertdata("Region",$_[3],$name,$value);
 	  }
 	}
 	my $layer=defined($d{'V7_LAYER'})?mapLayer($d{'V7_LAYER'}):"Eco1.User";
@@ -2417,7 +2449,7 @@ $layers
     (pad_drill 0.6)
     (pad_to_mask_clearance 0)
     (aux_axis_origin 0 0)
-    (visible_elements FFFFFF7F)
+    (visible_elements 7FFFF77F)
     (pcbplotparams
       (layerselection 262143)
       (usegerberextensions false)
@@ -2497,7 +2529,7 @@ EOF
   # Converting from UCS2 to UTF-8 by removing all 0-Bytes
   sub ucs2utf($)
   {
-    my $r=$_[0]; $r=~s/\x00//gs;
+    my $r=$_[0]; $r=~s/\x00\x00.*$//; $r=~s/\x00//gs;
 	return $r;
   }
   
@@ -2506,6 +2538,7 @@ EOF
   if(1)
   {
     print "Texts6...\n";
+	open DOUT,">$short/Root Entry/Texts6/Texts.txt";
 	# It seems there are files with \r\n and files with \n but we don´t know how to distinguish those. Perhaps it depends on the Designer version?
     my $content=getCRLF(readfile("$short/Root Entry/Texts6/Data.dat"));
 	my $pos=0;
@@ -2519,22 +2552,35 @@ EOF
 	  $pos++;
       my $fontlen=unpack("l",substr($content,$pos,4)); 
 	  $pos+=4;
+	  
+	  print DOUT bin2hex(substr($content,$pos,100))."\n";
+	  print bin2hex(substr($content,$pos,100))."\n";
 	  assertdata("Text",$counter,"RECORD","Text");
 	  assertdata("Text",$counter,"INDEXFORSAVE",$counter);
       $rawbinary{"Via"}{$counter}=substr($content,$pos,100);
 	  my $component=unpack("s",substr($content,$pos+7,2));
 	  assertdata("Text",$counter,"COMPONENT",$component) if($component>0);
-	  my $texttype=unpack("C",substr($content,$pos+21,1));
-	  assertdata("Text",$counter,"TYPE",$texttype);
+	  
+	  #my $texttype=unpack("C",substr($content,$pos+21,1)); # This is wrong, this is the HEIGHT field, not some type field.
+	  #assertdata("Text",$counter,"TYPE",$texttype);
+	  
+	  my $comment=unpack("C",substr($content,$pos+40,1));
+	  assertdata("Text",$counter,"COMMENT",$alttruth{$comment}) if($comment);
+	  my $designator=unpack("C",substr($content,$pos+41,1));
+	  assertdata("Text",$counter,"DESIGNATOR",$alttruth{$designator}) if($designator);
+
+
 	  my $hide=0;
 	  if($component>=0)
 	  {
-	    if($texttype == 0xc0)
+	    if($comment) #$texttype == 0xc0)
 		{
+		  #assertdata("Text",$counter,"COMMENT","TRUE");
 		  $hide=1 if($commenton{$component} eq "FALSE");
 		}
-		if($texttype == 0xf2)
+		if($designator) # $texttype == 0xf2)
 		{
+		  #assertdata("Text",$counter,"DESIGNATOR","TRUE");
 		  $hide=1 if($nameon{$component} eq "FALSE");
 		}
 	  }
@@ -2550,14 +2596,14 @@ EOF
       assertdata("Text",$counter,"Y",bmil2(substr($content,$pos+17,4)));
 	  
 
-	  my $x1=sprintf("%.5f",-$xmove+bmil2mm(substr($content,$pos+13,4)));
-	  assertdata("Text",$counter,"X1",bmil2(substr($content,$pos+13,4)));
-	  my $y1=sprintf("%.5f",+$ymove-bmil2mm(substr($content,$pos+17,4)));
-      assertdata("Text",$counter,"Y1",bmil2(substr($content,$pos+17,4)));
-	  my $x2=sprintf("%.5f",-$xmove+bmil2mm(substr($content,$pos+13,4)));
-	  assertdata("Text",$counter,"X2",bmil2(substr($content,$pos+13,4)));
-	  my $y2=sprintf("%.5f",+$ymove-bmil2mm(substr($content,$pos+17,4)));
-      assertdata("Text",$counter,"Y2",bmil2(substr($content,$pos+17,4)));
+	  #my $x1=sprintf("%.5f",-$xmove+bmil2mm(substr($content,$pos+13,4)));
+	  #assertdata("Text",$counter,"X1",bmil2(substr($content,$pos+13,4)));
+	  #my $y1=sprintf("%.5f",+$ymove-bmil2mm(substr($content,$pos+17,4)));
+      #assertdata("Text",$counter,"Y1",bmil2(substr($content,$pos+17,4)));
+	  #my $x2=sprintf("%.5f",-$xmove+bmil2mm(substr($content,$pos+13,4)));
+	  #assertdata("Text",$counter,"X2",bmil2(substr($content,$pos+13,4)));
+	  #my $y2=sprintf("%.5f",+$ymove-bmil2mm(substr($content,$pos+17,4)));
+      #assertdata("Text",$counter,"Y2",bmil2(substr($content,$pos+17,4)));
 
 	  
 	  my $width=bmil2mm(substr($content,$pos+21,4));
@@ -2576,7 +2622,7 @@ EOF
   	  assertdata("Text",$counter,"TEXT",$text);
 	  $pos+=$textlen;
 	  print OUT "#Texts#".$opos.": ".bin2hex(substr($content,$opos,$pos-$opos))."\n" if($annotate);
-	  print OUT "#Layer: $olayer Component:$component Type:".sprintf("%02X",$texttype)."\n" if($annotate);
+	  print OUT "#Layer: $olayer Component:$component COMMENT=$comment DESIGNATOR=$designator\n" if($annotate);
 	  print OUT "#Commenton: ".$commenton{$component}." nameon: ".$nameon{$component}."\n" if($component>=0 && $annotate);
 	  print OUT "#Mirror: $mirror\n";
 	  $mirrors{$mirror}++;
@@ -2591,6 +2637,7 @@ EOF
         if(!$hide);
 	  $counter++;
 	}
+    close DOUT;	
   } 
   
   
