@@ -20,6 +20,7 @@ my $imagemagick=-d $searchimagemagick?$searchimagemagick:"";
 # Printing does not work correctly
 # Exporting to PDF only creates a single page, does not work for hierarchical schematics yet
 # Arcs with >=180 degrees angle. Workaround: Such arcs are splitted into 3 parts
+# Dotted and dashed lines
 
 # Things that are missing in Altium:
 # Altium does not differentiate between "Power-In" and "Power-Out", it only has "Power"
@@ -43,7 +44,7 @@ my $pi=3.14159265359;
 
 my $USELOGGING=1;
 my $globalcomp="";
-my %globalcontains=();
+our %globalcontains=();
 my %rootlibraries=();
 my $ICcount=0;
 our $timestamp=time();
@@ -115,6 +116,8 @@ foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'))
 
   my $text="";
   my @a=();
+  
+  our %localcontains=();
 
   open OUT,">$filename.txt";
   my $line=0;
@@ -528,7 +531,7 @@ EOF
 	  {
         #RECORD= 6|OWNERPARTID=   1|OWNERINDEX=1468|LINEWIDTH=1|LOCATIONCOUNT=2|OWNERINDEX=1468|X1=440|X2=440|Y1=1210|Y2=1207|
 		my $fill=(defined($d{'ISSOLID'})&&$d{'ISSOLID'} eq 'T')?"F":"N";
-		my $cmpd="P $d{LOCATIONCOUNT} 0 1 $d{LINEWIDTH}0 ";
+		my $cmpd="P ".($d{'LOCATIONCOUNT'}||0)." 0 1 ".($d{'LINEWIDTH'}||1)."0 ";
 		foreach my $i(1 .. $d{'LOCATIONCOUNT'})
 		{
   		  my $x=($d{'X'.$i}*$f)-$relx;
@@ -616,6 +619,19 @@ EOF
 		my $text=$d{'DESCRIPTION'} || $d{'TEXT'}; $text=~s/\~/~~/g; $text=~s/\~1/\~/g; $text=~s/ /\~/g; 
 		drawcomponent "T 0 $x $y 50 0 1 1 $text 1\n";
 	  }
+	  elsif($d{'RECORD'} eq '10') # Oval???
+	  {
+	    print "This could be oval or rounded rectangle\n";
+        #RECORD=10|OWNERINDEX=934|ISNOTACCESIBLE=T|INDEXINSHEET=1|OWNERPARTID=1|LOCATION.X=870|LOCATION.Y=245|CORNER.X=900|CORNER.Y=265|CORNERXRADIUS=2|CORNERXRADIUS_FRAC=48596|CORNERYRADIUS=3|CORNERYRADIUS_FRAC=39613|COLOR=16711680|ISSOLID=T
+	    #RECORD=14|OWNERPARTID=   8|OWNERINDEX=  27|AREACOLOR=11599871|CORNER.X=310|CORNER.Y=1370|ISSOLID=T|LINEWIDTH=2|LOCATION.X=140|LOCATION.Y=920|OWNERINDEX=27|TRANSPARENT=T|
+		my $x=($d{'LOCATION.X'}*$f)-$relx;
+		my $y=($d{'LOCATION.Y'}*$f)-$rely;
+		($x,$y)=rotate($x,$y,$partorientation{$globalp});
+		my $cx=($d{'CORNER.X'}*$f)-$relx;
+		my $cy=($d{'CORNER.Y'}*$f)-$rely;
+		($cx,$cy)=rotate($cx,$cy,$partorientation{$globalp});
+		drawcomponent "S $x $y $cx $cy 0 1 10 f\n";
+      }
 	  else
 	  {
 	    print "Unhandled Record type within: $d{RECORD}\n";
@@ -691,13 +707,44 @@ EOF
 	    my $SHOWNETNAME=$d{'SHOWNETNAME'}?"0000":"00001";
 		my $ts=uniqueid2timestamp($d{'UNIQUEID'});
 	    my $PWR="L GND #PWR?$ts";
-		my $voltage="1.2V";
-        my $device="+1.2V";		
+		my $voltage=$d{'TEXT'} || "1.2V";
+        my $device=$d{'TEXT'} || "+1.2V";
+		#print "#TEXT:$d{TEXT} $b\n";
+		my %standardvoltages=("5V"=>1,"6V"=>1,"8V"=>1,"9V"=>1,"12V"=>1,"15V"=>1,"24V"=>1,"36V"=>1,"48V"=>1,"3\.3V"=>1);
 		if($d{'TEXT'}=~m/(0\.75V|1\.2V|1\.5V|1\.8V|2\.5V|2\.8V|3\.0V|3\.3VA|3\.3V|5\.0V|\d+\.\d+V)/)
 		{
 		  $voltage=$1;
 		  $voltage=~s/\.0//;
 		  $device="+".$voltage;
+		  #print "Voltage $voltage\n";
+		  if(!defined($standardvoltages{$voltage}))
+		  {
+		    #print "We have to define this voltage: $voltage\n";
+			my $voltageC=$voltage."C";
+			my $component=$voltageC;
+			my $comp=<<EOF
+# $voltageC
+#
+DEF $voltageC #PWR 0 0 Y Y 1 F P
+F0 "#PWR" 0 -150 50 H I C CNN
+F1 "$voltageC" 0 150 50 H V C CNN
+F2 "" 0 0 60 H V C CNN
+F3 "" 0 0 60 H V C CNN
+DRAW
+P 2 0 1 0  -30 50  0 100 N
+P 2 0 1 0  0 0  0 100 N
+P 2 0 1 0  0 100  30 50 N
+X $voltageC 1 0 0 0 U 50 50 1 1 W N
+ENDDRAW
+ENDDEF
+EOF
+;
+            print LIB $comp unless(defined($localcontains{$component}));
+		    $localcontains{$component}=1;
+			$globalcomp.=$comp unless(defined($globalcontains{$component}));
+	        $globalcontains{$component}=1;
+			
+		  }
 		   
           $componentheader{$device}="#\n# $device\n#\nDEF $device #PWR 0 0 Y Y 1 F P";
           $designatorpos{$device}="\"#PWR\" 0 140 20 H I L BNN";
@@ -726,7 +773,32 @@ EOF
 		}
 		else
 		{
-  		  #print "Voltage: $d{TEXT}\n";
+  		  #print "Unknown Voltage: $d{TEXT}\n";
+		  #print "Defining Powerobject:\n";
+		  my $voltageC=$voltage;
+		  my $component=$voltageC;
+		  my $comp=<<EOF
+# $voltageC
+#
+DEF $voltageC #PWR 0 0 Y Y 1 F P
+F0 "#PWR" 0 -150 50 H I C CNN
+F1 "$voltageC" 0 150 50 H V C CNN
+F2 "" 0 0 60 H V C CNN
+F3 "" 0 0 60 H V C CNN
+DRAW
+P 2 0 1 0  -30 50  0 100 N
+P 2 0 1 0  0 0  0 100 N
+P 2 0 1 0  0 100  30 50 N
+X $voltageC 1 0 0 0 U 50 50 1 1 W N
+ENDDRAW
+ENDDEF
+EOF
+;
+          print LIB $comp unless(defined($localcontains{$component}));
+		  $localcontains{$component}=1;
+		  $globalcomp.=$comp unless(defined($globalcontains{$component}));
+	      $globalcontains{$component}=1;
+		  
 		}
 		
 		if(defined($d{'STYLE'}) && ($d{'STYLE'}eq"1" || $d{'STYLE'}eq"2"))
