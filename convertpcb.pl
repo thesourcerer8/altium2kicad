@@ -1297,7 +1297,7 @@ EOF
 	#print "$layername{$_}\n";
 	if($layername{$_}=~m/Internal\.Plane\.(\d+)/)
 	{
-	  print "Found plane $1\n";
+	  #print "Found plane $1\n";
 	  $layermap{"PLANE$1"}=$layermap{$_};
 	}
 	if($layername{$_}=~m/Mid-Layer\.(\d+)/)
@@ -1334,6 +1334,7 @@ EOF
   }
  
   my %pads=();
+  my %padrotate=();
   our %unmappedLayers=();
   our %usedlayers=();
   our %layererrors=();
@@ -1365,34 +1366,34 @@ EOF
 
   #Mapping the Standard components to KiCad Standard Components:
   our %A2Kwrl=(
-    "Chip Diode - 2 Contacts.PcbLib/CD1608-0603"=>"smd/Capacitors/C0603.wrl",
-    "Chip Diode - 2 Contacts.PcbLib/CD2012-0805"=>"smd/Capacitors/C0805.wrl",
-    "Chip_Capacitor_N.PcbLib/CAPC1005N"=>"smd/Capacitors/C0402.wrl",
-    "Chip_Capacitor_N.PcbLib/CAPC1608N"=>"smd/Capacitors/C0603.wrl",
-    "Chip_Capacitor_N.PcbLib/CAPC2012N"=>"smd/Capacitors/C0805.wrl",
-    "Chip_Capacitor_N.PcbLib/CAPC3216N"=>"smd/Capacitors/C1206.wrl",
-    "Chip_Capacitor_N.PcbLib/CAPC3225N"=>"smd/Capacitors/C1210.wrl",
-    "Chip_Resistor_N.PcbLib/RESC1005N"=>"smd/resistors/R0402.wrl",
-    "Chip_Resistor_N.PcbLib/RESC1608N"=>"smd/resistors/R0603.wrl",
-    "Chip_Resistor_N.PcbLib/RESC2012N"=>"smd/resistors/R0805.wrl",
-    "Chip_Resistor_N.PcbLib/RESC3216N"=>"smd/resistors/R1206.wrl",
-    "Miscellaneous Connectors.IntLib/HDR2X20"=>"Pin_Headers/Pin_Header_Straight_2x20.wrl",
-    "Miscellaneous Connectors.IntLib/HDR1X4"=>"Pin_Headers/Pin_Header_Straight_1x4.wrl",
-    "Miscellaneous Connectors.IntLib/HDR1X6"=>"Pin_Headers/Pin_Header_Straight_1x6.wrl",
-    "Miscellaneous Connectors.IntLib/HDR1X8"=>"Pin_Headers/Pin_Header_Straight_1x8.wrl",  
-    "Miscellaneous Connectors.IntLib/HDR2X8"=>"Pin_Headers/Pin_Header_Straight_2x8.wrl",
-    "NSC LDO.IntLib/MP04A_N"=>"smd/SOT223.wrl",
-    "National Semiconductor DAC.IntLib/MUA08A_N"=>"smd/smd_dil/msoic-8.wrl",
-    "SOIC_127P_N.PcbLib/SOIC127P600-8N"=>"smd/smd_dil/psop-8.wrl",
-    "SOP_65P_N.PcbLib/SOP65P640-16N"=>"smd/smd_dil/ssop-16.wrl",
-    "SOT23_5-6Lead_N.PcbLib/SOT23-5AN"=>"smd/SOT23_5.wrl",
-    "TSOP_65P_N.PcbLib/TSOP65P640-24AN"=>"smd/smd_dil/tssop-24.wrl",
-    "commonpcb.lib/CAPC0603N_B"=>"smd/Capacitors/C0603.wrl",
-    "commonpcb.lib/CAPC1608N_HD"=>"smd/Capacitors/C1608.wrl",
-    "commonpcb.lib/SWITCH_TS-1187A"=>"Pin_Headers/Pin_Header_Straight_1x4.wrl",
-    "commonpcb.lib/USB_TYPEA_TH_SINGLE"=>"Pin_Headers/Pin_Header_Straight_1x4.wrl",
-    "commonpcb.lib/HAOYU_TS_1185A_E"=>"Pin_Headers/Pin_Header_Straight_1x4.wrl",
-    "commonpcb.lib/JST_S3B_EH"=>"Pin_Headers/Pin_Header_Straight_1x3.wrl",
+    "Chip Diode - 2 Contacts.PcbLib/CD1608-0603"=>"smd.3dshapes/Capacitors/C0603.wrl",
+    "Chip Diode - 2 Contacts.PcbLib/CD2012-0805"=>"smd.3dshapes/Capacitors/C0805.wrl",
+    "Chip_Capacitor_N.PcbLib/CAPC1005N"=>"smd.3dshapes/Capacitors/C0402.wrl",
+    "Chip_Capacitor_N.PcbLib/CAPC1608N"=>"smd.3dshapes/Capacitors/C0603.wrl",
+    "Chip_Capacitor_N.PcbLib/CAPC2012N"=>"smd.3dshapes/Capacitors/C0805.wrl",
+    "Chip_Capacitor_N.PcbLib/CAPC3216N"=>"smd.3dshapes/Capacitors/C1206.wrl",
+    "Chip_Capacitor_N.PcbLib/CAPC3225N"=>"smd.3dshapes/Capacitors/C1210.wrl",
+    "Chip_Resistor_N.PcbLib/RESC1005N"=>"smd.3dshapes/resistors/R0402.wrl",
+    "Chip_Resistor_N.PcbLib/RESC1608N"=>"smd.3dshapes/resistors/R0603.wrl",
+    "Chip_Resistor_N.PcbLib/RESC2012N"=>"smd.3dshapes/resistors/R0805.wrl",
+    "Chip_Resistor_N.PcbLib/RESC3216N"=>"smd.3dshapes/resistors/R1206.wrl",
+    "Miscellaneous Connectors.IntLib/HDR2X20"=>"Pin_Headers.3dshapes/Pin_Header_Straight_2x20.wrl",
+    "Miscellaneous Connectors.IntLib/HDR1X4"=>"Pin_Headers.3dshapes/Pin_Header_Straight_1x4.wrl",
+    "Miscellaneous Connectors.IntLib/HDR1X6"=>"Pin_Headers.3dshapes/Pin_Header_Straight_1x6.wrl",
+    "Miscellaneous Connectors.IntLib/HDR1X8"=>"Pin_Headers.3dshapes/Pin_Header_Straight_1x8.wrl",  
+    "Miscellaneous Connectors.IntLib/HDR2X8"=>"Pin_Headers.3dshapes/Pin_Header_Straight_2x8.wrl",
+    "NSC LDO.IntLib/MP04A_N"=>"smd.3dshapes/SOT223.wrl",
+    "National Semiconductor DAC.IntLib/MUA08A_N"=>"smd.3dshapes/smd_dil/msoic-8.wrl",
+    "SOIC_127P_N.PcbLib/SOIC127P600-8N"=>"smd.3dshapes/smd_dil/psop-8.wrl",
+    "SOP_65P_N.PcbLib/SOP65P640-16N"=>"smd.3dshapes/smd_dil/ssop-16.wrl",
+    "SOT23_5-6Lead_N.PcbLib/SOT23-5AN"=>"smd.3dshapes/SOT23_5.wrl",
+    "TSOP_65P_N.PcbLib/TSOP65P640-24AN"=>"smd.3dshapes/smd_dil/tssop-24.wrl",
+    "commonpcb.lib/CAPC0603N_B"=>"smd.3dshapes/Capacitors/C0603.wrl",
+    "commonpcb.lib/CAPC1608N_HD"=>"smd.3dshapes/Capacitors/C1608.wrl",
+    "commonpcb.lib/SWITCH_TS-1187A"=>"Pin_Headers.3dshapes/Pin_Header_Straight_1x4.wrl",
+    "commonpcb.lib/USB_TYPEA_TH_SINGLE"=>"Pin_Headers.3dshapes/Pin_Header_Straight_1x4.wrl",
+    "commonpcb.lib/HAOYU_TS_1185A_E"=>"Pin_Headers.3dshapes/Pin_Header_Straight_1x4.wrl",
+    "commonpcb.lib/JST_S3B_EH"=>"Pin_Headers.3dshapes/Pin_Header_Straight_1x3.wrl",
 	);
 		
 		
@@ -1401,7 +1402,9 @@ EOF
   our %componentatx=();
   our %componentaty=();
   our %componentlayer=();
+  our %componentrotate=();
   our %kicadwrl=();
+  our %componenthandled=();
   our %kicadwrlerror=();
   HandleBinFile("$short/Root Entry/Components6/Data.dat","",0,0, sub 
   { 
@@ -1412,11 +1415,12 @@ EOF
 	my $aty=mil2mm($d{'Y'});$aty=$ymove-$aty;
 	$componentaty{$componentid}=$aty;
     $componentlayer{$componentid}=$d{'LAYER'};
+	$componentrotate{$componentid}=sprintf("%.f",$d{'ROTATION'});
 	my $reference=($d{'SOURCEFOOTPRINTLIBRARY'}||"")."/".$d{'PATTERN'};
 #	my $reference=$d{'SOURCEFOOTPRINTLIBRARY'}."/".$d{'SOURCELIBREFERENCE'};
-	my $newreference=($d{'SOURCEFOOTPRINTLIBRARY'}||"")."/".$d{'PATTERN'};
 	
-	$kicadwrl{$componentid}=$A2Kwrl{$reference};
+	#print "ref: $reference ".$A2Kwrl{$reference}." comp:$componentid\n";
+	$kicadwrl{$componentid}=$A2Kwrl{$reference}; # !!! XXX A2Kwrl Mapping temporarily disabled 
 	
 	$nameon{$componentid}=$d{'NAMEON'};
 	$commenton{$componentid}=$d{'COMMENTON'};
@@ -1428,7 +1432,7 @@ EOF
 	
 	if(defined($kicadwrl{$componentid}))
 	{
-	  #$newa2k{" \"$newreference\"=>\"".$A2Kwrl{$reference}."\",\n"}=1;
+	  #$newa2k{" \"$reference\"=>\"".$A2Kwrl{$reference}."\",\n"}=1;
 	}
 	else
 	{
@@ -1462,6 +1466,11 @@ EOF
 	  assertdata("Pad",$counter,"NAME",$name);
 	  
 	  $pos+=5+$len;
+	  
+  	  my $len2=unpack("l",substr($value,$pos+143,4));
+
+	  
+	  
       my $npos=$pos;
 	  
       $rawbinary{"Pad"}{$counter}=substr($value,$pos,147);
@@ -1513,7 +1522,7 @@ EOF
 	  my $mdir=($dir==0)?"":" $dir";
 	  
 	  my %typemap=("2"=>"rect","1"=>"circle","3"=>"oval","0"=>"Unknown"); 
-	  my %typemapalt=("2"=>"RECTANGLE","1"=>"ROUND","3"=>"OCTAGONAL","0"=>"Unknown"); 
+	  my %typemapalt=("2"=>"RECTANGLE","1"=>$len2?"ROUNDEDRECTANGLE":"ROUND","3"=>"OCTAGONAL","0"=>"Unknown"); 
 	  my $otype=unpack("C",substr($value,$pos+72,1));
   	  assertdata("Pad",$counter,"SHAPE",$typemapalt{$otype});
       my $type=$typemap{$otype};
@@ -1521,6 +1530,14 @@ EOF
 	  if($otype eq "3")
 	  {
 	     print "Warning: Octagonal pads are currently not supported by KiCad. We convert them to oval for now, please verify the PCB design afterwards. This can cause overlaps and production problems!\n";
+	  }
+	  
+	  if($typemapalt{$otype} eq "ROUNDEDRECTANGLE")
+	  {
+  	    print "Pad: $counter $otype ".bin2hex(substr($value,$pos,200))."\n";
+        print "This is a rounded rectangle. Special support is needed.\n";
+		print "len2: $len2\n";
+		print bin2hex(substr($value,$pos+147,$len2))."\n";
 	  }
 	  
 	  $type="oval" if($type eq "circle" && $sx != $sy);
@@ -1584,7 +1601,6 @@ EOF
 	  
 	  #print "layer:$layer net:$net component=$component type:$type dir:$dir \n";
 	  print AOUT bin2hex(substr($value,$pos,143))." ";
-	  my $len2=unpack("l",substr($value,$pos+143,4));
 	  $pos+=147;
   	  print AOUT bin2hex(substr($value,$pos,$len2))."\n";
       $pos+=$len2;
@@ -1677,10 +1693,15 @@ if(0 && defined($stp));
 	#my $rot=(($modelrotx{$id}||0)+$d{'MODEL.3D.ROTX'})." ".(($modelroty{$id}||0)+$d{'MODEL.3D.ROTY'})." ".(($modelrotz{$id}||0)+$d{'MODEL.3D.ROTZ'});
 	my $rot=((360-$d{'MODEL.3D.ROTX'})." ".(360-$d{'MODEL.3D.ROTY'})." ".(360-$d{'MODEL.3D.ROTZ'}));
 	#my $rot=(($modelrotx{$id}||0))." ".(($modelroty{$id}||0))." ".(($modelrotz{$id}||0));
-	my $mdz=mil2mm($modeldz{$id}||0);
-	#my $dz=mil2mm($d{'MODEL.3D.DZ'}); $dz=$mdz; #+
+	
+	my $mdz=($modeldz{$id}||0)/$fak/10000;
+	#my $dz=mil2mm($d{'MODEL.3D.DZ'}); # $dz=$mdz; #+
+	my $standoff=mil2mm($d{'STANDOFFHEIGHT'});
+    print "mdz:  ".($modeldz{$id}||0)." -> $mdz MODEL.3D.DZ: $d{'MODEL.3D.DZ'} -> ".mil2mm($d{'MODEL.3D.DZ'})." standoff: $d{STANDOFFHEIGHT} -> $standoff\n";
 	#$dz/=$faktor; $dz/=1000;
-	my $dz=$mdz;
+	my $dz=$standoff; # $mdz; Perhaps this is wrong?
+	
+	
 	my $wrl=(defined($modelwrl{$id}) && -f $modelwrl{$id}) ? $modelwrl{$id} : undef;
 	mkdir "wrl";
 	if(defined($stp)&& defined($wrl))
@@ -1691,7 +1712,7 @@ if(0 && defined($stp));
 	}
 	$wrl="wrl/$stp.wrl" if(defined($stp));
 	
-	#print "wrl: $wrl\n" if(defined($modelwrl{$id}));
+	#print "component: $component wrl: $wrl\n";
 	
     if((defined($stp) && -r $wrl) || defined($kicadwrl{$component}))
 	{
@@ -1704,6 +1725,7 @@ if(0 && defined($stp));
 		#print "componentlayer: $componentlayer{$component}\n";
 		#print "".(360-$d{'MODEL.3D.ROTX'})." ".(360-$d{'MODEL.3D.ROTY'})." ".(360-$d{'MODEL.3D.ROTZ'})." vs. ".$modelrotx{$id}." ".$modelroty{$id}." ".$modelrotz{$id}."\n";
 		
+
 		my $dx=sprintf("%.5f",$atx/25.4);
 		my $dy=sprintf("%.5f",-$aty/25.4);
 		$dy=-$dy if(defined($componentlayer{$component}) && $componentlayer{$component} eq "BOTTOM"); # The Y axis seems to be mirrored on bottom elements
@@ -1715,8 +1737,10 @@ if(0 && defined($stp));
 		else
 		{
 		  $wrl=$kicadwrl{$component};
+          #print "wrl: $wrl\n";		  
 		  $lfak=1;
 		}
+		#print "component:$component wrl:$wrl\n";		
 	
 	    $componentbodyavailable{$component}=1;
 	
@@ -1779,6 +1803,7 @@ EOF
     #print "#ShapeBasedComponentBodies#".$_[3]."\n" if($annotate);
 	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
 	my $component=unpack("s",substr($value,7,2));
+	#print "Shape Component: $component\n";
 	assertdata("ShapeBasedComponentBody",$_[3],"COMPONENT",$component);
 	$rawbinary{"ShapeBasedComponentBody"}{$_[3]}=$_[2];
     print OUT "# ".bin2hex($unknownheader)."\n" if($annotate);
@@ -1860,7 +1885,7 @@ EOF
 	    $shapes{$wrl}.=$addition."," if(defined($addition));
 	  }
 	}
-
+    $shapes{$wrl}="" unless(defined($shapes{$wrl}));
 	if($d{'MODEL.MODELTYPE'} == 1) #Cone
 	{
 	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=100; 
@@ -1878,7 +1903,7 @@ EOF
 	  
 	  my $h=mil2mm($d{'MODEL.CYLINDER.HEIGHT'});  #$h=~s/mil//; $h/=100; $h=sprintf("%.7f",$h);
 	  my $r=mil2mm($d{'MODEL.CYLINDER.RADIUS'});  #$r=~s/mil//; $r/=100; $r=sprintf("%.7f",$r);
-      #$shapes{$wrl}.=Cylinder("0 0 0 ","0 0 0  0","1 1 1",$color,"1",$r,$h).",";
+      $shapes{$wrl}.=Cylinder("0 0 0 ","0 0 0  0","1 1 1",$color,"1",$r,$h).",";
 	}
 
     if($d{'MODEL.MODELTYPE'} == 3) # Sphere
@@ -1889,15 +1914,15 @@ EOF
 	  
 	  #my $h=$d{'MODEL.CYLINDER.HEIGHT'};$h=~s/mil//; $h/=100; $h=sprintf("%.7f",$h);
 	  #my $r=$d{'MODEL.CYLINDER.RADIUS'};$r=~s/mil//; $r/=100; $r=sprintf("%.7f",$r);
-      #$shapes{$wrl}.=Sphere("0 0 0 ","0 0 0  0","1 1 1",$color,"1",$r,$pz).",";
+      $shapes{$wrl}.=Sphere("0 0 0 ","0 0 0  0","1 1 1",$color,"1","1",$pz).",";
 	}
-	
+	my $rot=$componentrotate{$component} || "0";
     $pads{$component}.=<<EOF
 #1365
 	(model "$wrlprefix/$wrl"
       (at (xyz 0 0 0))
       (scale (xyz 1 1 1))
-      (rotate (xyz 0 0 0))
+      (rotate (xyz 0 0 $rot))
     )
 EOF
 ;
@@ -1926,14 +1951,17 @@ EOF
 	my $sourcelib=($d{'SOURCEFOOTPRINTLIBRARY'}||"");
 	#SOURCELIBREFERENCE
 
+	#print "Component $componentid body available: ".defined($componentbodyavailable{$componentid})."\n";
 	if(!defined($componentbodyavailable{$componentid}))
 	{
+	  #print "Not available, pads: ".defined($pads{$componentid})." model: ".($pads{$componentid}=~m/\(model/)."\n";
 	  if(defined($pads{$componentid}) && $pads{$componentid}=~m/\(model/)
 	  {
-	    #print "Where did the model come from? componentid: $componentid\n"; # !!! TODO
+	    print "Where did the model come from? componentid: $componentid\n"; # !!! TODO
 	  }
-	
-	  if(defined($kicadwrl{$componentid}) && !$pads{$componentid}=~m/\(model/)
+	  #print "kicad: ".defined($kicadwrl{$componentid})." ".($pads{$componentid}=~m/\(model/)."\n";
+	  #print "pad: ".$pads{$componentid}."\n----\n";
+	  if(defined($kicadwrl{$componentid}) && !($pads{$componentid}=~m/\(model/))
 	  {
 	    print "No component body available for component $componentid, we could create our own for $reference now.\n";
 	    print "wrl: $kicadwrl{$componentid}\n";
@@ -1952,7 +1980,8 @@ EOF
 	(model "$wrl"
       (at (xyz 0 0 0))
       (scale (xyz 1 1 1))
-      (rotate (xyz 0 0 $rot))
+      (rotate (xyz 0 0 0))
+#	       (rotate (xyz 0 0 $rot))
     )
 EOF
 ;
@@ -1960,7 +1989,7 @@ EOF
 	  }
 	  else
 	  {
-	    #print "No mapping yet:\n";
+	    print "No mapping yet:\n";
         #print "    \"$reference\"=>\".wrl\",\n" if(!defined($kicadwrlerror{$reference}));
 	    $kicadwrlerror{$reference}=1;
 
