@@ -513,6 +513,8 @@ sub Cylinder($$$$$$$)
   }
   my $points=join ",",@point;
   my $lines=join ",",@line;  
+  
+  my $h2=$h/2;
  
   return <<EOF
 Transform
@@ -521,7 +523,7 @@ Transform
   rotation $rotation
   scale $scale
   scaleOrientation 0 0 1  0
-  center 0 1 0
+  center 0 0 $h2
   children 
     Shape 
 	{
@@ -1694,13 +1696,11 @@ if(0 && defined($stp));
 	my $rot=((360-$d{'MODEL.3D.ROTX'})." ".(360-$d{'MODEL.3D.ROTY'})." ".(360-$d{'MODEL.3D.ROTZ'}));
 	#my $rot=(($modelrotx{$id}||0))." ".(($modelroty{$id}||0))." ".(($modelrotz{$id}||0));
 	
-	my $mdz=($modeldz{$id}||0)/$fak/10000;
-	#my $dz=mil2mm($d{'MODEL.3D.DZ'}); # $dz=$mdz; #+
+	my $mdz=($modeldz{$id}||0)/10000000;
+	my $cdz=mil2mm($d{'MODEL.3D.DZ'}); 
 	my $standoff=mil2mm($d{'STANDOFFHEIGHT'});
-    print "mdz:  ".($modeldz{$id}||0)." -> $mdz MODEL.3D.DZ: $d{'MODEL.3D.DZ'} -> ".mil2mm($d{'MODEL.3D.DZ'})." standoff: $d{STANDOFFHEIGHT} -> $standoff\n";
-	#$dz/=$faktor; $dz/=1000;
-	my $dz=$standoff; # $mdz; Perhaps this is wrong?
-	
+    #print "mdz:  ".($modeldz{$id}||0)." -> $mdz MODEL.3D.DZ: $d{'MODEL.3D.DZ'} -> $cdz standoff: *$d{STANDOFFHEIGHT}* -> $standoff $modelname{$id}\n" if($mdz!=0);
+	my $dz=$mdz;
 	
 	my $wrl=(defined($modelwrl{$id}) && -f $modelwrl{$id}) ? $modelwrl{$id} : undef;
 	mkdir "wrl";
@@ -1840,6 +1840,8 @@ EOF
 	     #print "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer $v7layer) (width 0.2))\n";
 	}
 	
+	my $ident=""; $ident.=pack("C",$_) foreach(split(",",$d{'IDENTIFIER'}));
+	
       #MODEL.MODELTYPE=0 => Box / Extruded PolyLine)
 	  #MODEL.MODELTYPE=2 => Cylinder
 	  #MODEL.MODELTYPE=3 => Sphere
@@ -1881,7 +1883,7 @@ EOF
 	  #print "Extruding polygon... $pz\n";
 	  if($good)
 	  {
-	    my $addition=ExtrudedPolygon("0 0 $pz","0 0 0  0","$fak $fak 1",$color,"1",$sz,\@poly);
+	    my $addition=ExtrudedPolygon("0 0 $pz","0 0 0  0","$fak $fak $fak",$color,"1",$sz,\@poly);
 	    $shapes{$wrl}.=$addition."," if(defined($addition));
 	  }
 	}
@@ -1897,13 +1899,18 @@ EOF
 
     if($d{'MODEL.MODELTYPE'} == 2) #Cylinder
 	{
-	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=100; 
-	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=100; 
+	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=$faktor*100; $px=-$px;
+	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=$faktor*100; $py=-$py;
       my $pz=$d{'STANDOFFHEIGHT'};$pz=~s/mil//; $pz/=100; 
 	  
+	  $px=-($componentatx{$component}||0)/100;
+	  $py=+($componentaty{$component}||0)/100;
 	  my $h=mil2mm($d{'MODEL.CYLINDER.HEIGHT'});  #$h=~s/mil//; $h/=100; $h=sprintf("%.7f",$h);
 	  my $r=mil2mm($d{'MODEL.CYLINDER.RADIUS'});  #$r=~s/mil//; $r/=100; $r=sprintf("%.7f",$r);
-      $shapes{$wrl}.=Cylinder("0 0 0 ","0 0 0  0","1 1 1",$color,"1",$r,$h).",";
+	  
+	  
+	  print "Cylinder: px: $d{'MODEL.2D.X'} -> $px py: $d{'MODEL.2D.Y'} -> -$py  ident: $ident\n";
+      $shapes{$wrl}.=Cylinder("$px $py 0 ","0 0 0  0","$fak $fak $fak",$color,"1",$r,$h).",";
 	}
 
     if($d{'MODEL.MODELTYPE'} == 3) # Sphere
@@ -1957,7 +1964,7 @@ EOF
 	  #print "Not available, pads: ".defined($pads{$componentid})." model: ".($pads{$componentid}=~m/\(model/)."\n";
 	  if(defined($pads{$componentid}) && $pads{$componentid}=~m/\(model/)
 	  {
-	    print "Where did the model come from? componentid: $componentid\n"; # !!! TODO
+	    #print "Where did the model come from? componentid: $componentid\n"; # !!! TODO
 	  }
 	  #print "kicad: ".defined($kicadwrl{$componentid})." ".($pads{$componentid}=~m/\(model/)."\n";
 	  #print "pad: ".$pads{$componentid}."\n----\n";
@@ -1989,7 +1996,7 @@ EOF
 	  }
 	  else
 	  {
-	    print "No mapping yet:\n";
+	    #print "No mapping yet:\n";
         #print "    \"$reference\"=>\".wrl\",\n" if(!defined($kicadwrlerror{$reference}));
 	    $kicadwrlerror{$reference}=1;
 
