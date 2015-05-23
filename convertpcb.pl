@@ -1902,15 +1902,14 @@ EOF
 	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=$faktor*100; $px=-$px;
 	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=$faktor*100; $py=-$py;
       my $pz=$d{'STANDOFFHEIGHT'};$pz=~s/mil//; $pz/=100; 
-	  
-	  $px=-($componentatx{$component}||0)/100;
-	  $py=+($componentaty{$component}||0)/100;
+	  my $cx=($componentatx{$component}||0)/100;
+	  my $cy=($componentaty{$component}||0)/100;
+	  my $dx=$px+$cx; $dx*=-$faktor;
+	  my $dy=$py-$cy; $dy*=-$faktor;
 	  my $h=mil2mm($d{'MODEL.CYLINDER.HEIGHT'});  #$h=~s/mil//; $h/=100; $h=sprintf("%.7f",$h);
 	  my $r=mil2mm($d{'MODEL.CYLINDER.RADIUS'});  #$r=~s/mil//; $r/=100; $r=sprintf("%.7f",$r);
-	  
-	  
-	  print "Cylinder: px: $d{'MODEL.2D.X'} -> $px py: $d{'MODEL.2D.Y'} -> -$py  ident: $ident\n";
-      $shapes{$wrl}.=Cylinder("$px $py 0 ","0 0 0  0","$fak $fak $fak",$color,"1",$r,$h).",";
+	  #print "Cylinder: px: $d{'MODEL.2D.X'} -> $px , $componentatx{$component} -> $cx , $dx py: $d{'MODEL.2D.Y'} -> $py , $componentaty{$component} -> $cy , $dy ident: $ident\n";
+      $shapes{$wrl}.=Cylinder("$dx $dy 0 ","0 0 0  0","$fak $fak $fak",$color,"1",$r,$h).",";
 	}
 
     if($d{'MODEL.MODELTYPE'} == 3) # Sphere
