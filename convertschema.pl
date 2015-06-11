@@ -149,11 +149,16 @@ foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'))
   open OUT,">$short.sch";
   print OUT "EESchema Schematic File Version 2\n";
   
-  my %formats=(7=>"C 22000 17000",6=>"B 17000 11000",5=>"A 11000 8500");
+  my %formats=(7=>"C 22000 17000",6=>"B 17000 11000",5=>"A 11000 8500",1=>"B 17000 11000");
   #my %formats=(7=>"A3 16535 11693",6=>"A4 11693 8268",5=>"User 8268 5846");
   
   my $sheetstyle=6; $sheetstyle=$1 if($text=~m/SHEETSTYLE=(\d+)/);
+  
   my $sheetformat=$formats{$sheetstyle};
+  if(!defined($sheetformat))
+  {
+    print "Not found: sheetstyle=$sheetstyle\n";
+  }
   if($text=~m/WORKSPACEORIENTATION=1/)
   {
     $sheetformat="$1 $3 $2 portrait" if($sheetformat=~m/(\w+) (\d+) (\d+)/);
