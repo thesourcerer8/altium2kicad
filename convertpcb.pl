@@ -23,6 +23,7 @@ use Cwd qw(abs_path cwd getcwd);
 # Loading the 3D viewer is slow, especially when the zones are filled. It only utilizes a single core.
 # The 3D view currently has a problem with relative pathes: https://bugs.launchpad.net/kicad/+bug/1417786  a workaround is available with the $absoluteWRLpath option
 # Additional paramters in PCBnew for components that could be used for the BOM
+# Odd-numbered amount of layers in PCB design (e.g. 5 layers)
 
 # Things that are missing in Designer:
 # The Zone-Fill-Polygons are not saved in the file. Workaround: Press "b" in PcbNew or: select the zone tool, right-click on an empty area, then "Fill all zones"
@@ -450,7 +451,7 @@ Transform
   rotation $rotation
   scale $scale
   scaleOrientation 0 0 1  0
-  center 0 1 0
+  center 0 0 0
   children 
     Shape 
 	{
@@ -897,7 +898,7 @@ foreach my $filename(@files)
   # At first we extract Layer-information and other Board-related information from the Board file
   HandleBinFile($filename,"",0,0,sub {
     my %d=%{$_[0]};
-	foreach(keys %d)
+	foreach(sort keys %d)
 	{
 	  #assertdata("Board",$_[3],$_,$d{$_});
 	  if($_=~m/^LAYER(\d+)NAME$/)
@@ -919,13 +920,13 @@ foreach my $filename(@files)
 	  {
 	    $layernext{$1}=$d{$_};
 		$activelayer{$1}=1 if($d{$_});
-		#print "$1 -> $d{$_}\n";
+		#print "$_ $1 next -> $d{$_}\n";
 	  }
       if($_=~m/^LAYER(\d+)PREV$/)
 	  {
 	    $layerprev{$1}=$d{$_};
 		$activelayer{$1}=1 if($d{$_});
-		#print "$1 -> $d{$_}\n";
+		#print "$_ $1 prev -> $d{$_}\n";
 	  }
 	  if($_=~m/^TRACKWIDTH$/)
 	  {
@@ -941,14 +942,17 @@ foreach my $filename(@files)
   }); # Board
   
   # We search for the first and last layer
-  my $firstlayer=0;
-  my $lastlayer=0;
-  my @layersorder=();
-  foreach(keys %activelayer)
+  our $firstlayer=0;
+  our $lastlayer=0;
+  our @layersorder=();
+  foreach(sort keys %activelayer)
   {
+    next if($_>=33 && $_<=38);
     $firstlayer=$_ if($layerprev{$_}==0 && $layernext{$_}!=0);
 	$lastlayer=$_ if($layerprev{$_}!=0 && $layernext{$_}==0);
+	#print "this: $_ prev:$layerprev{$_} next:$layernext{$_} first:$firstlayer last:$lastlayer\n";
   }
+  #print "Firstlayer: $firstlayer\nLastlayer: $lastlayer\n";
   
   # Now we create a list of the layers in the correct order
   my $thislayer=$firstlayer;
@@ -958,7 +962,7 @@ foreach my $filename(@files)
 	$thislayer=$layernext{$thislayer};
   }
   #print "Layers: ".join(",",@layersorder)."\n";
-  #print "Active layers: ".scalar(keys %activelayer)."\n";
+  #print "Active layers: ".scalar(keys @layersorder)."\n";
     
 
   my $layers="";
@@ -1536,10 +1540,10 @@ EOF
 	  
 	  if($typemapalt{$otype} eq "ROUNDEDRECTANGLE")
 	  {
-  	    print "Pad: $counter $otype ".bin2hex(substr($value,$pos,200))."\n";
+  	    #print "Pad: $counter $otype ".bin2hex(substr($value,$pos,200))."\n";
         print "This is a rounded rectangle. Special support is needed.\n";
-		print "len2: $len2\n";
-		print bin2hex(substr($value,$pos+147,$len2))."\n";
+		#print "len2: $len2\n";
+		#print bin2hex(substr($value,$pos+147,$len2))."\n";
 	  }
 	  
 	  $type="oval" if($type eq "circle" && $sx != $sy);
@@ -1858,6 +1862,8 @@ EOF
 
 	
 	my $wrl="wrlshp/".substr($d{'MODELID'},0,14).".wrl"; $wrl=~s/[\{\}]//g;
+
+    my $rot=(360-($componentrotate{$component} || "0"))*$pi/180.0;
 	
     if($d{'MODEL.MODELTYPE'} == 0) # Extruded Polygon
 	{
@@ -1883,11 +1889,12 @@ EOF
 	  #print "Extruding polygon... $pz\n";
 	  if($good)
 	  {
-	    my $addition=ExtrudedPolygon("0 0 $pz","0 0 0  0","$fak $fak $fak",$color,"1",$sz,\@poly);
+	    my $addition=ExtrudedPolygon("0 0 $pz","0 0 1  $rot","$fak $fak $fak",$color,"1",$sz,\@poly);
 	    $shapes{$wrl}.=$addition."," if(defined($addition));
 	  }
 	}
     $shapes{$wrl}="" unless(defined($shapes{$wrl}));
+	
 	if($d{'MODEL.MODELTYPE'} == 1) #Cone
 	{
 	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=100; 
@@ -1909,7 +1916,7 @@ EOF
 	  my $h=mil2mm($d{'MODEL.CYLINDER.HEIGHT'});  #$h=~s/mil//; $h/=100; $h=sprintf("%.7f",$h);
 	  my $r=mil2mm($d{'MODEL.CYLINDER.RADIUS'});  #$r=~s/mil//; $r/=100; $r=sprintf("%.7f",$r);
 	  #print "Cylinder: px: $d{'MODEL.2D.X'} -> $px , $componentatx{$component} -> $cx , $dx py: $d{'MODEL.2D.Y'} -> $py , $componentaty{$component} -> $cy , $dy ident: $ident\n";
-      $shapes{$wrl}.=Cylinder("$dx $dy 0 ","0 0 0  0","$fak $fak $fak",$color,"1",$r,$h).",";
+      $shapes{$wrl}.=Cylinder("$dx $dy 0 ","0 0 1  $rot","$fak $fak $fak",$color,"1",$r,$h).",";
 	}
 
     if($d{'MODEL.MODELTYPE'} == 3) # Sphere
@@ -1922,7 +1929,7 @@ EOF
 	  #my $r=$d{'MODEL.CYLINDER.RADIUS'};$r=~s/mil//; $r/=100; $r=sprintf("%.7f",$r);
       $shapes{$wrl}.=Sphere("0 0 0 ","0 0 0  0","1 1 1",$color,"1","1",$pz).",";
 	}
-	my $rot=$componentrotate{$component} || "0";
+    $rot=$componentrotate{$component} || "0";
     $pads{$component}.=<<EOF
 #1365
 	(model "$wrlprefix/$wrl"
@@ -1967,7 +1974,7 @@ EOF
 	  }
 	  #print "kicad: ".defined($kicadwrl{$componentid})." ".($pads{$componentid}=~m/\(model/)."\n";
 	  #print "pad: ".$pads{$componentid}."\n----\n";
-	  if(defined($kicadwrl{$componentid}) && !($pads{$componentid}=~m/\(model/))
+	  if(defined($kicadwrl{$componentid}) && !(($pads{$componentid}||"")=~m/\(model/))
 	  {
 	    print "No component body available for component $componentid, we could create our own for $reference now.\n";
 	    print "wrl: $kicadwrl{$componentid}\n";
@@ -1980,7 +1987,7 @@ EOF
         }		
 		else
 		{
-		  print "NOK: *$wrl*\n";
+		  #print "NOK: *$wrl*\n";
 	      $pads{$componentid}.=<<EOF
 #991		  
 	(model "$wrl"
@@ -2189,7 +2196,7 @@ if(defined($stp));
 		}
         print "Layer$layer:$founds\n";
 	  }
-	  print "count: $count Firstlayer: $firstlayer Lastlayer: $lastlayer ".bin2hex($value)."\n"; # if(!($firstlayer==0 && $lastlayer==9));
+	  #print "count: $count Firstlayer: $firstlayer Lastlayer: $lastlayer ".bin2hex($value)."\n"; # if(!($firstlayer==0 && $lastlayer==9));
 	  #print "We found ".scalar(@found)." matches layer:$foundlayer!\n";
 	  #if(scalar(@found)==1)
       {
@@ -2366,7 +2373,7 @@ EOF
  	      #print "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer B.Paste) (net 1))\n";
      	  #print OUT "  (segment (start $x1 $y1) (end $x1 2000) (width $width) (layer B.Paste) (net 1))\n";
 	      #print OUT "  (segment (start $x2 $y2) (end $x2 2000) (width $width) (layer B.Paste) (net 1))\n";
-	      print "DEBUG: ".bin2hex($value)."\n\n";
+	      #print "DEBUG: ".bin2hex($value)."\n\n";
 		}
 	  }
 	}
@@ -2942,20 +2949,20 @@ sub decodeLib($)
   $pos=256;
   while($pos<length($content))
   {
-    print "pos: ".sprintf("%02X",$pos)." ";
+    #print "pos: ".sprintf("%02X",$pos)." ";
     my $recordtype=unpack("C",substr($content,$pos,1));
     if($recordtype==4)
 	{
 	  if(substr($content,$pos+4,1)ne"\x7C")
 	  {
 	    my $len=unpack("S",substr($content,$pos+12,2));
-	    print "Record 4a with len $len found: ".bin2hex(substr($content,$pos+1,11))."   ".rem0(substr($content,$pos+14,$len))."\n";
+	    #print "Record 4a with len $len found: ".bin2hex(substr($content,$pos+1,11))."   ".rem0(substr($content,$pos+14,$len))."\n";
 	    $pos+=12+2+$len;
       }
 	  else
 	  {
         my $len=unpack("S",substr($content,$pos+2,2));
-        print "Record 4b with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
+        #print "Record 4b with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
 	    $pos+=2+2+$len;
 	  }
 	}
@@ -2964,32 +2971,32 @@ sub decodeLib($)
 	  if(unpack("C",substr($content,$pos+1,1))==0)
 	  {
   	    my $len=unpack("S",substr($content,$pos+2,2));
-	    print "Record 5b with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
+	    #print "Record 5b with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
 	    $pos+=2+2+$len;
 	  }
 	  else
 	  {
 	    my $len=2*unpack("S",substr($content,$pos+8,2));
-	    print "Record 5a with len $len found ".bin2hex(substr($content,$pos+1,7))." ".bin2hex(substr($content,$pos+8,2))." ".rem0(substr($content,$pos+10,$len))."\n";
+	    #print "Record 5a with len $len found ".bin2hex(substr($content,$pos+1,7))." ".bin2hex(substr($content,$pos+8,2))." ".rem0(substr($content,$pos+10,$len))."\n";
 	    $pos+=8+2+$len;
       }
 	}
     elsif($recordtype==2)
 	{
 	  my $len=unpack("S",substr($content,$pos+2,2));
-	  print "Record $recordtype with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
+	  #print "Record $recordtype with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
 	  $pos+=2+2+$len;
 	}
     elsif($recordtype==3)
 	{
 	  my $len=unpack("S",substr($content,$pos+2,2));
-	  print "Record $recordtype with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
+	  #print "Record $recordtype with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
 	  $pos+=2+2+$len;
 	}
     elsif($recordtype==1)
 	{
 	  my $len=unpack("S",substr($content,$pos+2,2));
-	  print "Record 1 with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
+	  #print "Record 1 with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
 	  $pos+=2+2+$len;
 	}
 	elsif($recordtype==6)
@@ -2997,18 +3004,18 @@ sub decodeLib($)
       if(unpack("C",substr($content,$pos+1,1))==0)
 	  {
   	    my $len=unpack("S",substr($content,$pos+2,2));
-	    print "Record 6b with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
+	    #print "Record 6b with len $len found: ".rem0(substr($content,$pos+4,$len))."\n";
 	    $pos+=2+2+$len;
 	  }
 	  else
 	  {
-        print "Record 6a with len 266 found ".(substr($content,$pos+1,$recordtype))."\n";
+        #print "Record 6a with len 266 found ".(substr($content,$pos+1,$recordtype))."\n";
 	    $pos+=266;
 	  }	
 	}
 	elsif($recordtype>=7 && $recordtype<=40)
 	{
-	  print "Record $recordtype with len 256 found: ".substr($content,$pos+1,$recordtype)."\n";
+	  #print "Record $recordtype with len 256 found: ".substr($content,$pos+1,$recordtype)."\n";
 	  $pos+=256;
 	  # Rest is garbage, but often just zeroed
 	}
@@ -3034,11 +3041,11 @@ sub decodeSchLib($)
     my $type=substr($content,$pos+4,$typelen);
 	if(substr($type,0,1)eq "|")
 	{
-      print "pos: $pos typelen: $typelen type: $type\n";
+      #print "pos: $pos typelen: $typelen type: $type\n";
 	}
 	else
 	{
-      print "pos: $pos typelen: $typelen type: ".bin2hex(substr($content,$pos+2,$typelen+2))."\n";	
+      #print "pos: $pos typelen: $typelen type: ".bin2hex(substr($content,$pos+2,$typelen+2))."\n";	
 	}
     $pos+=$typelen+4;
   }
@@ -3099,11 +3106,11 @@ sub decodePcbLib($)
       my $value=substr($content,$pos+5,$typelen);
 	  if(substr($value,0,2)eq "V7")
 	  {
-        print "pos: ".sprintf("%6d 0x%06X",$pos,$pos)." typelen: ".sprintf("%5d",$typelen)." value: $value\n";
+        #print "pos: ".sprintf("%6d 0x%06X",$pos,$pos)." typelen: ".sprintf("%5d",$typelen)." value: $value\n";
   	  }
  	  else
 	  {
-        print "pos: ".sprintf("%6d 0x%06X",$pos,$pos)." typelen: ".sprintf("%5d",$typelen)." value: ".bin2hex(substr($content,$pos,5)).(" "x(($type==2)?(310-$typelen*2):1)).bin2hex(substr($content,$pos+5,$typelen))."\n";	
+        #print "pos: ".sprintf("%6d 0x%06X",$pos,$pos)." typelen: ".sprintf("%5d",$typelen)." value: ".bin2hex(substr($content,$pos,5)).(" "x(($type==2)?(310-$typelen*2):1)).bin2hex(substr($content,$pos+5,$typelen))."\n";	
   	  }
 	  
 	  if($type==0) # Contains V7-|seperated|values| , afterwards a list of coordinates follow
@@ -3127,7 +3134,7 @@ sub decodePcbLib($)
         my $npos=$pos;
 		if($pos+44>length($value))
 		{
-		  print "Error in paring file $_[0]\n";
+		  print "Error in parsing file $_[0]\n";
 		  last;
 		}
         my $component=unpack("s",substr($value,$pos+30,2));	
@@ -3203,7 +3210,7 @@ EOF
  	    my $nettext=($net>1)?"(net $net \"$netname\")":"";
         my $oposhex=sprintf("%X",$pos);
 	    print <<EOF
-#2590 counter:$counter pos:$pos(0x$oposhex) type:$otype net:$onet
+#3206 counter:$counter pos:$pos(0x$oposhex) type:$otype net:$onet
 #$dump
     (pad "$name" $tp $type (at $x1 $y1$mdir) (size $sx $sy) $drill
       (layers $layer) $nettext
