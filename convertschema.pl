@@ -149,8 +149,7 @@ foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'))
   open OUT,">$short.sch";
   print OUT "EESchema Schematic File Version 2\n";
   
-  my %formats=(7=>"C 22000 17000",6=>"B 17000 11000",5=>"A 11000 8500",1=>"B 17000 11000");
-  #my %formats=(7=>"A3 16535 11693",6=>"A4 11693 8268",5=>"User 8268 5846");
+  my %formats=(0=>"A4 11693 8268",1=>"A3 16535 11693",2=>"A2 23386 16535",3=>"A1 33110 23386",4=>"A0 46811 33110",5=>"A 11000 8500", 6=>"B 17000 11000",7=>"C 22000 17000",8=>"D 34000 22000",9=>"E 44000 34000",10=>"USLetter 11000 8500",11=>"USLegal 14000 8500",12=>"USLedger 17000 11000",13=>"A 11000 8500",14=>"B 17000 11000",15=>"C 22000 17000",16=>"D 34000 22000",17=>"E 44000 34000");
   
   my $sheetstyle=6; $sheetstyle=$1 if($text=~m/SHEETSTYLE=(\d+)/);
   
