@@ -4,14 +4,14 @@ altium2kicad
 Altium to KiCad converter for PCB and schematics
 
 System requirements: Perl
-Optionally: https://github.com/twlostow/step2wrl or FreeCAD
+Optionally: https://github.com/cbernardo/kicad_oce_vis or https://github.com/twlostow/step2wrl or FreeCAD
 
 To convert your Altium project to KiCad:
 
 Go to the directory with your .PcbDoc and .SchDoc files and run:
 
 * unpack.pl (it unpacks the .PcbDoc and .SchDoc files into subdirectores)
-* If the Altium design contains 3D models in step format, run stp2wrl or FreeCAD to convert the files to wrl (with FreeCAD open and execute the macro step2wrl.FCMacro )
+* If the Altium design contains 3D models in step format, run kicadd_oce_vis or step2wrl or FreeCAD to convert the files to wrl (with FreeCAD open and execute the macro step2wrl.FCMacro )
 * convertschema.pl (it converts the schematics from the subdirectories to .sch and -cache.lib files)
 * convertpcb.pl (it converts the PCB to .kicad_pcb files)
 
