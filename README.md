@@ -3,19 +3,24 @@ altium2kicad
 
 Altium to KiCad converter for PCB and schematics
 
-System requirements: Perl, FreeCAD
+System requirements: Perl
+Optionally: https://github.com/twlostow/step2wrl or FreeCAD
 
 To convert your Altium project to KiCad:
 
 Go to the directory with your .PcbDoc and .SchDoc files and run:
 
 * unpack.pl (it unpacks the .PcbDoc and .SchDoc files into subdirectores)
-* Run FreeCAD, open and execute the macro step2wrl.FCMacro (it converts the step files to wrl)
+* If the Altium design contains 3D models in step format, run stp2wrl or FreeCAD to convert the files to wrl (with FreeCAD open and execute the macro step2wrl.FCMacro )
 * convertschema.pl (it converts the schematics from the subdirectories to .sch and -cache.lib files)
 * convertpcb.pl (it converts the PCB to .kicad_pcb files)
 
 Due to the huge differences between Altium and KiCad, the weak fileformat documentation and the high complexity of the fileformats, this converter cannot guarantee the quality of the conversion. Please verify the output of the converter
 If this converter does not work for your files, feel free to provide your files and screenshots of how they do look like and how they should look like, and I will try to help.
+
+Current limitations of this converter:
+* Design Rule Check settings are not converted
+
 
 Currently known Limitations of KiCad:
 * Bezier curves for component symbols -> WONTFIX -> Workaround with linearization
@@ -26,4 +31,6 @@ Currently known Limitations of KiCad:
 * Round Rectangle
 * Elliptical Arc
 * Rigid-Flex
-* STEP file support  -> Will be fixed in the future, intermediate Workaround: Conversion with FreeCAD
+* Octagonal pads not supported
+* Arcs with a larger line thickness than the radius from Altium designs break the the VRML export
+* STEP file support  -> Will be fixed in the future, intermediate Workaround: Conversion with stp2wrl or FreeCAD
