@@ -1372,17 +1372,17 @@ EOF
 
   #Mapping the Standard components to KiCad Standard Components:
   our %A2Kwrl=(
-    "Chip Diode - 2 Contacts.PcbLib/CD1608-0603"=>"smd.3dshapes/Capacitors/C0603.wrl",
-    "Chip Diode - 2 Contacts.PcbLib/CD2012-0805"=>"smd.3dshapes/Capacitors/C0805.wrl",
-    "Chip_Capacitor_N.PcbLib/CAPC1005N"=>"smd.3dshapes/Capacitors/C0402.wrl",
-    "Chip_Capacitor_N.PcbLib/CAPC1608N"=>"smd.3dshapes/Capacitors/C0603.wrl",
-    "Chip_Capacitor_N.PcbLib/CAPC2012N"=>"smd.3dshapes/Capacitors/C0805.wrl",
-    "Chip_Capacitor_N.PcbLib/CAPC3216N"=>"smd.3dshapes/Capacitors/C1206.wrl",
-    "Chip_Capacitor_N.PcbLib/CAPC3225N"=>"smd.3dshapes/Capacitors/C1210.wrl",
-    "Chip_Resistor_N.PcbLib/RESC1005N"=>"smd.3dshapes/resistors/R0402.wrl",
-    "Chip_Resistor_N.PcbLib/RESC1608N"=>"smd.3dshapes/resistors/R0603.wrl",
-    "Chip_Resistor_N.PcbLib/RESC2012N"=>"smd.3dshapes/resistors/R0805.wrl",
-    "Chip_Resistor_N.PcbLib/RESC3216N"=>"smd.3dshapes/resistors/R1206.wrl",
+    "Chip Diode - 2 Contacts.PcbLib/CD1608-0603"=>"Capacitors_SMD.3dshapes/C_0603.wrl", #"smd.3dshapes/Capacitors/C0603.wrl",
+    "Chip Diode - 2 Contacts.PcbLib/CD2012-0805"=>"Capacitors_SMD.3dshapes/C_0805.wrl", #"smd.3dshapes/Capacitors/C0805.wrl",
+    "Chip_Capacitor_N.PcbLib/CAPC1005N"=>"Capacitors_SMD.3dshapes/C_0402.wrl", #"smd.3dshapes/Capacitors/C0402.wrl",
+    "Chip_Capacitor_N.PcbLib/CAPC1608N"=>"Capacitors_SMD.3dshapes/C_0603.wrl", #"smd.3dshapes/Capacitors/C0603.wrl",
+    "Chip_Capacitor_N.PcbLib/CAPC2012N"=>"Capacitors_SMD.3dshapes/C_0805.wrl", #"smd.3dshapes/Capacitors/C0805.wrl",
+    "Chip_Capacitor_N.PcbLib/CAPC3216N"=>"Capacitors_SMD.3dshapes/C_1206.wrl", #"smd.3dshapes/Capacitors/C1206.wrl",
+    "Chip_Capacitor_N.PcbLib/CAPC3225N"=>"Capacitors_SMD.3dshapes/C_1210.wrl", #"smd.3dshapes/Capacitors/C1210.wrl",
+    "Chip_Resistor_N.PcbLib/RESC1005N"=>"Resistors_SMD.3dshapes/R_0402.wrl", #"smd.3dshapes/resistors/R0402.wrl",
+    "Chip_Resistor_N.PcbLib/RESC1608N"=>"Resistors_SMD.3dshapes/R_0603.wrl", #"smd.3dshapes/resistors/R0603.wrl",
+    "Chip_Resistor_N.PcbLib/RESC2012N"=>"Resistors_SMD.3dshapes/R_0805.wrl", #"smd.3dshapes/resistors/R0805.wrl",
+    "Chip_Resistor_N.PcbLib/RESC3216N"=>"Resistors_SMD.3dshapes/R_1206.wrl", #"smd.3dshapes/resistors/R1206.wrl",
     "Miscellaneous Connectors.IntLib/HDR2X20"=>"Pin_Headers.3dshapes/Pin_Header_Straight_2x20.wrl",
     "Miscellaneous Connectors.IntLib/HDR1X4"=>"Pin_Headers.3dshapes/Pin_Header_Straight_1x4.wrl",
     "Miscellaneous Connectors.IntLib/HDR1X6"=>"Pin_Headers.3dshapes/Pin_Header_Straight_1x6.wrl",
@@ -1394,8 +1394,8 @@ EOF
     "SOP_65P_N.PcbLib/SOP65P640-16N"=>"smd.3dshapes/smd_dil/ssop-16.wrl",
     "SOT23_5-6Lead_N.PcbLib/SOT23-5AN"=>"smd.3dshapes/SOT23_5.wrl",
     "TSOP_65P_N.PcbLib/TSOP65P640-24AN"=>"smd.3dshapes/smd_dil/tssop-24.wrl",
-    "commonpcb.lib/CAPC0603N_B"=>"smd.3dshapes/Capacitors/C0603.wrl",
-    "commonpcb.lib/CAPC1608N_HD"=>"smd.3dshapes/Capacitors/C1608.wrl",
+    "commonpcb.lib/CAPC0603N_B"=>"Capacitors_SMD.3dshapes/C_0603.wrl", #"smd.3dshapes/Capacitors/C0603.wrl",
+    "commonpcb.lib/CAPC1608N_HD"=>"Capacitors_SMD.3dshapes/C_1608.wrl", #"smd.3dshapes/Capacitors/C1608.wrl",
     "commonpcb.lib/SWITCH_TS-1187A"=>"Pin_Headers.3dshapes/Pin_Header_Straight_1x4.wrl",
     "commonpcb.lib/USB_TYPEA_TH_SINGLE"=>"Pin_Headers.3dshapes/Pin_Header_Straight_1x4.wrl",
     "commonpcb.lib/HAOYU_TS_1185A_E"=>"Pin_Headers.3dshapes/Pin_Header_Straight_1x4.wrl",
@@ -2097,6 +2097,11 @@ if(defined($stp));
 	print OUT "#Arc#$_[3]: ".bin2hex($value)."\n" if($annotate);
 	print OUT "#Arc#$_[3]: xorig:$xorig yorig:$yorig layer:$layerorig component:$component\n" if($annotate);
 	print OUT "#Arc#$_[3]: x:$x y:$y radius:$r layer:$layer sa:$sa ea:$ea sarad:$sarad earad:$earad width:$width x1:$x1 x2:$x2 y1:$y1 y2:$y2\n" if($annotate);
+	if(($r*1.0)<=($width/2.0))
+	{
+		print OUT "#Arc#$_[3]: WARNING: width/2 exceeds radius*1.01 !\n" if($annotate);
+		$width=$r/2.0;
+	}
     print OUT "  (gr_arc (start $x $y) (end $x1 $y1) (angle $angle) (layer $layer) (width $width))\n" if($annotate);
 	#print OUT "  (gr_text \"1\" (at $x1 $y1) (layer $layer))\n";
 	#print OUT "  (gr_text \"2\" (at $x2 $y2) (layer $layer))\n";
