@@ -1,6 +1,8 @@
 #!/usr/bin/perl -w
 use strict;
 use Compress::Zlib;
+use FindBin;
+use lib "$FindBin::Bin";
 use Math::Geometry::Planar;
 use Data::Dumper;
 use Cwd qw(abs_path cwd getcwd);
