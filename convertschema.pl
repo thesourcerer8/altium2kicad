@@ -1099,12 +1099,16 @@ EOF
 		}
 		my $png=$bmp; $png=~s/\.\w+$/.png/;
 		#print "$bmp -> $png\n";
-		if(! -f $png)
+		if((-f $bmp) && (! -f $png))
 		{
 		  system "\"$imagemagick"."convert\" -colorspace RGB \"$bmp\" \"$png\"";
 		}
 		my $identify="identify";
-		my $ident=`"$imagemagick$identify" "$png"`;
+		my $ident="";
+		if(-f $png)
+		{
+		` $ident="$imagemagick$identify" "$png"`;
+		}
 	    #print "$ident\n";
 		my $imagex=1; my $imagey=1;
 		if($ident=~m/PNG (\w+)x(\w+)/)
@@ -1113,14 +1117,17 @@ EOF
 		}
 		my $scale=$widthx/$imagex/3.3; $scale=~s/\./,/;
 		#print "$png $imagex $imagey $widthx $scale\n";
-		$dat.="\$Bitmap\nPos $mx $my\nScale $scale\nData\n";
-		my $pngdata=readfile($png);
-        foreach(0 .. length($pngdata)-1)
+		if(-f $png)
 		{
-		  $dat.=sprintf("%02X ",unpack("C",substr($pngdata,$_,1)));
-		  $dat.="\n" if($_%32 ==31);
+		  $dat.="\$Bitmap\nPos $mx $my\nScale $scale\nData\n";
+		  my $pngdata=readfile($png);
+          foreach(0 .. length($pngdata)-1)
+		  {
+  		    $dat.=sprintf("%02X ",unpack("C",substr($pngdata,$_,1)));
+		    $dat.="\n" if($_%32 ==31);
+		  }
+		  $dat.="\nEndData\n\$EndBitmap\n";
 		}
-		$dat.="\nEndData\n\$EndBitmap\n";
 
 	  }
 	  elsif($d{'RECORD'} eq '28') # Text Frame
@@ -1160,6 +1167,10 @@ EOF
 	  elsif($d{'RECORD'} =~m/^(44|46|47|48)$/)
 	  {
 	    # NOP
+	  }
+	  elsif($d{'RECORD'} eq "39") # Reference to Schema Template
+	  {
+	    # References $d{'FILENAME'} as a filepath, but this likely does not exist
 	  }
 	  else
 	  {
