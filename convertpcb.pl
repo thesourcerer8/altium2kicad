@@ -384,6 +384,12 @@ EOF
 }
 
 
+sub Sphere($$$$$$$)
+{
+  # Needs to be implemented
+  return "";
+}
+
 # Generates the 3D WRL content for an extruded Polygon
 sub ExtrudedPolygon($$$$$$$)
 {
