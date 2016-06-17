@@ -3,6 +3,8 @@ altium2kicad
 
 Altium to KiCad converter for PCB and schematics
 
+![Altium2KiCad](Altium2KiCad.png)
+
 System requirements: Perl
 Optionally: https://github.com/cbernardo/kicad_oce_vis or https://github.com/twlostow/step2wrl or FreeCAD
 
