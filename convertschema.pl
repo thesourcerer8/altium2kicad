@@ -1137,7 +1137,7 @@ EOF
 		}
 
 	  }
-	  elsif($d{'RECORD'} eq '28') # Text Frame
+	  elsif($d{'RECORD'} eq '28' || $d{'RECORD'} eq '209') # Text Frame
 	  {
   		my $x=($d{'LOCATION.X'}*$f);
 		my $y=$sheety-($d{'LOCATION.Y'}*$f);
