@@ -1340,6 +1340,7 @@ EOF
   $layermap{"MECHANICAL2"}="Eco1.User";
   $layermap{"MECHANICAL1"}="Eco1.User";
   $layermap{"55"}="Cmts.User";
+  $layermap{"CONNECT"}="Eco1.User"; # This seems to be used only for Regions which are currently not needed
   
   # Dumping the resulting layer map
   foreach(sort keys %layermap)
