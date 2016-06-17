@@ -244,7 +244,7 @@ sub HandleBinFile
     my $header=substr($content,$pos,$headerlen);
     $pos+=$headerlen;
     my $rtyp=substr($content,$pos,length($recordtype));
-	if($rtyp ne $recordtype && !($recordtype eq "\x01\x00" && $rtyp=~m/^(\x01|\x03|\x05|\x07)\x00$/)) # Dimensions have both 01:00 and 05:00 record types
+	if($rtyp ne $recordtype && !($recordtype eq "\x01\x00" && $rtyp=~m/^(\x01|\x03|\x05|\x07|\x08)\x00$/)) # Dimensions have both 01:00 and 05:00 record types
 	{
 	  print "Error: Wrong recordtype: ".bin2hex($rtyp).", expected ".bin2hex($recordtype)."\n";
 	  if(!$ARGV[0] eq "CRLF")
