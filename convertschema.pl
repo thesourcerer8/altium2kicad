@@ -581,7 +581,7 @@ EOF
         my $x=($d{'LOCATION.X'}*$f)-$relx;
 		my $y=($d{'LOCATION.Y'}*$f)-$rely;
 		($x,$y)=rotate($x,$y,$partorientation{$globalp});
-		my $r=(($d{'RADIUS'}||0)+($d{'RADIUS_FRAC'}/100000.0))*$f;
+		my $r=int(($d{'RADIUS'}||0)+($d{'RADIUS_FRAC'}/100000.0))*$f;
 		my $sa="0"; $sa="$1$2" if(defined($d{'STARTANGLE'}) && $d{'STARTANGLE'}=~m/(\d+)\.(\d)(\d+)/);
 		my $ea="0"; $ea="$1$2" if(defined($d{'ENDANGLE'}) && $d{'ENDANGLE'}=~m/(\d+)\.(\d)(\d+)/);
 		my @liste=();
@@ -683,7 +683,7 @@ EOF
       }
 	  elsif($d{'RECORD'} eq '33') # Sheet Symbol
 	  {
-        $prevfilename=$d{'TEXT'} if($d{'RECORD'} eq '33'); $prevfilename=~s/\.SchDoc/\.sch/;	
+        $prevfilename=$d{'TEXT'} if($d{'RECORD'} eq '33'); $prevfilename=~s/\.SchDoc/-SchDoc\.sch/;	
 	    $dat="$symbol\nF0 \"$prevname\" 60\nF1 \"$prevfilename\" 60\n\$EndSheet\n";
 		$rootlibraries{"$short-cache.lib"}=1;
 	  }	  
