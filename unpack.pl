@@ -14,6 +14,10 @@ push @files,<*.PcbDoc>;
 push @files,<*.IntLib>;
 push @files,<*.PcbLib>;
 push @files,<*.SchLib>;
+push @files,<*.CMSchDoc>;
+push @files,<*.CMPcbDoc>;
+push @files,<*.CMSchLib>;
+push @files,<*.CMPcbLib>;
 
 my $debug=$ARGV[0] || 0;
 
@@ -22,7 +26,7 @@ foreach my $file (@files)
   #next if($file=~m/^ASCII/i); # We have to skip ASCII formatted PCB Files
   next if(-d $file); # We only handle files, no directories.
   print "Loading $file\n";
-  my $short=$file; $short=~s/\.\w+$//;
+  my $short=$file; $short=~s/\.(\w+)$/-$1/;
   mkdir $short;
   open IN,"<$file";
   binmode IN;
@@ -34,7 +38,7 @@ foreach my $file (@files)
     print "Skipping ASCII .PcbDoc\n";
 	next;
   }
-  #print "filelength: ".length($content)."\n";
+  print "filelength: ".length($content)."\n" if($debug);
   
   close IN;
 
