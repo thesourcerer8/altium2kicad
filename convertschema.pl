@@ -581,7 +581,7 @@ EOF
         my $x=($d{'LOCATION.X'}*$f)-$relx;
 		my $y=($d{'LOCATION.Y'}*$f)-$rely;
 		($x,$y)=rotate($x,$y,$partorientation{$globalp});
-		my $r=($d{'RADIUS'}*$f);
+		my $r=(($d{'RADIUS'}||0)+($d{'RADIUS_FRAC'}/100000.0))*$f;
 		my $sa="0"; $sa="$1$2" if(defined($d{'STARTANGLE'}) && $d{'STARTANGLE'}=~m/(\d+)\.(\d)(\d+)/);
 		my $ea="0"; $ea="$1$2" if(defined($d{'ENDANGLE'}) && $d{'ENDANGLE'}=~m/(\d+)\.(\d)(\d+)/);
 		my @liste=();
@@ -638,6 +638,13 @@ EOF
 		($cx,$cy)=rotate($cx,$cy,$partorientation{$globalp});
 		drawcomponent "S $x $y $cx $cy 0 1 10 f\n";
       }
+	  elsif($d{'RECORD'} eq '11') # Ellipse ???
+	  {
+	    print "Ellipses are not yet supported by KiCAD\n";
+		#RADIUS=9|RADIUS_FRAC=93698|SECONDARYRADIUS=5|SECONDARYRADIUS_FRAC=4539
+		#LOCATION.X=130|LOCATION.Y=90|
+		#LINEWIDTH=1|STARTANGLE=0.809|ENDANGLE=179.510|COLOR=16711680
+	  }
 	  else
 	  {
 	    print "Unhandled Record type within: $d{RECORD}\n";
