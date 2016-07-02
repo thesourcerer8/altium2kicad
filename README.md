@@ -35,4 +35,7 @@ Currently known Limitations of KiCad:
 * Rigid-Flex
 * Octagonal pads not supported
 * Arcs with a larger line thickness than the radius from Altium designs break the the VRML export
-* STEP file support  -> Will be fixed in the future, intermediate Workaround: Conversion with stp2wrl or FreeCAD
+* STEP(STP) file support -> Will be fixed in the future, intermediate Workaround: Conversion with stp2wrl or FreeCAD
+
+User Success Stories:
+ * https://github.com/FPGAwars/icezum/wiki The Alhambra board was migrated to KiCad with this converter
