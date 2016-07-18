@@ -3074,6 +3074,7 @@ foreach(glob("'library/Miscellaneous Devices/Root Entry/SchLib/0/Root Entry/*/Da
 sub decodePcbLib($)
 {
   my $content=readfile($_[0]);
+  next unless defined($content);
   print "Decoding $_[0] (".length($content)." Bytes)...\n";
   my $namelen=unpack("S",substr($content,0,2));
   print "Name: ".substr($content,5,$namelen-1)."\n";
@@ -3101,16 +3102,19 @@ sub decodePcbLib($)
 	{
 	  $pos+=4;
 	  print "Pos: ".sprintf("%5d",$pos)." Number: $type\n";
-	  foreach(0 .. $type-1)
+	  if($type>0)
 	  {
-	    if($pos>length($content))
-		{
-		  print "Error in file!\n";
-		  last;
+	    foreach(0 .. $type-1)
+	    {
+  	      if($pos+16>=length($content) || $pos<0)
+		  {
+  		    print "Error in file!\n";
+		    last;
+		  }
+	      #print "* ".bin2hex(substr($content,$pos,16))."\n";
+          print "** ".sprintf("%.7f",(unpack("d",substr($content,$pos,8))||1)/$faktor/10000)." ".sprintf("%.7f",(unpack("d",substr($content,$pos+8,8))||1)/$faktor/10000)."\n";
+		  $pos+=16;
 		}
-	    #print "* ".bin2hex(substr($content,$pos,16))."\n";
-        print "** ".sprintf("%.7f",unpack("d",substr($content,$pos,8))/$faktor/10000)." ".sprintf("%.7f",unpack("d",substr($content,$pos+8,8))/$faktor/10000)."\n";
-		$pos+=16;
 	  }
 	  $prevtype=-1;
 	}
