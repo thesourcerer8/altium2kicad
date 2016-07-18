@@ -108,6 +108,13 @@ sub bmil2($)
   return (unpack("l",$_[0])/10000)."mil";
 }
 
+# Necessary for comments
+sub removeCRLF($)
+{
+  my $d=$_[0];
+  $d=~s/[\r\n]//gs;
+  return $d;
+}
 
 #Reads a file with one function
 sub readfile($)
@@ -1663,7 +1670,7 @@ EOF
   #Converting Component Bodies
   HandleBinFile("$short/Root Entry/ComponentBodies6/Data.dat","",23,16, sub 
   { 
-    print OUT "#ComponentBodies#".$_[3].": ".bin2hex($_[2])." ".$_[1]."\n" if($annotate);
+    print OUT "#ComponentBodies#".removeCRLF($_[3]).": ".bin2hex($_[2])." ".removeCRLF($_[1])."\n" if($annotate);
 
     my %d=%{$_[0]};
 	my $header=$_[2];
@@ -1812,7 +1819,7 @@ EOF
   HandleBinFile("$short/Root Entry/ShapeBasedComponentBodies6/Data.dat","\x0c",0,0, sub 
   { 
     my $value=$_[1];
-    print OUT "#ShapeBasedComponentBodies#".$_[3].": ".bin2hex($value)."\n" if($annotate);
+    print OUT "#ShapeBasedComponentBodies#".removeCRLF($_[3]).": ".bin2hex($value)."\n" if($annotate);
     #print "#ShapeBasedComponentBodies#".$_[3]."\n" if($annotate);
 	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
 	my $component=unpack("s",substr($value,7,2));
@@ -1954,13 +1961,13 @@ EOF
 	#print "\n";
   });
 
-
+  
   
   $componentid=0;
   HandleBinFile("$short/Root Entry/Components6/Data.dat","",0,0, sub 
   { 
     my %d=%{$_[0]};
-    print OUT "#Components#".$_[3].": ".$_[1]."\n" if($annotate);
+    print OUT "#Components#".removeCRLF($_[3]).": ".removeCRLF($_[1])."\n" if($annotate);
 	print OUT "#\$pads{$componentid}\n" if($annotate);
 	my $atx=mil2mm($d{'X'});$atx-=$xmove;
 	my $aty=mil2mm($d{'Y'});$aty=$ymove-$aty;
@@ -2142,7 +2149,7 @@ if(defined($stp));
   { 
     my $value=$_[1];
 	$rawbinary{"Via"}{$_[3]}=$_[1];
-	print OUT "#Vias#".$_[3].": ".bin2hex($value)."\n" if($annotate);
+	print OUT "#Vias#".removeCRLF($_[3]).": ".bin2hex($value)."\n" if($annotate);
     my $debug=($count<100);
     my $x=sprintf("%.5f",-$xmove+bmil2mm(substr($value,13,4)));
 	assertdata("Via",$_[3],"X",bmil2(substr($value,13,4)));
@@ -2236,7 +2243,7 @@ if(defined($stp));
   HandleBinFile("$short/Root Entry/Polygons6/Data.dat","",0,0, sub 
   { 
     my %d=%{$_[0]};
-	print OUT "#Polygons#".$_[3].": ".$_[1]."\n" if($annotate);
+	print OUT "#Polygons#".removeCRLF($_[3]).": ".removeCRLF($_[1])."\n" if($annotate);
 	my $counter=$_[3];
 	my $width=mil2mm($d{'TRACKWIDTH'}||1);
 	my $layer=mapLayer($d{'LAYER'}) || "F.Paste";
@@ -2305,7 +2312,7 @@ EOF
   HandleBinFile("$short/Root Entry/Tracks6/Data.dat","\x04",0,0, sub 
   { 
     my $value=$_[1];
-	print OUT "#Tracks#".$_[3].": ".bin2hex($value)."\n" if($annotate);
+	print OUT "#Tracks#".removeCRLF($_[3]).": ".bin2hex($value)."\n" if($annotate);
     $rawbinary{"Track"}{$_[3]}=$_[1];
     my $net=unpack("s",substr($value,3,2))+2;	 
 	assertdata("Track",$_[3],"RECORD","Track");
@@ -2444,7 +2451,7 @@ EOF
   HandleBinFile("$short/Root Entry/Fills6/Data.dat","\x06",0,0, sub 
   { 
     my $value=$_[1];
-    print OUT "#Fills#".$_[3].": ".bin2hex($value)."\n" if($annotate);
+    print OUT "#Fills#".removeCRLF($_[3]).": ".bin2hex($value)."\n" if($annotate);
     $rawbinary{"Fill"}{$_[3]}=$_[1];
 	my $component=unpack("s",substr($value,7,2));
 	assertdata("Fill",$_[3],"COMPONENT",unpack("s",substr($value,7,2))) if($component>=0);
@@ -2495,7 +2502,7 @@ EOF
   { 
     my $value=$_[1];
 	$rawbinary{"Region"}{$_[3]}=$value;
-    print OUT "#Regions#".$_[3].": ".bin2hex(substr($value,0,1000))."\n" if($annotate);
+    print OUT "#Regions#".removeCRLF($_[3]).": ".bin2hex(substr($value,0,1000))."\n" if($annotate);
 	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
 
 
