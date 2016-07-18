@@ -487,7 +487,7 @@ EOF
 		$name="";
 		my $namepos=0;
 		$state=0;
-		while($namepos < length($oldname))
+		while($namepos < length($oldname) && $namepos>=0)
 		{
 		  my $thisstate=(defined(substr($oldname,$namepos+1,1)) && substr($oldname,$namepos+1,1) eq "\\")?1:0;
 		  if($thisstate != $state)
