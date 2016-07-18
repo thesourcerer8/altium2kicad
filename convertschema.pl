@@ -573,7 +573,8 @@ EOF
 		my $y=($d{'LOCATION.Y'}*$f)-$rely;
 		($x,$y)=rotate($x,$y,$partorientation{$globalp});
 		my $fill=(defined($d{'ISSOLID'})&&$d{'ISSOLID'} eq 'T')?"F":"N";
-		drawcomponent "C $x $y ".($d{'RADIUS'}*$f)." 0 1 $d{LINEWIDTH}0 $fill\n";
+		my $LINEWIDTH=$d{LINEWIDTH}||1;
+		drawcomponent "C $x $y ".($d{'RADIUS'}*$f)." 0 1 $LINEWIDTH"."0 $fill\n";
 	  }
 	  elsif($d{'RECORD'} eq '12') # Arc
 	  {
