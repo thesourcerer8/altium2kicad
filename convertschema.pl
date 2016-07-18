@@ -114,6 +114,7 @@ foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'))
   
   next unless defined($content);
   next unless length($content)>4;
+  next if($content=~m/PCB \d+.\d+ Binary Library File/);
   next if(unpack("l",substr($content,0,4))>length($content));
 
   my $text="";
@@ -123,9 +124,14 @@ foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'))
 
   open OUT,">$filename.txt";
   my $line=0;
-  while(length($content)>4)
+  while(length($content)>4 )
   {
     my $len=unpack("l",substr($content,0,4));
+	if($len<0)
+	{
+	  print "Error: Length is negative $filename $line: $len\n";
+	  last;
+	}
     
     #print "len: $len\n";
     my $data=substr($content,4,$len); 
@@ -505,7 +511,7 @@ EOF
 		  my $dir=$dirtext{$pinorient};
 		  my $x=$d{'LOCATION.X'}*$f;
 		  my $y=$d{'LOCATION.Y'}*$f;
-		  my $pinlength=$d{'PINLENGTH'}*$f;
+		  my $pinlength=($d{'PINLENGTH'}||1)*$f;
 		  my $electrical="U";
 		  
 		  $x-=$relx;
@@ -1176,10 +1182,23 @@ EOF
 	  {
 	    # NOP
 	  }
-	  elsif($d{'RECORD'} eq "39") # Reference to Schema Template
+	  elsif($d{'RECORD'} eq '39') # Reference to Schema Template
 	  {
 	    # References $d{'FILENAME'} as a filepath, but this likely does not exist
 	  }
+	  elsif($d{'RECORD'} eq '18')
+	  {
+	    print "RECORD=18: $b\n";
+	  }
+	  elsif($d{'RECORD'} eq '16')
+	  {
+	    print "RECORD=16: $b\n";
+	  }
+  	  elsif($d{'RECORD'} eq '37')
+	  {
+	    print "RECORD=37: $b\n";
+	  }
+
 	  else
 	  {
 	    print "Unhandled Record type without: $d{RECORD}  (#$d{LINENO})\n";
