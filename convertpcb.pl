@@ -246,7 +246,7 @@ sub HandleBinFile
   my $line=0;
   my $pos=0;
   
-  while($pos<length($content)-4)
+  while($pos<length($content)-4 && $pos>0)
   {
     my $header=substr($content,$pos,$headerlen);
     $pos+=$headerlen;
@@ -1474,7 +1474,7 @@ EOF
 	open DOUT,">Pads.txt";
 	my $pos=0;
 	my $counter="0";
-	while($pos+140<length($value))
+	while($pos+140<length($value) && $pos>0)
 	{
 	  my $opos=$pos;
 	  my $len=sprintf("%.5f",unpack("l",substr($value,$pos+1,4)));
@@ -2734,7 +2734,7 @@ EOF
 	my $pos=0;
 	my %seen=();
 	my $counter=0;
-	while($pos<length($content))
+	while($pos<length($content) && $pos>0)
 	{
 	  my $opos=$pos;
 	  last if(substr($content,$pos,1) ne "\x05"); 
@@ -2969,7 +2969,7 @@ sub decodeLib($)
   my $pos=1+$typelen;
   # The rest of the first block looks like garbage
   $pos=256;
-  while($pos<length($content))
+  while($pos<length($content) && $pos>0)
   {
     #print "pos: ".sprintf("%02X",$pos)." ";
     my $recordtype=unpack("C",substr($content,$pos,1));
@@ -3057,7 +3057,7 @@ sub decodeSchLib($)
   my $content=readfile($_[0]);
   print "Decoding $_[0] (".length($content)." Bytes)...\n";
   my $pos=0;
-  while($pos<length($content))
+  while($pos<length($content) && $pos>0)
   {
     my $typelen=unpack("S",substr($content,$pos,2));
     my $type=substr($content,$pos+4,$typelen);
@@ -3089,7 +3089,7 @@ sub decodePcbLib($)
   
   my $pos=4+$namelen;
   my $prevtype=-1;
-  while($pos+3<length($content))
+  while($pos+3<length($content) && $pos>0)
   {
     my $type=unpack("C",substr($content,$pos,1));
     my $typelen=unpack("S",substr($content,$pos+1,2));
