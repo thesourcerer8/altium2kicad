@@ -1297,6 +1297,7 @@ EOF
   "72"=>"B.CrtYd",
   "73"=>"Eco2.User",
   "74"=>"Dwgs.User",
+
   );
   
   # Adding internal copper layers
@@ -1344,6 +1345,7 @@ EOF
   $layermap{"BOTTOMPASTE"}=$layermap{36};
   $layermap{"MULTILAYER"}=$layermap{74};
   $layermap{"MECHANICAL14"}=$layermap{70};
+  $layermap{"MECHANICAL15"}=$layermap{70};
   $layermap{"MECHANICAL2"}="Eco1.User";
   $layermap{"MECHANICAL1"}="Eco1.User";
   $layermap{"55"}="Cmts.User";
