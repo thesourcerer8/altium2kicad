@@ -27,6 +27,7 @@ foreach my $file (@files)
   next if(-d $file); # We only handle files, no directories.
   print "Loading $file\n";
   my $short=$file; $short=~s/\.(\w+)$/-$1/;
+  $short=~s/\x13//g;
   mkdir $short;
   open IN,"<$file";
   binmode IN;
@@ -323,6 +324,7 @@ foreach my $file (@files)
 
 
     #print "Making $path\n";
+	$path=~s/\x13//g;
     mkdir $path;
 
     my $bytes="";
@@ -355,6 +357,7 @@ foreach my $file (@files)
 
      
     my $fname="$path/$name.dat";
+	$fname=~s/\x13//g;
      
     if(open(OUT,">$fname"))
     {
