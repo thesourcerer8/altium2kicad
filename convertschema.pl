@@ -1194,8 +1194,25 @@ EOF
 	  {
 	    print "RECORD=16: $b\n";
 	  }
-  	  elsif($d{'RECORD'} eq '37') # Rectangle?
+  	  elsif($d{'RECORD'} eq '37') # Entry Wire Line / Bus connector
 	  {
+		my $x1=($d{'LOCATION.X'}*$f);
+		my $y1=$sheety-($d{'LOCATION.Y'}*$f);
+  		my $x2=($d{'CORNER.X'}*$f);
+		my $y2=$sheety-($d{'CORNER.Y'}*$f);
+		$dat.="Entry Wire Line\n 	$x1 $y1 $x2 $y2\n";
+	  }
+  	  elsif($d{'RECORD'} eq '26') # BUS POLYLINE 
+	  {
+	    #|RECORD=26|INDEXINSHEET=606|OWNERPARTID=-1|LINEWIDTH=2|COLOR=8388608|LOCATIONCOUNT=2|X1=270|Y1=860|X2=215|Y2=860
+		foreach my $i(1 .. $d{'LOCATIONCOUNT'}-1)
+		{
+  		  my $x1=($d{'X'.$i}*$f);
+		  my $y1=$sheety-($d{'Y'.$i}*$f);
+  		  my $x2=($d{'X'.($i+1)}*$f);
+		  my $y2=$sheety-($d{'Y'.($i+1)}*$f);
+		  $dat.="Wire Bus Line\n	$x1 $y1 $x2 $y2\n";
+		}
 	  }
 	  else
 	  {
