@@ -52,6 +52,7 @@ my $ICcount=0;
 our $timestamp=time();
 my %hvmap=("0"=>"H","1"=>"V","2"=>"H","3"=>"V");
 our %uniquereferences=();
+my %myrot=("0"=>"0","90"=>"1","270"=>"2");
 
 #Reads a file with one function
 sub readfile($)
@@ -623,14 +624,27 @@ EOF
 		  drawcomponent "A $x $y $r $sa $ea 1 1 $d{LINEWIDTH}0 $fill $x1 $y1 $x2 $y2\n";
 		}
       }
-	  elsif($d{'RECORD'} eq '41') # Text
+	  elsif($d{'RECORD'} eq '41') # Text / Designator?
 	  {
-	    #RECORD=41|OWNERPARTID=   1|OWNERINDEX=1568|LOCATION.X=80|LOCATION.Y=846|NAME=Comment|OWNERINDEX=1568|TEXT=2.1mm x 5.5mm DC jack|
+	    #RECORD=41|OWNERPARTID=1|OWNERINDEX=1568|LOCATION.X=80|LOCATION.Y=846|NAME=Comment|OWNERINDEX=1568|TEXT=2.1mm x 5.5mm DC jack|
+		#RECORD=41|OWNERPARTID=1|OWNERINDEX=219|LOCATION.X=514|LOCATION.Y=144|NAME=>NAME|ORIENTATION=2|COLOR=8388608|FONTID=3|TEXT=R39|UNIQUEID=MCQTJAIN|NOTAUTOPOSITION=T|INDEXINSHEET=7
+
 		my $x=($d{'LOCATION.X'}*$f)-$relx;
 		my $y=($d{'LOCATION.Y'}*$f)-$rely;
 		($x,$y)=rotate($x,$y,$partorientation{$globalp});
 		my $text=$d{'DESCRIPTION'} || $d{'TEXT'}; $text=~s/\~/~~/g; $text=~s/\~1/\~/g; $text=~s/ /\~/g; 
-		drawcomponent "T 0 $x $y 50 0 1 1 $text 1\n";
+		if($d{'NOTAUTOPOSITION'})
+		{
+     	  my $rot=$d{'ORIENTATION'} || $myrot{$fontrotation{$d{'FONTID'}}};
+          my $size=$fontsize{$d{'FONTID'}}*6;
+		  my $bold=$fontbold{$d{'FONTID'}}?"12":"0";
+          print OUT "Text Notes ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." $rot    $size   ~ $bold\n$text\n" if($text ne "" && $text ne " ");
+          #$dat="Text Notes $x ".($sheety-$y)." $rot    $size   ~ $bold\n$text\n" if($text ne "" && $text ne " ");  
+		}
+		else
+		{
+		  drawcomponent "T 0 $x $y 50 0 1 1 $text 1\n";
+		}
 	  }
 	  elsif($d{'RECORD'} eq '10') # Oval???
 	  {
@@ -676,7 +690,6 @@ EOF
 	    #|RECORD=4|LOCATION.X=40|TEXT=I2C mappings:|OWNERPARTID=-1|INDEXINSHEET=26|COLOR=8388608|LOCATION.Y=500|FONTID=3
 		my $size=$fontsize{$d{'FONTID'}}*6;
 		my $bold=$fontbold{$d{'FONTID'}}?"12":"0";
-		my %myrot=("0"=>"0","90"=>"1","270"=>"2");
 		my $rot=$d{'ORIENTATION'} || $myrot{$fontrotation{$d{'FONTID'}}};
 		#print "FONTROT: $fontrotation{$d{'FONTID'}}\n" if($text=~m/0xA/);
 		my $text=$d{'TEXT'}||""; $text=~s/\~/~~/g; $text=~s/\n/\\n/gs;
@@ -965,9 +978,9 @@ EOF
       }
 	  elsif($d{'RECORD'} eq '34') #Designator
 	  {
-        #RECORD=34|OWNERPARTID=  -1|OWNERINDEX=  27|LINENO=146|LOCATION.X=600|LOCATION.Y=820|NAME=Designator|OWNERINDEX=27|TEXT=U200|
-        my $x=($d{'LOCATION.X'}*$f);
-		my $y=($d{'LOCATION.Y'}*$f);
+        #RECORD=34|OWNERPARTID=  -1|OWNERINDEX=  27|LINENO=146|LOCATION.X=600|LOCATION.Y=820|NAME=Designator|OWNERINDEX=27|TEXT=U200|COLOR=8388608|FONTID=3
+        my $x=(($d{'LOCATION.X'}+(($d{'LOCATION.X_FRAC'}||0)/100000.0))*$f);
+		my $y=(($d{'LOCATION.Y'}+(($d{'LOCATION.Y_FRAC'}||0)/100000.0))*$f);
         my $orientation=$d{'ORIENTATION'} || 0;
 		$orientation=($orientation+$partorientation{$globalp})%4;
         my $ownrot=(($partorientation{$globalp}||0)%4)+($d{'ISMIRRORED'}?4:0);
