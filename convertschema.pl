@@ -137,7 +137,7 @@ foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'))
     my $data=substr($content,4,$len); 
     if($data=~m/\n/)
     {
-      print "Warning: data contains newline!\n";
+      #print "Warning: data contains newline!\n";
     }
     $data=~s/\x00//g;
     push @a,"|LINENO=$line|".$data;
@@ -325,7 +325,7 @@ EOF
     foreach my $c(@l)
     {
       #print "c: $c\n";
-      if($c=~m/^([^=]*)=(.*)$/)
+      if($c=~m/^([^=]*)=(.*)$/s)
       {
         #print "$1 -> $2\n";
         $d{$1}=$2;
@@ -672,8 +672,8 @@ EOF
 		my %myrot=("0"=>"0","90"=>"1","270"=>"2");
 		my $rot=$d{'ORIENTATION'} || $myrot{$fontrotation{$d{'FONTID'}}};
 		#print "FONTROT: $fontrotation{$d{'FONTID'}}\n" if($text=~m/0xA/);
-		my $text=$d{'TEXT'}; $text=~s/\~/~~/g;
-	    $dat="Text Label ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." $rot    $size   ~ $bold\n$text\n" if($text ne "" && $text ne " ");
+		my $text=$d{'TEXT'}||""; $text=~s/\~/~~/g; $text=~s/\n/\\n/gs;
+	    $dat="Text Notes ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." $rot    $size   ~ $bold\n$text\n" if($text ne "" && $text ne " ");
 	  }
 	  elsif($d{'RECORD'} eq '15') # Sheet Symbol
 	  {
@@ -1194,11 +1194,9 @@ EOF
 	  {
 	    print "RECORD=16: $b\n";
 	  }
-  	  elsif($d{'RECORD'} eq '37')
+  	  elsif($d{'RECORD'} eq '37') # Rectangle?
 	  {
-	    print "RECORD=37: $b\n";
 	  }
-
 	  else
 	  {
 	    print "Unhandled Record type without: $d{RECORD}  (#$d{LINENO})\n";
