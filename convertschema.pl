@@ -652,6 +652,13 @@ EOF
 		#LOCATION.X=130|LOCATION.Y=90|
 		#LINEWIDTH=1|STARTANGLE=0.809|ENDANGLE=179.510|COLOR=16711680
 	  }
+	  elsif($d{'RECORD'} eq '29') # Junction
+	  {
+	    #RECORD=29|OWNERPARTID=  -1|OWNERINDEX=   0|LOCATION.X=130|LOCATION.Y=1230|
+		my $px=($d{'LOCATION.X'}*$f);
+		my $py=($sheety-$d{'LOCATION.Y'}*$f);
+		print OUT "Connection ~ $px $py\n";
+	  }
 	  else
 	  {
 	    print "Unhandled Record type within: $d{RECORD}\n";
