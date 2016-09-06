@@ -3302,7 +3302,7 @@ foreach my $dir (glob("'*/Root Entry/Library'"))
   {
     next if(m/\/Library\/Data.dat.bin/);
     next if(m/\/FileVersionInfo\/Data.dat.bin/);
-    decodePcbLib($_);
+    #decodePcbLib($_); ### Causes problems, needs more testing first
     #print "Done decoding PCBLIB $_\n";
   }
 }
