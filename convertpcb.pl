@@ -1257,6 +1257,13 @@ EOF
   
   $xmove=0; $ymove=0; # Enable to align GPBB to the Gerber Imports
   
+  if($short=~m/CrypTech/i)
+  {
+    print "Detected Cryptech board, aligning for Gerber comparison\n";
+    $xmove=199.898;
+    $ymove=64.516;
+  }
+  
   # Mapping the original Layer Numbers to KiCad Layer names
   our %layermap=(
   "1"=>"F.Cu",
