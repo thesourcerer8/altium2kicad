@@ -1478,40 +1478,65 @@ EOF
   #HandleBinFile("$short/Root Entry/Pads6/Data.dat","\x02",0,0, sub 
   {
     my $value=readfile("$short/Root Entry/Pads6/Data.dat");
-    $value=~s/\r\n/\n/gs;
+    #$value=~s/\r\n/\n/gs;
 	open AOUT,">$short/Root Entry/Pads6/Data.dat.txt";
 	open DOUT,">Pads.txt";
 	my $pos=0;
 	my $counter="0";
-	while($pos+140<length($value) && $pos>=0)
+	while(($pos+140)<length($value) && $pos>=0)
 	{
 	  my $opos=$pos;
-	  my $len=sprintf("%.5f",unpack("l",substr($value,$pos+1,4)));
+	  if(substr($value,$pos,1) =~m/[\x80\x86]/)
+	  {
+	    print AOUT bin2hex(substr($value,$pos,1302/2))."\n";
+	    $pos+=1302/2;
+		next;
+	  }
+	  if(substr($value,$pos,1) =~m/[\x00]/)
+	  {
+	    print AOUT bin2hex(substr($value,$pos,1402/2))."\n";
+	    $pos+=1402/2;
+		next;
+	  }
+	  if(substr($value,$pos,1) ne "\x02")
+	  {
+	    print "Parsing error in Pads, header code 02 does not match ".bin2hex(substr($value,$pos,1))." at pos $pos\n";
+		print AOUT bin2hex(substr($value,$pos))."\n";
+		last;
+	  }
+	  my $len=unpack("V",substr($value,$pos+1,4));
+	  #print "len: $len\n";
 	  print AOUT bin2hex(substr($value,$pos,5))." ";
-	  print AOUT sprintf("A:%10s",bin2hex(substr($value,$pos+5,$len)))." ";
+	  print AOUT sprintf("A:%12s",bin2hex(substr($value,$pos+5,$len)))." ";
 	  my $name=substr($value,$pos+6,$len-1);
-
+      #print "Name: $name\n";
 	  
 	  assertdata("Pad",$counter,"RECORD","Pad");
   	  assertdata("Pad",$counter,"INDEXFORSAVE",$counter);
 	  assertdata("Pad",$counter,"NAME",$name);
 	  
 	  $pos+=5+$len;
-	  
-  	  my $len2=unpack("l",substr($value,$pos+143,4));
-
-	  
+	  #print "pos: ".sprintf("0x%X",$pos+143)."\n";
+  	  my $len2=unpack("V",substr($value,$pos+143,4));
+	  $len2=50 if($len2>1000);
+	  $len2=50 if($len2==1);
+      #print "len2: $len2\n" if($len2);
+	  #$len2=61;
 	  
       my $npos=$pos;
 	  
       $rawbinary{"Pad"}{$counter}=substr($value,$pos,147);
 
       my $component=unpack("s",substr($value,$pos+30,2));	
+	  #print "Component: $component\n";
 	  assertdata("Pad",$counter,"COMPONENT",$component) if($component>=0);
 
 	  #print AOUT "component:$component net:$net\n";
 	  assertdata("Pad",$counter,"X",bmil2(substr($value,$pos+36,4)));
 	  assertdata("Pad",$counter,"Y",bmil2(substr($value,$pos+40,4)));
+	  #print "Pad x: ".bmil2(substr($value,$pos+36,4))."\n";
+	  #print "Pad y: ".bmil2(substr($value,$pos+40,4))."\n";
+	  
       my $x1=-$xmove+bmil2mm(substr($value,$pos+36,4));
 	  my $y1=$ymove-bmil2mm(substr($value,$pos+40,4));
   	  #MarkPoint($x1,$y1) if($counter eq 2);
@@ -1566,7 +1591,7 @@ EOF
 	  if($typemapalt{$otype} eq "ROUNDEDRECTANGLE")
 	  {
   	    #print "Pad: $counter $otype ".bin2hex(substr($value,$pos,200))."\n";
-        print "This is a rounded rectangle. Special support is needed.\n";
+        print "This is a rounded rectangle pad. Special support is needed.\n";
 		#print "len2: $len2\n";
 		#print bin2hex(substr($value,$pos+147,$len2))."\n";
 	  }
@@ -1631,10 +1656,18 @@ EOF
 	  
 	  
 	  #print "layer:$layer net:$net component=$component type:$type dir:$dir \n";
-	  print AOUT bin2hex(substr($value,$pos,143))." ";
+	  print AOUT bin2hex(substr($value,$pos,147))." ";
 	  $pos+=147;
   	  print AOUT bin2hex(substr($value,$pos,$len2))."\n";
       $pos+=$len2;
+	  
+	  if(substr($value,$pos-4,4) eq "\x8B\x02\x00\x00")
+	  {
+	    #print "Double addition detected\n";
+		$pos+=unpack("V",substr($value,$pos-4,4));
+	  } 
+	  
+	  
 	  my $olayer=$altlayername{$altlayer}||"";
 	  my $onettext=$onet>=0?"|NET=$onet":"";
 	  my $dump=bin2hex(substr($value,$npos,143));
