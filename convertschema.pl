@@ -152,6 +152,7 @@ foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'))
 
   open LOG,">$short.log" if($USELOGGING);
   open LIB,">$short-cache.lib";
+  binmode(LIB, ":utf8");
   my $timestamp=strftime "%d.%m.%Y %H:%M:%S", localtime;
   print LIB "EESchema-LIBRARY Version 2.3  Date: $timestamp\n#encoding utf-8\n";
 
