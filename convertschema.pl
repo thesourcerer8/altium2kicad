@@ -49,7 +49,8 @@ my $globalcomp="";
 our %globalcontains=();
 my %rootlibraries=();
 my $ICcount=0;
-our $timestamp=time();
+my $start_time=$ENV{'A2K_STARTTIME'} || time();
+our $timestamp=$start_time;  # this value gets decreased every time we need a unique timestamp
 my %hvmap=("0"=>"H","1"=>"V","2"=>"H","3"=>"V");
 our %uniquereferences=();
 my %myrot=("0"=>"0","90"=>"1","270"=>"2");
@@ -153,7 +154,7 @@ foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'))
   open LOG,">$short.log" if($USELOGGING);
   open LIB,">$short-cache.lib";
   binmode(LIB, ":utf8");
-  my $timestamp=strftime "%d.%m.%Y %H:%M:%S", localtime;
+  my $timestamp=strftime("%d.%m.%Y %H:%M:%S", localtime($start_time));
   print LIB "EESchema-LIBRARY Version 2.3  Date: $timestamp\n#encoding utf-8\n";
 
   open OUT,">$short.sch";
@@ -176,7 +177,7 @@ foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'))
   
   my $sheety=12000; $sheety=$1 if($sheetformat=~m/\w+ \d+ (\d+)/);
 
-  my $datetext=strftime "%d %m %Y", localtime;
+  my $datetext=strftime("%d %m %Y", localtime($start_time));
 
   print OUT <<EOF
 LIBS:power
@@ -1288,7 +1289,7 @@ foreach my $lib(sort keys %rootlibraries)
 {
   #print "Rewriting Root Library $lib\n";
   open LIB,">$lib";
-  my $timestamp=strftime "%d.%m.%Y %H:%M:%S", localtime;
+  my $timestamp=strftime("%d.%m.%Y %H:%M:%S", localtime($start_time));
   print LIB "EESchema-LIBRARY Version 2.3  Date: $timestamp\n#encoding utf-8\n";
   print LIB $globalcomp;
   print LIB "#End Library\n";
