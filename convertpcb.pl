@@ -2317,10 +2317,12 @@ if(defined($stp));
 	  my $thermalbridgewidth=$rules{'PolygonConnect.RELIEFCONDUCTORWIDTH'} || "0.508";
 	  my $nettext=($net>1)?"(net $net) (net_name \"$netname\")":"";
 	  my $priority=defined($pourindex)?"\n  (priority ".(100-$pourindex).")":"";
+	  my $minthickness='0.254000';
+	  $minthickness = $thermalbridgewidth - 0.001 if ($thermalbridgewidth le $minthickness);
 	  print OUT <<EOF
 (zone $nettext (layer $layer) (tstamp 547BA6E6) (hatch edge 0.508) $priority
     (connect_pads thru_hole_only (clearance 0.09144))
-    (min_thickness 0.254)
+    (min_thickness $minthickness)
     (fill (mode segment) (arc_segments 32) (thermal_gap $thermalgap) (thermal_bridge_width $thermalbridgewidth))
     (polygon
       (pts     
