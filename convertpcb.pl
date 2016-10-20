@@ -1549,10 +1549,10 @@ EOF
       my $altlayer=unpack("C",substr($value,$pos+23,1));
   	  assertdata("Pad",$counter,"LAYER",$altlayername{$altlayer});
 
-      my $layer=mapLayer($altlayer) || "F.Cu"; $layer="F.Cu B.Cu" if($altlayer==74);
+      my $layer=mapLayer($altlayer) || "F.Cu"; $layer="*.Cu" if($altlayer==74);
 	  
-	  $layer.=" F.Mask F.Paste" if($layer=~m/F\.Cu/);
-	  $layer.=" B.Mask B.Paste" if($layer=~m/B\.Cu/);
+	  $layer.=" F.Mask F.Paste" if($layer=~m/[F\*]\.Cu/);
+	  $layer.=" B.Mask B.Paste" if($layer=~m/[B\*]\.Cu/);
 
 	  my $sx=bmil2mm(substr($value,$pos+44,4));
 	  my $sy=bmil2mm(substr($value,$pos+48,4));
