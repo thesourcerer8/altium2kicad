@@ -88,18 +88,6 @@ my $pi=3.14159265359;
 my $faktor=39.370078740158;
 my $fak="0.39370078740158";
 
-sub round_mm($)
-{
-  # Manually round values converted from mil to mm in order to not have vias
-  # of width 0.5000001 or 0.4999999 with minimum via size 0.5 mm and such
-  my $res=$_[0];
-  $res = '0.45' if ($res > 0.4499 && $res < 0.4501);
-  $res = '0.5'  if ($res > 0.4999 && $res < 0.5001);
-  $res = '0.6'  if ($res > 0.5999 && $res < 0.6001);
-  $res = '1.0'  if ($res > 0.9999 && $res < 1.0001);
-  return $res;
-}
-
 # Convert mil to millimeters
 sub mil2mm($)
 {
@@ -107,12 +95,12 @@ sub mil2mm($)
   my $data=$_[0];
   $data=~s/mil$//;
   $data/=$faktor;
-  return round_mm(sprintf("%.6f",$data));
+  return (sprintf("%.5f",$data) + 0);
 }
 # Convert binary mil to millimeter
 sub bmil2mm($)
 {
-  return round_mm(sprintf("%.7f",unpack("l",$_[0])/$faktor/10000));
+  return (sprintf("%.5f",unpack("l",$_[0])/$faktor/10000) + 0);
 }
 # Convert binary mil to ascii mil
 sub bmil2($)
