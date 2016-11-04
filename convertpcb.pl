@@ -95,12 +95,12 @@ sub mil2mm($)
   my $data=$_[0];
   $data=~s/mil$//;
   $data/=$faktor;
-  return sprintf("%.6f",$data); 
+  return (sprintf("%.5f",$data) + 0);
 }
 # Convert binary mil to millimeter
 sub bmil2mm($)
 {
-  return sprintf("%.7f",unpack("l",$_[0])/$faktor/10000);
+  return (sprintf("%.5f",unpack("l",$_[0])/$faktor/10000) + 0);
 }
 # Convert binary mil to ascii mil
 sub bmil2($)
