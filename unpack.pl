@@ -2,6 +2,7 @@
 use strict;
 use Compress::Zlib;
 use Cwd qw();
+use Encode qw/encode decode/;
 
 # This tool unpacks Microsoft Composite Document File V2
 # It was developed based on the documentation from 
@@ -20,6 +21,21 @@ push @files,<*.CMSchLib>;
 push @files,<*.CMPcbLib>;
 
 my $debug=$ARGV[0] || 0;
+
+# This function converts a binary string to its hex representation for debugging
+sub bin2hex($)
+{
+  my $orig=$_[0];
+  my $value="";
+  return "" if(!defined($orig) || $orig eq "");
+  foreach(0 .. length($orig)-1)
+  {
+    $value.=sprintf("%02X",unpack("C",substr($orig,$_,1)));
+  }
+  return $value;
+}
+
+@files=@ARGV if(defined($ARGV[0]) && -f $ARGV[0]);
 
 foreach my $file (@files)
 {
@@ -75,8 +91,8 @@ foreach my $file (@files)
   {
   print "maximum number of blocks: ".((length($content)-512)/$sectorsize)."\n";
   #print "header: $header\n";
-  #print "CDFident: $CDFident\n";
-  #print "uid: $uid\n";
+  print "CDFident: ".bin2hex($CDFident)."\n";
+  print "uid: ".bin2hex($uid)."\n";
   print "revision: $revision\n";
   print "version: $version\n";
   print "byteorder: ".unpack("n",$byteorder)."\n";
@@ -84,10 +100,10 @@ foreach my $file (@files)
   print "sectorsize: $sectorsize\n";
   print "shortsectorpowersize: $shortsectorpowersize\n";
   print "shortsectorsize: $shortsectorsize\n";
-  #print "unused: $unused\n";
+  print "unused: ".bin2hex($unused)."\n";
   print "SATsizeSectors: $SATsizeSectors\n";
   print "SecIdDirStream: $SecIdDirStream\n";
-  #print "unused2: $unused2\n";
+  print "unused2: ".bin2hex($unused2)."\n";
   print "minByteSizeStdStream: $minByteSizeStdStream\n";
   print "SecIdSSAT: $SecIdSSAT\n";
   print "totalSectorsSSAT: $totalSectorsSSAT\n";
@@ -118,7 +134,7 @@ foreach my $file (@files)
       my $sec=substr($content,512+($nextsec*$sectorsize),$sectorsize);
       $MSAT.=substr($sec,0,$sectorsize-4);
       $nextsec=unpack($v,substr($sec,-4,4));
-      #print "nextsec: $nextsec\n";
+      print "nextsec: $nextsec\n" if($debug);
     }
   }
   my @MSAT=();
@@ -226,7 +242,7 @@ foreach my $file (@files)
         print "Circular reference in short file in $file, starting with short sector $_[0]!\n";
       }
       $seen{$nextsec}=1;
-      #print "nextsec: $nextsec\n";
+      #print "nextsec: $nextsec\n" if($debug);
     }
     #print "getShortFile() retrieved ".length($filecontent)." of $_[1] requested bytes\n";
 
@@ -287,11 +303,26 @@ foreach my $file (@files)
 
   my $DirStream=getLongFile($SecIdDirStream,0,\@SAT,$file,$content);
   my @DirStream=();
+  
+  open OUT,">$short.manifest.txt" if($debug);
   foreach(0 .. (length($DirStream)/128)-1)
   {
     my $DirEntry=substr($DirStream,$_*128,128);
+	#print OUT bin2hex($DirEntry)." ";
+    my $namesize=unpack("v",substr($DirEntry,64,2));
+	my $type=unpack("C",substr($DirEntry,66,1));
+    my $name=decode("UCS-2LE",substr($DirEntry,0,$namesize)); $name=~s/\x00//g;
+    my $nodecolour=unpack("C",substr($DirEntry,67,1));
+    my $DirIdLeftChild=unpack($v,substr($DirEntry,68,4));
+    my $DirIdRightChild=unpack($v,substr($DirEntry,72,4));
+    my $DirIdRootNode=unpack($v,substr($DirEntry,76,4));
+    my $SecIdStream=unpack($v,substr($DirEntry,116,4));
+    my $totalbytes=unpack($v,substr($DirEntry,120,4));
+
+    print OUT "$type $nodecolour left:$DirIdLeftChild right:$DirIdRightChild root:$DirIdRootNode sec:$SecIdStream bytes:$totalbytes $name\n" if($debug);
     push @DirStream,$DirEntry;
   }
+  close OUT if($debug);
 
   sub HandleColor
   {
@@ -305,8 +336,8 @@ foreach my $file (@files)
     my $ShortStream=$_[7];
 
 	return unless defined($DirEntry);
-    my $name=substr($DirEntry,0,64); $name=~s/\x00//g;
-    my $namesize=substr($DirEntry,64,2);
+    my $namesize=unpack("v",substr($DirEntry,64,2));
+    my $name=decode("UCS-2LE",substr($DirEntry,0,$namesize)); $name=~s/\x00//g;
     my $type=unpack("C",substr($DirEntry,66,1));
     my $nodecolour=unpack("C",substr($DirEntry,67,1));
     my $DirIdLeftChild=unpack($v,substr($DirEntry,68,4));
@@ -320,17 +351,20 @@ foreach my $file (@files)
     my $totalbytes=unpack($v,substr($DirEntry,120,4));
     my $unused=substr($DirEntry,124,4);
 
-    #print "DirStream[$_[1]]: name:$name t:$type c:$nodecolour left:$DirIdLeftChild right:$DirIdRightChild root:$DirIdRootNode flags:$flags start:$SecIdStream total:$totalbytes\n";
+	print "DirStream[$_[1]]: name:$name t:$type c:$nodecolour left:$DirIdLeftChild right:$DirIdRightChild root:$DirIdRootNode flags:$flags start:$SecIdStream total:$totalbytes\n" if($debug);
+	#print "creation: ".bin2hex($tstampcreation)." modification: ".bin2hex($tstamplastmod)."\n" if($debug);
+    #print "Name: $name namesize: $namesize\n" if($debug);
+	#exit if(length($name) != $namesize/2-1 && $type);
+    
 
-
-    #print "Making $path\n";
+    #print "Making $path\n" if($debug);
 	$path=~s/\x13//g;
     mkdir $path;
 
     my $bytes="";
     if($type==5)
     {
-      #print "Short Stream in Root storage detected!\n";
+      #print "\nShort Stream in Root storage detected!\n\n";
       $ShortStream=getLongFile($SecIdStream,0,\@SAT,$file,$content); 
       $bytes=$ShortStream;
     }
@@ -341,7 +375,7 @@ foreach my $file (@files)
     }
     else
     {
-      #print "Short Stream detected\n";
+      #print "Short Stream detected $name\n";
       $bytes=getShortFile($SecIdStream,$totalbytes,\@SSAT,$file,$ShortStream);
     }
     #print "Bytes: $bytes\n";
@@ -354,7 +388,7 @@ foreach my $file (@files)
     HandleColor(\@DirStream,$DirIdLeftChild,$path,$file,\@SAT,$content,\@SSAT,$ShortStream) if($DirIdLeftChild>=0);
     HandleColor(\@DirStream,$DirIdRightChild,$path,$file,\@SAT,$content,\@SSAT,$ShortStream) if($DirIdRightChild>=0);
 
-
+    return if($type==5); # Ignore ROOT Block, which contains the ShortStream
      
     my $fname="$path/$name.dat";
 	$fname=~s/\x13//g;
@@ -401,7 +435,7 @@ foreach my $file (@files)
 		chdir $newpath;
         my $newerpath = Cwd::cwd();
 
-	    print "Path: $path Newpath: $newpath Newerpath: $newerpath 0: $0\n";
+	    print "Path: $path Newpath: $newpath Newerpath: $newerpath 0: $0\n" if($debug);
         system "\"$0\"";
 		chdir $path;
 	  }
@@ -416,8 +450,8 @@ foreach my $file (@files)
 
   HandleColor(\@DirStream,0,$short,$file,\@SAT,$content,\@SSAT,"");
 
-if(0)
-{
+  if(0)
+  {
     open OUT,">$short.html";
     print OUT "<html><body><h1>$file</h1><br/><table border='1'>";
     foreach my $sec (0 .. length($content)/512-1)
@@ -440,8 +474,8 @@ if(0)
     }
     print OUT "</table></body></html>";
     close OUT;
-}
-
+  }
+  print "\n";
 }
 print "Done.\n";
 sleep(1);
