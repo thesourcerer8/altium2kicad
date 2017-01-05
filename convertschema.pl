@@ -348,7 +348,7 @@ EOF
 	print LOG sprintf("RECORD=%2d|LINENO=%4d|OWNERPARTID=%4d|OWNERINDEX=%4d|%s\n",defined($d{'RECORD'})?$d{'RECORD'}:-42,$d{'LINENO'},defined($d{'OWNERPARTID'})?$d{'OWNERPARTID'}+1:-42,defined($d{'OWNERINDEX'})?$d{'OWNERINDEX'}+1:-42,$o) if($USELOGGING);
 
     next unless defined($d{'RECORD'});
-    my $f=11;
+    my $f=10;
  
 	
 	my $dat="";
