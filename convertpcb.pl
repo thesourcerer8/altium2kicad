@@ -1723,9 +1723,9 @@ EOF
 	#$rawbinary{"ComponentBody"}{$_[3]}=$_[2];
 	print OUT "#\$pads{$component}\n" if($annotate);
 	#print "Component:$component\n";
-	my $id=$d{'MODELID'};
-	my $atx=mil2mm($d{'MODEL.2D.X'});$atx-=$xmove;
-	my $aty=mil2mm($d{'MODEL.2D.Y'});$aty=$ymove-$aty;
+	my $id=$d{'MODELID'}||0;
+	my $atx=mil2mm($d{'MODEL.2D.X'}||0);$atx-=$xmove;
+	my $aty=mil2mm($d{'MODEL.2D.Y'}||0);$aty=$ymove-$aty;
 	my $layer=defined($d{'V7_LAYER'})?($d{'V7_LAYER'} eq "MECHANICAL1"?"B.Cu":"F.Cu"):"F.Cu";
 	
 	my $catx=$componentatx{$component};
@@ -1746,21 +1746,21 @@ if(0 && defined($stp));
 	$aty=sprintf("%.5f",$aty);
 	
 	#print $d{'MODELID'}."\n";
-	if(!defined($modelname{$d{'MODELID'}}))
+	if(!defined($modelname{$d{'MODELID'}||0}))
 	{
 	  #print "MODELID: $d{'MODELID'}\n";
 	}
 
 
-	my $ident=""; $ident.=pack("C",$_) foreach(split(",",$d{'IDENTIFIER'}));
+	my $ident=""; $ident.=pack("C",$_) foreach(split(",",$d{'IDENTIFIER'}||""));
 	
 	#my $rot=(($modelrotx{$id}||0)+$d{'MODEL.3D.ROTX'})." ".(($modelroty{$id}||0)+$d{'MODEL.3D.ROTY'})." ".(($modelrotz{$id}||0)+$d{'MODEL.3D.ROTZ'});
-	my $rot=((360-$d{'MODEL.3D.ROTX'})." ".(360-$d{'MODEL.3D.ROTY'})." ".(360-$d{'MODEL.3D.ROTZ'}));
+	my $rot=((360-($d{'MODEL.3D.ROTX'}||0))." ".(360-($d{'MODEL.3D.ROTY'}||0))." ".(360-($d{'MODEL.3D.ROTZ'}||0)));
 	#my $rot=(($modelrotx{$id}||0))." ".(($modelroty{$id}||0))." ".(($modelrotz{$id}||0));
 	
 	my $mdz=($modeldz{$id}||0)/10000000;
-	my $cdz=mil2mm($d{'MODEL.3D.DZ'}); 
-	my $standoff=mil2mm($d{'STANDOFFHEIGHT'});
+	my $cdz=mil2mm($d{'MODEL.3D.DZ'}||0); 
+	my $standoff=mil2mm($d{'STANDOFFHEIGHT'}||0);
     #print "mdz:  ".($modeldz{$id}||0)." -> $mdz MODEL.3D.DZ: $d{'MODEL.3D.DZ'} -> $cdz standoff: *$d{STANDOFFHEIGHT}* -> $standoff $modelname{$id}\n" if($mdz!=0);
 	my $dz=$mdz;
 	
@@ -1902,7 +1902,7 @@ EOF
 	     #print "(gr_line (start $x1 $y1) (end $x2 $y2) (angle 90) (layer $v7layer) (width 0.2))\n";
 	}
 	
-	my $ident=""; $ident.=pack("C",$_) foreach(split(",",$d{'IDENTIFIER'}));
+	my $ident=""; $ident.=pack("C",$_) foreach(split(",",$d{'IDENTIFIER'}||""));
 	
       #MODEL.MODELTYPE=0 => Box / Extruded PolyLine)
 	  #MODEL.MODELTYPE=2 => Cylinder
@@ -1919,11 +1919,11 @@ EOF
 	my $color=sprintf("%.5f %.5f %.5f",$red,$green,$blue);
 
 	
-	my $wrl="wrlshp/".substr($d{'MODELID'},0,14).".wrl"; $wrl=~s/[\{\}]//g;
+	my $wrl="wrlshp/".substr($d{'MODELID'}||"",0,14).".wrl"; $wrl=~s/[\{\}]//g;
 
     my $rot=(360-($componentrotate{$component} || "0"))*$pi/180.0;
-	
-    if($d{'MODEL.MODELTYPE'} == 0) # Extruded Polygon
+	my $modeltype=$d{'MODEL.MODELTYPE'} || -1;
+    if($modeltype == 0) # Extruded Polygon
 	{
 	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=100; 
 	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=100; 
@@ -1953,7 +1953,7 @@ EOF
 	}
     $shapes{$wrl}="" unless(defined($shapes{$wrl}));
 	
-	if($d{'MODEL.MODELTYPE'} == 1) #Cone
+	if($modeltype == 1) #Cone
 	{
 	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=100; 
 	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=100; 
@@ -1962,7 +1962,7 @@ EOF
       #$shapes{$wrl}.=Cone("0 0 0 ","0 0 0  0","1 1 1",$color,"1",$sz,"3").",";
 	}
 
-    if($d{'MODEL.MODELTYPE'} == 2) #Cylinder
+    if($modeltype == 2) #Cylinder
 	{
 	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=$faktor*100; $px=-$px;
 	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=$faktor*100; $py=-$py;
@@ -1977,7 +1977,7 @@ EOF
       $shapes{$wrl}.=Cylinder("$dx $dy 0 ","0 0 1  $rot","$fak $fak $fak",$color,"1",$r,$h).",";
 	}
 
-    if($d{'MODEL.MODELTYPE'} == 3) # Sphere
+    if($modeltype == 3) # Sphere
 	{
 	  my $px=$d{'MODEL.2D.X'};$px=~s/mil//; $px/=100; 
 	  my $py=$d{'MODEL.2D.Y'};$py=~s/mil//; $py/=100; 
