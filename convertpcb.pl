@@ -2812,10 +2812,14 @@ EOF
 		  #assertdata("Text",$counter,"COMMENT","TRUE");
 		  $hide=1 if($commenton{$component} eq "FALSE");
 		}
-		if($designator) # $texttype == 0xf2)
+		elsif($designator) # $texttype == 0xf2)
 		{
 		  #assertdata("Text",$counter,"DESIGNATOR","TRUE");
 		  $hide=1 if($nameon{$component} eq "FALSE");
+		}
+		else
+		{
+		  $hide=1;
 		}
 	  }
 	  
