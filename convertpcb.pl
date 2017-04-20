@@ -2856,7 +2856,7 @@ EOF
 	  print OUT "#Texts#".$opos.": ".bin2hex(substr($content,$opos,$pos-$opos))."\n" if($annotate);
 	  print OUT "#Layer: $olayer Component:$component COMMENT=$comment DESIGNATOR=$designator\n" if($annotate);
 	  print OUT "#Commenton: ".$commenton{$component}." nameon: ".$nameon{$component}."\n" if($component>=0 && $annotate);
-	  print OUT "#Mirror: $mirror\n";
+	  print OUT "#Mirror: $mirror\n" if($annotate);
 	  $mirrors{$mirror}++;
 	  my $mirrortext=$mirror?" (justify mirror)":"";
 	  print OUT "#hide: $hide (".escapeCRLF($text).")\n" if($annotate);
