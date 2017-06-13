@@ -10,6 +10,8 @@ Optionally: https://github.com/cbernardo/kicad_oce_vis or https://github.com/twl
 
 To convert your Altium project to KiCad:
 
+This software is also provided as an online service: http://www2.futureware.at/KiCad/
+
 Go to the directory with your .PcbDoc and .SchDoc files and run:
 
 * unpack.pl (it unpacks the .PcbDoc and .SchDoc files into subdirectores)
