@@ -1485,6 +1485,7 @@ EOF
 	my $counter="0";
 	while(($pos+140)<length($value) && $pos>=0)
 	{
+	  #print "Loop: pos: $pos(".sprintf("0x%X",$pos).")\n";
 	  my $opos=$pos;
 	  if(substr($value,$pos,1) =~m/[\x80\x86]/)
 	  {
@@ -1496,16 +1497,31 @@ EOF
 	  {
 	    print AOUT bin2hex(substr($value,$pos,1402/2))."\n";
 	    $pos+=1402/2;
+	
+	    #print "Checking2... pos:$pos\n";
+	    if(substr($value,$pos,1) ne "\x02" && (length($value)>$pos+0x1e0) && substr($value,$pos+0x1e0,1) eq "\x02")
+  	    {
+	       print "Seems we should skip 0x1e0 bytes\n";
+		   $pos+=0x1e0;
+        }		
 		next;
 	  }
 	  if(substr($value,$pos,1) ne "\x02")
 	  {
-	    print "Parsing error in Pads, header code 02 does not match ".bin2hex(substr($value,$pos,1))." at pos $pos\n";
+        my $xpos=sprintf("0x%X",$pos);
+	    print "Parsing error in Pads, header code 02 does not match ".bin2hex(substr($value,$pos,1))." at pos $pos ($xpos)\n";
 		print AOUT bin2hex(substr($value,$pos))."\n";
 		last;
 	  }
 	  my $len=unpack("V",substr($value,$pos+1,4));
 	  #print "len: $len\n";
+	  
+	  if($len>256 || $len<0)
+	  {
+	    print "Parsing error with length: $len at position $pos+1 (".sprintf("0x%X",$pos+1).")\n";
+		last;
+	  }
+	  
 	  print AOUT bin2hex(substr($value,$pos,5))." ";
 	  print AOUT sprintf("A:%12s",bin2hex(substr($value,$pos+5,$len)))." ";
 	  my $name=substr($value,$pos+6,$len-1);
@@ -1520,7 +1536,7 @@ EOF
   	  my $len2=unpack("V",substr($value,$pos+143,4));
 	  $len2=50 if($len2>1000);
 	  $len2=50 if($len2==1);
-      #print "len2: $len2\n" if($len2);
+      #print "len2: $len2\n"; # if($len2);
 	  #$len2=61;
 	  
       my $npos=$pos;
@@ -1548,6 +1564,7 @@ EOF
 	  
       my $altlayer=unpack("C",substr($value,$pos+23,1));
   	  assertdata("Pad",$counter,"LAYER",$altlayername{$altlayer});
+	  #print "Altlayer: $altlayer\n";
 
       my $layer=mapLayer($altlayer) || "F.Cu"; $layer="*.Cu" if($altlayer==74);
 	  
@@ -1558,22 +1575,24 @@ EOF
 	  my $sy=bmil2mm(substr($value,$pos+48,4));
   	  assertdata("Pad",$counter,"XSIZE",bmil2(substr($value,$pos+44,4)));
   	  assertdata("Pad",$counter,"YSIZE",bmil2(substr($value,$pos+48,4)));
+      #print "sx: $sx sy: $sy\n";
 	  
 	  # Some Pads have TOPXSIZE, MIDXSIZE, BOTXSIZE, TOPYSIZE, ... instead of XSIZE+YSIZE
 	  
 	  my $dir=unpack("d",substr($value,$pos+75,8)); 
 	  assertdata("Pad",$counter,"ROTATION",enull(sprintf("%.14E",$dir)));
+	  #print "Direction: $dir\n";
 	  
 	  my $holesize=bmil2mm(substr($value,$pos+68,4));
   	  assertdata("Pad",$counter,"HOLESIZE",bmil2(substr($value,$pos+68,4)));
+	  #print "HoleSize: $holesize\n";
   
 	  #my $holetype=unpack("C",substr($value,$pos+144,1));
   	  #assertdata("Pad",$counter,"HOLETYPE",$holetype); # Seems to be wrong
   
 	  my $HOLEROTATION=unpack("d",substr($value,$pos+129,8)); 
 	  assertdata("Pad",$counter,"HOLEROTATION",enull(sprintf("%.14E",$HOLEROTATION)));
-
-
+      #print "Hole Rotation: $HOLEROTATION\n";
 	  
 	  my $mdir=($dir==0)?"":" $dir";
 	  
@@ -1582,6 +1601,7 @@ EOF
 	  my $otype=unpack("C",substr($value,$pos+72,1));
   	  assertdata("Pad",$counter,"SHAPE",$typemapalt{$otype});
       my $type=$typemap{$otype};
+	  #print "otype: $otype typemapalt: $typemapalt{$otype} type: $type\n";
 
 	  if($otype eq "3")
 	  {
@@ -1591,7 +1611,7 @@ EOF
 	  if($typemapalt{$otype} eq "ROUNDEDRECTANGLE")
 	  {
   	    #print "Pad: $counter $otype ".bin2hex(substr($value,$pos,200))."\n";
-        print "This is a rounded rectangle pad. Special support is needed.\n";
+        print "Warning: This is a rounded rectangle pad, and those are currently not supported by KiCad. We convert them to rounded pads for now, please verify the PCB design afterwards. This can cause overlaps and production problems!\n";
 		#print "len2: $len2\n";
 		#print bin2hex(substr($value,$pos+147,$len2))."\n";
 	  }
@@ -1602,11 +1622,13 @@ EOF
       my %platemap=("0"=>"FALSE","1"=>"TRUE");
       my $plated=$platemap{unpack("C",substr($value,$pos+83,1))};	  
 	  assertdata("Pad",$counter,"PLATED",uc($alttruth{unpack("C",substr($value,$pos+83,1))}));
-
+      #print "Plated: $plated\n";
+	  
 	  my $onet=unpack("s",substr($value,$pos+26,2));
   	  assertdata("Pad",$counter,"NET",$onet) if($onet>=0);
       my $net=$onet+2;	  
 	  my $netname=$netnames{$net};
+	  #print "ONet: $onet Net: $net NetName: $netname\n";
 	  
 	  my %soldermaskexpansionmap=("1"=>"Rule","2"=>"Manual");
   	  assertdata("Pad",$counter,"SOLDERMASKEXPANSIONMODE",$soldermaskexpansionmap{unpack("C",substr($value,$pos+125,1))});
@@ -1660,6 +1682,7 @@ EOF
 	  $pos+=147;
   	  print AOUT bin2hex(substr($value,$pos,$len2))."\n";
       $pos+=$len2;
+	  #print "len2: $len2\n";
 	  
 	  if(substr($value,$pos-4,4) eq "\x8B\x02\x00\x00")
 	  {
@@ -1699,6 +1722,13 @@ EOF
     )
 EOF
 ;
+	  
+	  #print "Checking... pos:$pos\n";
+	  if(substr($value,$pos,1) ne "\x02" && (length($value)>$pos+0x1e0) && substr($value,$pos+0x1e0,1) eq "\x02")
+	  {
+	     print "Seems we should skip 0x1e0 bytes\n";
+		 $pos+=0x1e0;
+      }
 	  
 	  $counter++;
 	  
@@ -2857,10 +2887,10 @@ EOF
 	  my $text=substr($content,$pos+1,$textlen-1); 
   	  assertdata("Text",$counter,"TEXT",$text);
 	  $pos+=$textlen;
-	  print OUT "#Texts#".$opos.": ".bin2hex(substr($content,$opos,$pos-$opos))."\n" if($annotate);
-	  print OUT "#Layer: $olayer Component:$component COMMENT=$comment DESIGNATOR=$designator\n" if($annotate);
-	  print OUT "#Commenton: ".$commenton{$component}." nameon: ".$nameon{$component}."\n" if($component>=0 && $annotate);
-	  print OUT "#Mirror: $mirror\n" if($annotate);
+	  print OUT "#Texts#".$opos.": ".bin2hex(substr($content,$opos,$pos-$opos))."\n";# if($annotate);
+	  print OUT "#Layer: $olayer Component:$component COMMENT=$comment DESIGNATOR=$designator\n";# if($annotate);
+	  print OUT "#Commenton: ".($commenton{$component}||"")." nameon: ".($nameon{$component}||"")."\n";#	  if($component>=0 && $annotate);
+	  print OUT "#Mirror: $mirror\n";# if($annotate);
 	  $mirrors{$mirror}++;
 	  my $mirrortext=$mirror?" (justify mirror)":"";
 	  print OUT "#hide: $hide (".escapeCRLF($text).")\n" if($annotate);
