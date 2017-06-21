@@ -88,6 +88,36 @@ my $pi=3.14159265359;
 my $faktor=39.370078740158;
 my $fak="0.39370078740158";
 
+our %fieldlabels=();
+our %bytelabels=();
+our %linebreaks=();
+sub msubstr
+{
+  $fieldlabels{$_[0]}{$_[1]}{$_[2]}=$_[3]||"?";
+  $bytelabels{$_}=$_[3]||"?" foreach($_[1] .. $_[1]+$_[2]-1);
+  return substr($_[0],$_[1],$_[2]);
+}
+sub dumpAnnotatedHex($)
+{
+  my $value=$_[0];
+  my $content="";
+  #print "Starting loop:\n";
+  my $prev="";
+  foreach(0 .. length($value)-1)
+  {
+    $content.="<br/>" if($linebreaks{$_});
+    my $this=$bytelabels{$_}||"";;
+	my $next=$bytelabels{$_+1}||"";
+    $content.="<div title='$this' style='background-color:".($this?"yellow":"white").";'>" if($prev ne $this);
+	$content.=sprintf("%02X",unpack("C",substr($value,$_,1)));
+	$content.= $this eq $next ? " ":"</div> ";
+	$prev=$this;
+  }
+  #print "Done.\n";
+  $content.="\n<br/><br/>\n";
+  return $content;
+}
+
 # Convert mil to millimeters
 sub mil2mm($)
 {
@@ -1024,6 +1054,14 @@ foreach my $filename(@files)
 	$modelwrl{$_[0]{'ID'}}="$short/Root Entry/Models/$_[3].wrl";
   });
 
+  # We extract the references between the primitives(Pads,...) and the Components:
+  our %uniquemap=();
+  HandleBinFile("$short/Root Entry/UniqueIDPrimitiveInformation/Data.dat","",0,0,sub 
+  { 
+	$uniquemap{$_[0]{'PRIMITIVEOBJECTID'}}{$_[0]{'PRIMITIVEINDEX'}}=$_[0]{'UNIQUEID'};
+	print "$_[0]{'PRIMITIVEOBJECTID'}/$_[0]{'PRIMITIVEINDEX'} -> $_[0]{'UNIQUEID'}\n";
+  });
+  
   # Now we extract the DRC design rules, which we will have to assign to zones, ...
   our %rules=();
   HandleBinFile("$short/Root Entry/Rules6/Data.dat","",2,0,sub 
@@ -1475,45 +1513,48 @@ EOF
 
 
   #Converting the Pads  
+  #The output is collected in %pads, which is later on filled into the output file in the ComponentBodies Section.
   #HandleBinFile("$short/Root Entry/Pads6/Data.dat","\x02",0,0, sub 
   {
     my $value=readfile("$short/Root Entry/Pads6/Data.dat");
     #$value=~s/\r\n/\n/gs;
 	open AOUT,">$short/Root Entry/Pads6/Data.dat.txt";
 	open DOUT,">Pads.txt";
+	open HOUT,">Pads.html";
 	my $pos=0;
 	my $counter="0";
 	while(($pos+140)<length($value) && $pos>=0)
 	{
 	  #print "Loop: pos: $pos(".sprintf("0x%X",$pos).")\n";
 	  my $opos=$pos;
-	  if(substr($value,$pos,1) =~m/[\x80\x86]/)
+	  if(msubstr($value,$pos,1,"Type") =~m/[\x80\x86]/)
 	  {
 	    print AOUT bin2hex(substr($value,$pos,1302/2))."\n";
 	    $pos+=1302/2;
 		next;
 	  }
-	  if(substr($value,$pos,1) =~m/[\x00]/)
+	  if(msubstr($value,$pos,1,"Type") =~m/[\x00]/)
 	  {
 	    print AOUT bin2hex(substr($value,$pos,1402/2))."\n";
 	    $pos+=1402/2;
 	
 	    #print "Checking2... pos:$pos\n";
-	    if(substr($value,$pos,1) ne "\x02" && (length($value)>$pos+0x1e0) && substr($value,$pos+0x1e0,1) eq "\x02")
+	    if(msubstr($value,$pos,1,"Type") ne "\x02" && (length($value)>$pos+0x1e0) && substr($value,$pos+0x1e0,1) eq "\x02")
   	    {
-	       print "Seems we should skip 0x1e0 bytes\n";
+	       #print "Seems we should skip 0x1e0 bytes\n";
 		   $pos+=0x1e0;
         }		
 		next;
 	  }
-	  if(substr($value,$pos,1) ne "\x02")
+	  if(msubstr($value,$pos,1,"Type") ne "\x02")
 	  {
         my $xpos=sprintf("0x%X",$pos);
 	    print "Parsing error in Pads, header code 02 does not match ".bin2hex(substr($value,$pos,1))." at pos $pos ($xpos)\n";
 		print AOUT bin2hex(substr($value,$pos))."\n";
 		last;
 	  }
-	  my $len=unpack("V",substr($value,$pos+1,4));
+	  my $len=unpack("V",msubstr($value,$pos+1,4,"len"));
+	  my $len3=unpack("C",msubstr($value,$pos+5,1,"len3"));
 	  #print "len: $len\n";
 	  
 	  if($len>256 || $len<0)
@@ -1521,10 +1562,11 @@ EOF
 	    print "Parsing error with length: $len at position $pos+1 (".sprintf("0x%X",$pos+1).")\n";
 		last;
 	  }
-	  
+  	  $linebreaks{$pos}=1;
+
 	  print AOUT bin2hex(substr($value,$pos,5))." ";
 	  print AOUT sprintf("A:%12s",bin2hex(substr($value,$pos+5,$len)))." ";
-	  my $name=substr($value,$pos+6,$len-1);
+	  my $name=msubstr($value,$pos+6,$len-1,"name");
       #print "Name: $name\n";
 	  
 	  assertdata("Pad",$counter,"RECORD","Pad");
@@ -1532,24 +1574,26 @@ EOF
 	  assertdata("Pad",$counter,"NAME",$name);
 	  
 	  $pos+=5+$len;
+	  $linebreaks{$pos}=1;
 	  #print "pos: ".sprintf("0x%X",$pos+143)."\n";
-  	  my $len2=unpack("V",substr($value,$pos+143,4));
+  	  my $len2=unpack("V",msubstr($value,$pos+143,4,"len2"));
 	  $len2=50 if($len2>1000);
 	  $len2=50 if($len2==1);
       #print "len2: $len2\n"; # if($len2);
 	  #$len2=61;
 	  
+	  
       my $npos=$pos;
 	  
-      $rawbinary{"Pad"}{$counter}=substr($value,$pos,147);
+      $rawbinary{"Pad"}{$counter}=substr($value,$pos,147); # !!!! Is this used again?
 
-      my $component=unpack("s",substr($value,$pos+30,2));	
+      my $component=unpack("s",msubstr($value,$pos+30,2,"component"));	
 	  #print "Component: $component\n";
 	  assertdata("Pad",$counter,"COMPONENT",$component) if($component>=0);
 
 	  #print AOUT "component:$component net:$net\n";
-	  assertdata("Pad",$counter,"X",bmil2(substr($value,$pos+36,4)));
-	  assertdata("Pad",$counter,"Y",bmil2(substr($value,$pos+40,4)));
+	  assertdata("Pad",$counter,"X",bmil2(msubstr($value,$pos+36,4,"X")));
+	  assertdata("Pad",$counter,"Y",bmil2(msubstr($value,$pos+40,4,"Y")));
 	  #print "Pad x: ".bmil2(substr($value,$pos+36,4))."\n";
 	  #print "Pad y: ".bmil2(substr($value,$pos+40,4))."\n";
 	  
@@ -1562,7 +1606,7 @@ EOF
       $x1=sprintf("%.5f",$x1);
 	  $y1=sprintf("%.5f",$y1);
 	  
-      my $altlayer=unpack("C",substr($value,$pos+23,1));
+      my $altlayer=unpack("C",msubstr($value,$pos+23,1,"altlayer"));
   	  assertdata("Pad",$counter,"LAYER",$altlayername{$altlayer});
 	  #print "Altlayer: $altlayer\n";
 
@@ -1571,26 +1615,36 @@ EOF
 	  $layer.=" F.Mask F.Paste" if($layer=~m/[F\*]\.Cu/);
 	  $layer.=" B.Mask B.Paste" if($layer=~m/[B\*]\.Cu/);
 
-	  my $sx=bmil2mm(substr($value,$pos+44,4));
-	  my $sy=bmil2mm(substr($value,$pos+48,4));
+	  my $sx=bmil2mm(msubstr($value,$pos+44,4,"sx"));
+	  my $sy=bmil2mm(msubstr($value,$pos+48,4,"sy"));
   	  assertdata("Pad",$counter,"XSIZE",bmil2(substr($value,$pos+44,4)));
   	  assertdata("Pad",$counter,"YSIZE",bmil2(substr($value,$pos+48,4)));
       #print "sx: $sx sy: $sy\n";
 	  
 	  # Some Pads have TOPXSIZE, MIDXSIZE, BOTXSIZE, TOPYSIZE, ... instead of XSIZE+YSIZE
 	  
-	  my $dir=unpack("d",substr($value,$pos+75,8)); 
+	  my $topxsize=bmil2mm(msubstr($value,$pos+52,4,"topxsize?"));
+	  my $topysize=bmil2mm(msubstr($value,$pos+56,4,"topysize?"));
+	  my $topasize=bmil2mm(msubstr($value,$pos+60,4,"topasize?"));
+	  my $topbsize=bmil2mm(msubstr($value,$pos+64,4,"topbsize?"));
+  	  #assertdata("Pad",$counter,"XSIZE",bmil2(substr($value,$pos+44,4)));
+  	  #assertdata("Pad",$counter,"YSIZE",bmil2(substr($value,$pos+48,4)));
+	  
+	  
+	  
+	  
+	  my $dir=unpack("d",msubstr($value,$pos+75,8,"direction")); 
 	  assertdata("Pad",$counter,"ROTATION",enull(sprintf("%.14E",$dir)));
 	  #print "Direction: $dir\n";
 	  
-	  my $holesize=bmil2mm(substr($value,$pos+68,4));
+	  my $holesize=bmil2mm(msubstr($value,$pos+68,4,"holesize"));
   	  assertdata("Pad",$counter,"HOLESIZE",bmil2(substr($value,$pos+68,4)));
 	  #print "HoleSize: $holesize\n";
   
-	  #my $holetype=unpack("C",substr($value,$pos+144,1));
+	  #my $holetype=unpack("C",msubstr($value,$pos+144,1,"holetype"));
   	  #assertdata("Pad",$counter,"HOLETYPE",$holetype); # Seems to be wrong
   
-	  my $HOLEROTATION=unpack("d",substr($value,$pos+129,8)); 
+	  my $HOLEROTATION=unpack("d",msubstr($value,$pos+129,8,"holerotation")); 
 	  assertdata("Pad",$counter,"HOLEROTATION",enull(sprintf("%.14E",$HOLEROTATION)));
       #print "Hole Rotation: $HOLEROTATION\n";
 	  
@@ -1598,7 +1652,7 @@ EOF
 	  
 	  my %typemap=("2"=>"rect","1"=>"circle","3"=>"oval","0"=>"Unknown"); 
 	  my %typemapalt=("2"=>"RECTANGLE","1"=>$len2?"ROUNDEDRECTANGLE":"ROUND","3"=>"OCTAGONAL","0"=>"Unknown"); 
-	  my $otype=unpack("C",substr($value,$pos+72,1));
+	  my $otype=unpack("C",msubstr($value,$pos+72,1,"OTYPE"));
   	  assertdata("Pad",$counter,"SHAPE",$typemapalt{$otype});
       my $type=$typemap{$otype};
 	  #print "otype: $otype typemapalt: $typemapalt{$otype} type: $type\n";
@@ -1620,60 +1674,60 @@ EOF
 	  
 	  
       my %platemap=("0"=>"FALSE","1"=>"TRUE");
-      my $plated=$platemap{unpack("C",substr($value,$pos+83,1))};	  
+      my $plated=$platemap{unpack("C",msubstr($value,$pos+83,1,"plated"))};	  
 	  assertdata("Pad",$counter,"PLATED",uc($alttruth{unpack("C",substr($value,$pos+83,1))}));
       #print "Plated: $plated\n";
 	  
-	  my $onet=unpack("s",substr($value,$pos+26,2));
+	  my $onet=unpack("s",msubstr($value,$pos+26,2,"onet"));
   	  assertdata("Pad",$counter,"NET",$onet) if($onet>=0);
       my $net=$onet+2;	  
 	  my $netname=$netnames{$net};
 	  #print "ONet: $onet Net: $net NetName: $netname\n";
 	  
 	  my %soldermaskexpansionmap=("1"=>"Rule","2"=>"Manual");
-  	  assertdata("Pad",$counter,"SOLDERMASKEXPANSIONMODE",$soldermaskexpansionmap{unpack("C",substr($value,$pos+125,1))});
-	  my $soldermaskexpansionmode=$soldermaskexpansionmap{unpack("C",substr($value,$pos+125,1))};
+  	  assertdata("Pad",$counter,"SOLDERMASKEXPANSIONMODE",$soldermaskexpansionmap{unpack("C",msubstr($value,$pos+125,1,"SolderMaskExpansionMode"))});
+	  my $soldermaskexpansionmode=$soldermaskexpansionmap{unpack("C",msubstr($value,$pos+125,1,"SolderMaskExpansionMode"))};
 
-	  my $PASTEMASKEXPANSIONMODE=unpack("C",substr($value,$pos+124,1));
+	  my $PASTEMASKEXPANSIONMODE=unpack("C",msubstr($value,$pos+124,1,"PasteMaskExpansionMode"));
 	  assertdata("Pad",$counter,"PASTEMASKEXPANSIONMODE",$altrule{$PASTEMASKEXPANSIONMODE});
-	  my $PASTEMASKEXPANSION_MANUAL=bmil2mm(substr($value,$pos+109,4)); # AUTOGENERATED
+	  my $PASTEMASKEXPANSION_MANUAL=bmil2mm(msubstr($value,$pos+109,4,"PasteMaskExpanionManual")); # AUTOGENERATED
       assertdata("Pad",$counter,"PASTEMASKEXPANSION_MANUAL",bmil2(substr($value,$pos+109,4))) if($PASTEMASKEXPANSION_MANUAL eq 2 && bmil2(substr($value,$pos+109,4)) ne "0mil");
 	  
 	  #print "PASTEMASKEXPANSION_MANUAL: $PASTEMASKEXPANSION_MANUAL\n";
 	  
-      #my $BOTXSIZE=bmil2mm(substr($value,$pos+60,4)); # AUTOGENERATED
+      #my $BOTXSIZE=bmil2mm(msubstr($value,$pos+60,4,"BotXsize")); # AUTOGENERATED
       #assertdata("Pad",$counter,"BOTXSIZE",bmil2(substr($value,$pos+60,4))); # Seems to be wrong
-      #my $BOTYSIZE=bmil2mm(substr($value,$pos+64,4)); # AUTOGENERATED
+      #my $BOTYSIZE=bmil2mm(msubstr($value,$pos+64,4,"BotYsize")); # AUTOGENERATED
       #assertdata("Pad",$counter,"BOTYSIZE",bmil2(substr($value,$pos+64,4))); # Seems to be wrong
 	  #TOPSIZEX/Y: 44/48/52/56
 	  #MISIZEX/Y: 44/48/52/56
  
-      my $CAG=bmil2mm(substr($value,$pos+97,4)); # AUTOGENERATED
+      my $CAG=bmil2mm(msubstr($value,$pos+97,4,"CAG")); # AUTOGENERATED
       assertdata("Pad",$counter,"CAG",bmil2(substr($value,$pos+97,4)));
-      my $CCW=bmil2mm(substr($value,$pos+91,4)); # AUTOGENERATED
+      my $CCW=bmil2mm(msubstr($value,$pos+91,4,"CCW")); # AUTOGENERATED
       assertdata("Pad",$counter,"CCW",bmil2(substr($value,$pos+91,4)));
-      my $CPC=bmil2mm(substr($value,$pos+105,4)); # AUTOGENERATED
+      my $CPC=bmil2mm(msubstr($value,$pos+105,4,"CPC")); # AUTOGENERATED
       assertdata("Pad",$counter,"CPC",bmil2(substr($value,$pos+105,4)));
-      my $CPE=bmil2mm(substr($value,$pos+109,4)); # AUTOGENERATED
+      my $CPE=bmil2mm(msubstr($value,$pos+109,4,"CPE")); # AUTOGENERATED
       assertdata("Pad",$counter,"CPE",bmil2(substr($value,$pos+109,4)));
-      my $CPR=bmil2mm(substr($value,$pos+101,4)); # AUTOGENERATED
+      my $CPR=bmil2mm(msubstr($value,$pos+101,4,"CPR")); # AUTOGENERATED
       assertdata("Pad",$counter,"CPR",bmil2(substr($value,$pos+101,4)));
-      my $CSE=bmil2mm(substr($value,$pos+113,4)); # AUTOGENERATED
+      my $CSE=bmil2mm(msubstr($value,$pos+113,4,"CSE")); # AUTOGENERATED
       assertdata("Pad",$counter,"CSE",bmil2(substr($value,$pos+113,4)));
 	  
-      my $CEN=unpack("C",substr($value,$pos+95,1)); # AUTOGENERATED
+      my $CEN=unpack("C",msubstr($value,$pos+95,1,"CEN")); # AUTOGENERATED
       assertdata("Pad",$counter,"CEN",$CEN);
-      my $CPEV=unpack("C",substr($value,$pos+124,1)); # AUTOGENERATED
+      my $CPEV=unpack("C",msubstr($value,$pos+124,1,"CPEV")); # AUTOGENERATED
       assertdata("Pad",$counter,"CPEV",$CPEV);
-      my $CPL=unpack("C",substr($value,$pos+117,1)); # AUTOGENERATED
+      my $CPL=unpack("C",msubstr($value,$pos+117,1,"CPL")); # AUTOGENERATED
       assertdata("Pad",$counter,"CPL",$CPL) if($CPL);
-      my $CSEV=unpack("C",substr($value,$pos+125,1)); # AUTOGENERATED
+      my $CSEV=unpack("C",msubstr($value,$pos+125,1,"CSEV")); # AUTOGENERATED
       assertdata("Pad",$counter,"CSEV",$CSEV);
 	  
-  	  assertdata("Pad",$counter,"SOLDERMASKEXPANSION_MANUAL",bmil2(substr($value,$pos+113,4))) if($soldermaskexpansionmode eq "Manual");
-  	  my $SOLDERMASKEXPANSION_MANUAL=bmil2mm(substr($value,$pos+113,4)); #Where is the SOLDERMASKEXPANSION_MANUAL stored?!? Is it in the CSE field?
+  	  assertdata("Pad",$counter,"SOLDERMASKEXPANSION_MANUAL",bmil2(msubstr($value,$pos+113,4,"SolderMaskExpansionManual"))) if($soldermaskexpansionmode eq "Manual");
+  	  my $SOLDERMASKEXPANSION_MANUAL=bmil2mm(msubstr($value,$pos+113,4,"SolderMaskExpansionManual")); #Where is the SOLDERMASKEXPANSION_MANUAL stored?!? Is it in the CSE field?
 	  
-	  my $PADMODE=unpack("C",substr($value,$pos+85,1));
+	  my $PADMODE=unpack("C",msubstr($value,$pos+85,1,"PadMode"));
 	  assertdata("Pad",$counter,"PADMODE",$PADMODE);
 	  
 	  
@@ -1682,6 +1736,10 @@ EOF
 	  $pos+=147;
   	  print AOUT bin2hex(substr($value,$pos,$len2))."\n";
       $pos+=$len2;
+	  
+	  my $id=msubstr($value,$pos+2,16,"uniqueid");
+      #print "ID: $uniqueid\n";
+	  
 	  #print "len2: $len2\n";
 	  
 	  if(substr($value,$pos-4,4) eq "\x8B\x02\x00\x00")
@@ -1695,7 +1753,7 @@ EOF
 	  my $onettext=$onet>=0?"|NET=$onet":"";
 	  my $dump=bin2hex(substr($value,$npos,143));
 	  my $smem=$SOLDERMASKEXPANSION_MANUAL?"|SOLDERMASKEXPANSION_MANUAL=$SOLDERMASKEXPANSION_MANUAL":"";
-	  print DOUT "$dump |RECORD=Pad$onettext|COMPONENT=$component|INDEXFORSAVE=$counter|SELECTION=FALSE|LAYER=$olayer|LOCKED=FALSE|POLYGONOUTLINE=FALSE|USERROUTED=TRUE|UNIONINDEX=0|SOLDERMASKEXPANSIONMODE=$soldermaskexpansionmode$SOLDERMASKEXPANSION_MANUAL|PASTEMASKEXPANSIONMODE=Rule|NAME=1|X=5511.1023mil|Y=3027.2441mil|XSIZE=39.3701mil|YSIZE=39.3701mil|SHAPE=RECTANGLE|HOLESIZE=0mil|ROTATION= 2.70000000000000E+0002|PLATED=TRUE|DAISYCHAIN=Load|CCSV=0|CPLV=0|CCWV=1|CENV=1|CAGV=1|CPEV=1|CSEV=1|CPCV=1|CPRV=1|CCW=25mil|CEN=4|CAG=10mil|CPE=0mil|CSE=2.7559mil|CPC=20mil|CPR=20mil|PADMODE=0|SWAPID_PAD=|SWAPID_GATE=|&|0|SWAPPEDPADNAME=|GATEID=0|OVERRIDEWITHV6_6SHAPES=FALSE|DRILLTYPE=0|HOLETYPE=0|HOLEWIDTH=0mil|HOLEROTATION= 0.00000000000000E+0000|PADXOFFSET0=0mil|PADYOFFSET0=0mil|PADXOFFSET1=0mil|PADYOFFSET1=0mil|PADXOFFSET2=0mil|PADYOFFSET2=0mil|PADXOFFSET3=0mil|PADYOFFSET3=0mil|PADXOFFSET4=0mil|PADYOFFSET4=0mil|PADXOFFSET5=0mil|PADYOFFSET5=0mil|PADXOFFSET6=0mil|PADYOFFSET6=0mil|PADXOFFSET7=0mil|PADYOFFSET7=0mil|PADXOFFSET8=0mil|PADYOFFSET8=0mil|PADXOFFSET9=0mil|PADYOFFSET9=0mil|PADXOFFSET10=0mil|PADYOFFSET10=0mil|PADXOFFSET11=0mil|PADYOFFSET11=0mil|PADXOFFSET12=0mil|PADYOFFSET12=0mil|PADXOFFSET13=0mil|PADYOFFSET13=0mil|PADXOFFSET14=0mil|PADYOFFSET14=0mil|PADXOFFSET15=0mil|PADYOFFSET15=0mil|PADXOFFSET16=0mil|PADYOFFSET16=0mil|PADXOFFSET17=0mil|PADYOFFSET17=0mil|PADXOFFSET18=0mil|PADYOFFSET18=0mil|PADXOFFSET19=0mil|PADYOFFSET19=0mil|PADXOFFSET20=0mil|PADYOFFSET20=0mil|PADXOFFSET21=0mil|PADYOFFSET21=0mil|PADXOFFSET22=0mil|PADYOFFSET22=0mil|PADXOFFSET23=0mil|PADYOFFSET23=0mil|PADXOFFSET24=0mil|PADYOFFSET24=0mil|PADXOFFSET25=0mil|PADYOFFSET25=0mil|PADXOFFSET26=0mil|PADYOFFSET26=0mil|PADXOFFSET27=0mil|PADYOFFSET27=0mil|PADXOFFSET28=0mil|PADYOFFSET28=0mil|PADXOFFSET29=0mil|PADYOFFSET29=0mil|PADXOFFSET30=0mil|PADYOFFSET30=0mil|PADXOFFSET31=0mil|PADYOFFSET31=0mil|PADJUMPERID=0\n";
+	  print DOUT "$dump |RECORD=Pad$onettext|COMPONENT=$component|INDEXFORSAVE=$counter|SELECTION=FALSE|LAYER=$olayer|LOCKED=FALSE|POLYGONOUTLINE=FALSE|USERROUTED=TRUE|UNIONINDEX=0|SOLDERMASKEXPANSIONMODE=$soldermaskexpansionmode$SOLDERMASKEXPANSION_MANUAL|PASTEMASKEXPANSIONMODE=Rule|NAME=1|X=5511.1023mil|Y=3027.2441mil|XSIZE=39.3701mil|YSIZE=39.3701mil|SHAPE=RECTANGLE|HOLESIZE=0mil|ROTATION= 2.70000000000000E+0002|PLATED=TRUE|DAISYCHAIN=Load|CCSV=0|CPLV=0|CCWV=1|CENV=1|CAGV=1|CPEV=1|CSEV=$CSEV|CPCV=1|CPRV=1|CCW=25mil|CEN=4|CAG=$CAG|CPE=$CPE|CSE=$CSE|CPC=$CPC|CPR=20mil|PADMODE=0|SWAPID_PAD=|SWAPID_GATE=|&|0|SWAPPEDPADNAME=|GATEID=0|OVERRIDEWITHV6_6SHAPES=FALSE|DRILLTYPE=0|HOLETYPE=0|HOLEWIDTH=0mil|HOLEROTATION= 0.00000000000000E+0000|PADXOFFSET0=0mil|PADYOFFSET0=0mil|PADXOFFSET1=0mil|PADYOFFSET1=0mil|PADXOFFSET2=0mil|PADYOFFSET2=0mil|PADXOFFSET3=0mil|PADYOFFSET3=0mil|PADXOFFSET4=0mil|PADYOFFSET4=0mil|PADXOFFSET5=0mil|PADYOFFSET5=0mil|PADXOFFSET6=0mil|PADYOFFSET6=0mil|PADXOFFSET7=0mil|PADYOFFSET7=0mil|PADXOFFSET8=0mil|PADYOFFSET8=0mil|PADXOFFSET9=0mil|PADYOFFSET9=0mil|PADXOFFSET10=0mil|PADYOFFSET10=0mil|PADXOFFSET11=0mil|PADYOFFSET11=0mil|PADXOFFSET12=0mil|PADYOFFSET12=0mil|PADXOFFSET13=0mil|PADYOFFSET13=0mil|PADXOFFSET14=0mil|PADYOFFSET14=0mil|PADXOFFSET15=0mil|PADYOFFSET15=0mil|PADXOFFSET16=0mil|PADYOFFSET16=0mil|PADXOFFSET17=0mil|PADYOFFSET17=0mil|PADXOFFSET18=0mil|PADYOFFSET18=0mil|PADXOFFSET19=0mil|PADYOFFSET19=0mil|PADXOFFSET20=0mil|PADYOFFSET20=0mil|PADXOFFSET21=0mil|PADYOFFSET21=0mil|PADXOFFSET22=0mil|PADYOFFSET22=0mil|PADXOFFSET23=0mil|PADYOFFSET23=0mil|PADXOFFSET24=0mil|PADYOFFSET24=0mil|PADXOFFSET25=0mil|PADYOFFSET25=0mil|PADXOFFSET26=0mil|PADYOFFSET26=0mil|PADXOFFSET27=0mil|PADYOFFSET27=0mil|PADXOFFSET28=0mil|PADYOFFSET28=0mil|PADXOFFSET29=0mil|PADYOFFSET29=0mil|PADXOFFSET30=0mil|PADYOFFSET30=0mil|PADXOFFSET31=0mil|PADYOFFSET31=0mil|PADJUMPERID=0\n";
 	  
 	  my $width=0.5;
 
@@ -1714,6 +1772,9 @@ EOF
 	  my $drill=($holesize==0)?"":" (drill $holesize) ";
  	  my $nettext=($net>1)?"(net $net \"$netname\")":"";
       my $oposhex=sprintf("%X",$opos);
+	  #$component=$uniquemap{"Pad"}{$counter} if($component==-1);
+	  #print "Component: $component\n";
+	  
 	  $pads{$component}.=<<EOF
 #1309 counter:$counter pos:$opos(0x$oposhex) type:$otype net:$onet
 #$dump
@@ -1722,6 +1783,8 @@ EOF
     )
 EOF
 ;
+
+      #print "Component: $component\n$pads{$component}\n";
 	  
 	  #print "Checking... pos:$pos\n";
 	  if(substr($value,$pos,1) ne "\x02" && (length($value)>$pos+0x1e0) && substr($value,$pos+0x1e0,1) eq "\x02")
@@ -1735,11 +1798,28 @@ EOF
 	}
     close AOUT;
 	close DOUT;
+	
+	print HOUT <<EOF
+	<html>
+<head>
+<style>
+div {display: inline;}
+</style>
+</head>
+<body>
+<pre>
+EOF
+;
+	
+	print HOUT dumpAnnotatedHex($value);
+	print HOUT "</pre></body></html>";
+	close HOUT;
   
   }#);
 
   our %ComponentNotFoundErrors=();
   #Converting Component Bodies
+  #The results are also added to %pads
   HandleBinFile("$short/Root Entry/ComponentBodies6/Data.dat","",23,16, sub 
   { 
     print OUT "#ComponentBodies#".escapeCRLF($_[3]).": ".bin2hex($_[2])." ".escapeCRLF($_[1])."\n" if($annotate);
@@ -1752,7 +1832,7 @@ EOF
 	assertdata("ComponentBody",$_[3],"COMPONENT",$component) if($component>=0);
 	#$rawbinary{"ComponentBody"}{$_[3]}=$_[2];
 	print OUT "#\$pads{$component}\n" if($annotate);
-	#print "Component:$component\n";
+	#print "Component:$component $pads{$component}-\n";
 	my $id=$d{'MODELID'}||0;
 	my $atx=mil2mm($d{'MODEL.2D.X'}||0);$atx-=$xmove;
 	my $aty=mil2mm($d{'MODEL.2D.Y'}||0);$aty=$ymove-$aty;
@@ -1863,6 +1943,7 @@ EOF
 	}
   });
   
+  
   sub pad3dRotate($$)
   {
     my $v=$_[0];
@@ -1888,6 +1969,7 @@ EOF
   mkdir "wrlshp";
   
   print OUT "#Now handling Shape Based Bodies ...\n";
+  # The results are also added to the %pads and only printed later on
   HandleBinFile("$short/Root Entry/ShapeBasedComponentBodies6/Data.dat","\x0c",0,0, sub 
   { 
     my $value=$_[1];
@@ -2041,6 +2123,7 @@ EOF
     my %d=%{$_[0]};
     print OUT "#Components#".escapeCRLF($_[3]).": ".escapeCRLF($_[1])."\n" if($annotate);
 	print OUT "#\$pads{$componentid}\n" if($annotate);
+	#print "Component: $componentid ".($pads{$componentid}||"")."\n";
 	my $atx=mil2mm($d{'X'});$atx-=$xmove;
 	my $aty=mil2mm($d{'Y'});$aty=$ymove-$aty;
 	my $layer=mapLayer($d{'LAYER'}) || "F.Paste";
@@ -2052,13 +2135,13 @@ EOF
 	my $sourcelib=($d{'SOURCEFOOTPRINTLIBRARY'}||"");
 	#SOURCELIBREFERENCE
 
-	#print "Component $componentid body available: ".defined($componentbodyavailable{$componentid})."\n";
+	#print "Component $componentid body available: ".(defined($componentbodyavailable{$componentid})?"Yes":"No")."\n";
 	if(!defined($componentbodyavailable{$componentid}))
 	{
-	  #print "Not available, pads: ".defined($pads{$componentid})." model: ".($pads{$componentid}=~m/\(model/)."\n";
+	  #print "Not available, pads: ".defined($pads{$componentid})." model: ".(($pads{$componentid}||"")=~m/\(model/)."\n";
 	  if(defined($pads{$componentid}) && $pads{$componentid}=~m/\(model/)
 	  {
-	    #print "Where did the model come from? componentid: $componentid\n"; # !!! TODO
+	    print "Where did the model come from? componentid: $componentid\n"; # !!! TODO
 	  }
 	  #print "kicad: ".defined($kicadwrl{$componentid})." ".($pads{$componentid}=~m/\(model/)."\n";
 	  #print "pad: ".$pads{$componentid}."\n----\n";
@@ -2098,14 +2181,19 @@ EOF
 	}
 
 	$rot=0 if(defined($pads{$componentid}) && $pads{$componentid}=~m/\.\/wrl\//);
-	
-    my $pad=pad3dRotate($pads{$componentid}||"",$rot);
+		
+	print "Componentid: $componentid UniqueID: $d{'UNIQUEID'}\n";
+		
+    my $pad=pad3dRotate($pads{$componentid}||$pads{$d{'UNIQUEID'}}||"",$rot);
+	print "pad: $pad\n";
     if(defined($pads{$componentid}) && $pads{$componentid}=~m/\.\/wrl\//)
 	{
 	  #print "Rewriting scale\n";
 	  $pad=~s/\(scale\s*\(xyz 1 1 1\)\)/(scale (xyz $fak $fak $fak))/sg;
 	  #print "Result: $pad\n";
 	}
+	
+
 	
 	#print "stp -> $rot\n";
 	# We have to handle (attr smd) and (tag ...) here ...
@@ -2123,16 +2211,34 @@ EOF
     (fp_text value "$FOOTPRINTDESCRIPTION" (at 0 0) (layer F.SilkS) hide
       (effects (font (thickness 0.05)))
     )
+	(fp_text value "$PATTERN" (at 0 0) (layer F.SilkS)
+      (effects (font (thickness 0.05)))
+    )
 
 	$pad
   )
 EOF
-if(defined($stp));
+if(defined($stp)); # Here we end up with new Altium files
+
     $componentid++;
   });
 
 
-
+# This is a workaround to create a "DEFAULT" component for component-less pads, since component-less pads are not supported by KiCad
+if(defined($pads{"-1"}))
+{
+  my $pad=$pads{"-1"};
+  print OUT <<EOF
+ (module "DEFAULT" (layer F.Cu) (tedit 4289BEAB) (tstamp 539EEDBF)
+    (at 0 0 )
+    (path /539EEC0F)
+    (attr smd)
+	$pad
+  )
+EOF
+  ;
+}  
+  
   HandleBinFile("$short/Root Entry/Arcs6/Data.dat","\x01",0,0,sub 
   { 
     my $fn=$_[0]{'NAME'};
@@ -2509,6 +2615,7 @@ EOF
 ;
   });
 
+  open FOUT,">$short/Root Entry/FileVersionInfo/Data.txt";
   HandleBinFile("$short/Root Entry/FileVersionInfo/Data.dat","",0,0, sub 
   { 
     my %d=%{$_[0]};
@@ -2518,9 +2625,10 @@ EOF
 	  my @a=split",",$v;
 	  my $msg="";
 	  $msg.=pack("C",$_) foreach(@a);
-	  #print "$key $msg\n";
+	  print FOUT "$key $msg\n";
 	}
   });
+  close FOUT;
 
   HandleBinFile("$short/Root Entry/Fills6/Data.dat","\x06",0,0, sub 
   { 
