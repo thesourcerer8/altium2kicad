@@ -964,8 +964,8 @@ EOF
 		my $prevx=undef; my $prevy=undef;
 		foreach my $i(1 .. $d{'LOCATIONCOUNT'})
 		{
-  		  my $x=($d{'X'.$i}*$f);
-		  my $y=$sheety-($d{'Y'.$i}*$f);
+  		  my $x=(($d{'X'.$i}||0)*$f);
+		  my $y=$sheety-(($d{'Y'.$i}||0)*$f);
     	  $dat.="Wire Notes Line\n	$x $y $prevx $prevy\n" if(defined($prevx));
           $prevx=$x;
 		  $prevy=$y;
