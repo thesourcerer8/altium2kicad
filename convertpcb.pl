@@ -2198,7 +2198,7 @@ EOF
 	#print "stp -> $rot\n";
 	# We have to handle (attr smd) and (tag ...) here ...
 	my $PATTERN=$d{'PATTERN'};
-	my $SOURCEDESCRIPTION=$d{'SOURCEDESCRIPTION'}||"";
+        my $SOURCEDESCRIPTION=$d{'SOURCEDESCRIPTION'}||""; $SOURCEDESCRIPTION=~s/"/\\"/g;
 	my $FOOTPRINTDESCRIPTION=$d{'FOOTPRINTDESCRIPTION'}||""; $FOOTPRINTDESCRIPTION=~s/"/\\"/g;
     print OUT <<EOF
  (module "$PATTERN" (layer $layer) (tedit 4289BEAB) (tstamp 539EEDBF)
