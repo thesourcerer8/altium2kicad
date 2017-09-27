@@ -999,7 +999,8 @@ EOF
 		my $desig="IC"; $desig=$1 if($d{'TEXT'}=~m/^([A-Z]*)/);
 		my $ref=uniquify($d{'TEXT'});
 		
-		
+		$x = int($x);
+		$y = int($y);
 		push @{$parts{$globalp}},"F 0 \"$ref\" ".$hvmap{$orientation}." $x $y 60  0000 ".mapDir($ownrot2,$d{'ISMIRRORED'},1)."\n"; # L BNN\n";
  		
 	    $x=($d{'LOCATION.X'}*$f)-$relx;
