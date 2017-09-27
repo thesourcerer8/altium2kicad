@@ -1254,6 +1254,7 @@ EOF
 	print OUT "L $partcomp{$part} ".($globalreference{$part}||"IC$ICcount")."\n"; # IC$ICcount\n";
 	my $ts=uniqueid2timestamp($ICcount);
     print OUT "U 1 1 $ts\n";
+    print OUT "P $xypos{$part}\n";
     print OUT $_ foreach(@{$parts{$part}});
 	print OUT "\t1    $xypos{$part}\n";
 	my %orient=("0"=>"1    0    0    -1","3"=>"0    1    1    0","2"=>"-1   0    0    1","1"=>"0    -1   -1   0",
