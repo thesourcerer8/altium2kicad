@@ -359,8 +359,10 @@ EOF
       $componentcontains{$LIBREFERENCE}{$_[0]}=1;
 	}
 	
-	
-	next if(defined($d{'ISHIDDEN'}) && $d{'ISHIDDEN'} eq "T");
+	if ($d{'RECORD'} ne '34') {
+	  # ignore hidden records, except type 34 (designator)
+	  next if(defined($d{'ISHIDDEN'}) && $d{'ISHIDDEN'} eq "T");
+	}
 
 	if(defined($OWNERPARTDISPLAYMODE) && defined($d{'OWNERINDEX'}))
 	{
