@@ -1269,7 +1269,7 @@ EOF
   {
     my $comp="#\n# $component\n#\nDEF $component IC 0 40 Y Y 1 F N\n";
 	$comp.="F0 ".($designatorpos{$component}||"\"IC\" 0 0 60 H V C CNN")."\n";
-    $comp.="F1 ".($commentpos{$component}||"\"XC6SLX9-2CSG324C_1\" 0 0 60 H V C CNN")."\n";
+    $comp.="F1 ".($commentpos{$component}||"\"\" 0 0 60 H V C CNN")."\n";
     $comp.="F2 \"\" 0 0 60 H V C CNN\n";
     $comp.="F3 \"\" 0 0 60 H V C CNN\n";
     $comp.="DRAW\n";
