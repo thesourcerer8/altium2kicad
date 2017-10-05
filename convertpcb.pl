@@ -91,7 +91,7 @@ my $fak="0.39370078740158";
 our %fieldlabels=();
 our %bytelabels=();
 our %linebreaks=();
-sub msubstr
+sub msubstr # My SubString is a substr function that annotates the fields while substringing them
 {
   $fieldlabels{$_[0]}{$_[1]}{$_[2]}=$_[3]||"?";
   $bytelabels{$_}=$_[3]||"?" foreach($_[1] .. $_[1]+$_[2]-1);
@@ -283,7 +283,7 @@ sub HandleBinFile
     my $rtyp=substr($content,$pos,length($recordtype));
 	if($rtyp ne $recordtype && !($recordtype eq "\x01\x00" && $rtyp=~m/^(\x01|\x03|\x05|\x07|\x08)\x00$/)) # Dimensions have both 01:00 and 05:00 record types
 	{
-	  print "Error: Wrong recordtype: ".bin2hex($rtyp).", expected ".bin2hex($recordtype)."\n";
+	  print "Error: Wrong recordtype: ".bin2hex($rtyp).", expected ".bin2hex($recordtype)." at pos $pos.\n";
 	  if(!$ARGV[0] eq "CRLF")
 	  {
 	    print "The wrong record type could be a new record type, or a decoding error due to wrong CRLF encoding.\n";
@@ -1059,7 +1059,7 @@ foreach my $filename(@files)
   HandleBinFile("$short/Root Entry/UniqueIDPrimitiveInformation/Data.dat","",0,0,sub 
   { 
 	$uniquemap{$_[0]{'PRIMITIVEOBJECTID'}}{$_[0]{'PRIMITIVEINDEX'}}=$_[0]{'UNIQUEID'};
-	print "$_[0]{'PRIMITIVEOBJECTID'}/$_[0]{'PRIMITIVEINDEX'} -> $_[0]{'UNIQUEID'}\n";
+	#print "$_[0]{'PRIMITIVEOBJECTID'}/$_[0]{'PRIMITIVEINDEX'} -> $_[0]{'UNIQUEID'}\n";
   });
   
   # Now we extract the DRC design rules, which we will have to assign to zones, ...
@@ -1516,6 +1516,7 @@ EOF
   #The output is collected in %pads, which is later on filled into the output file in the ComponentBodies Section.
   #HandleBinFile("$short/Root Entry/Pads6/Data.dat","\x02",0,0, sub 
   {
+    print "Pads6...\n";
     my $value=readfile("$short/Root Entry/Pads6/Data.dat");
     #$value=~s/\r\n/\n/gs;
 	open AOUT,">$short/Root Entry/Pads6/Data.dat.txt";
@@ -1682,7 +1683,7 @@ EOF
   	  assertdata("Pad",$counter,"NET",$onet) if($onet>=0);
       my $net=$onet+2;	  
 	  my $netname=$netnames{$net};
-	  #print "ONet: $onet Net: $net NetName: $netname\n";
+	  #print STDERR "ONet: $onet Net: $net NetName: $netname\n";
 	  
 	  my %soldermaskexpansionmap=("1"=>"Rule","2"=>"Manual");
   	  assertdata("Pad",$counter,"SOLDERMASKEXPANSIONMODE",$soldermaskexpansionmap{unpack("C",msubstr($value,$pos+125,1,"SolderMaskExpansionMode"))});
@@ -2182,10 +2183,10 @@ EOF
 
 	$rot=0 if(defined($pads{$componentid}) && $pads{$componentid}=~m/\.\/wrl\//);
 		
-	print "Componentid: $componentid UniqueID: $d{'UNIQUEID'}\n";
+	#print "Componentid: $componentid UniqueID: $d{'UNIQUEID'}\n";
 		
     my $pad=pad3dRotate($pads{$componentid}||$pads{$d{'UNIQUEID'}}||"",$rot);
-	print "pad: $pad\n";
+	#print "pad: $pad\n";
     if(defined($pads{$componentid}) && $pads{$componentid}=~m/\.\/wrl\//)
 	{
 	  #print "Rewriting scale\n";
@@ -2198,7 +2199,7 @@ EOF
 	#print "stp -> $rot\n";
 	# We have to handle (attr smd) and (tag ...) here ...
 	my $PATTERN=$d{'PATTERN'};
-        my $SOURCEDESCRIPTION=$d{'SOURCEDESCRIPTION'}||""; $SOURCEDESCRIPTION=~s/"/\\"/g;
+	my $SOURCEDESCRIPTION=$d{'SOURCEDESCRIPTION'}||""; $SOURCEDESCRIPTION=~s/"/\\"/g;
 	my $FOOTPRINTDESCRIPTION=$d{'FOOTPRINTDESCRIPTION'}||""; $FOOTPRINTDESCRIPTION=~s/"/\\"/g;
     print OUT <<EOF
  (module "$PATTERN" (layer $layer) (tedit 4289BEAB) (tstamp 539EEDBF)
