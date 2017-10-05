@@ -999,7 +999,8 @@ EOF
 		my $desig="IC"; $desig=$1 if($d{'TEXT'}=~m/^([A-Z]*)/);
 		my $ref=uniquify($d{'TEXT'});
 		
-		
+		$x = int($x);
+		$y = int($y);
 		push @{$parts{$globalp}},"F 0 \"$ref\" ".$hvmap{$orientation}." $x $y 60  0000 ".mapDir($ownrot2,$d{'ISMIRRORED'},1)."\n"; # L BNN\n";
  		
 	    $x=($d{'LOCATION.X'}*$f)-$relx;
@@ -1253,6 +1254,7 @@ EOF
 	print OUT "L $partcomp{$part} ".($globalreference{$part}||"IC$ICcount")."\n"; # IC$ICcount\n";
 	my $ts=uniqueid2timestamp($ICcount);
     print OUT "U 1 1 $ts\n";
+    print OUT "P $xypos{$part}\n";
     print OUT $_ foreach(@{$parts{$part}});
 	print OUT "\t1    $xypos{$part}\n";
 	my %orient=("0"=>"1    0    0    -1","3"=>"0    1    1    0","2"=>"-1   0    0    1","1"=>"0    -1   -1   0",
