@@ -1272,7 +1272,7 @@ EOF
 ;
   foreach my $class(sort keys %netclass)
   {
-    print OUT " (net_class $class \"$class\"\n";
+    print OUT " (net_class \"$class\" \"$class\"\n";
 	print OUT <<EOF
 	(clearance $clearance)
     (trace_width $tracewidth)
