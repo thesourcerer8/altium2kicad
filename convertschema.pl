@@ -103,6 +103,43 @@ sub uniquify($)
   return $ref;
 }
 
+sub get_f_position(\%$$$$$) {
+    my ($dref, $f, $part_orient, $relx, $rely, $sheety) = @_;
+    my %d = %$dref;
+
+    #my $x=($d{'LOCATION.X'}*$f);
+    #my $y=($d{'LOCATION.Y'}*$f);
+    my $x=(($d{'LOCATION.X'}+(($d{'LOCATION.X_FRAC'}||0)/100000.0))*$f);
+    my $y=(($d{'LOCATION.Y'}+(($d{'LOCATION.Y_FRAC'}||0)/100000.0))*$f);
+
+    my $orientation=$d{'ORIENTATION'} || 0;
+    $orientation=($orientation + $part_orient) % 4;
+
+    #print "d{ORIENTATION}: ".($d{ORIENTATION}||"")." orientation: $orientation\n";
+    #print "LOC.X: ".($d{'LOCATION.X'}*$f)." relx: $relx\n";
+    #print "LOC.Y: ".($d{'LOCATION.Y'}*$f)." rely: $rely sheety=$sheety\n";
+    my $ownrot=(($part_orient || 0) % 4) + ($d{'ISMIRRORED'}?4:0);
+    my $ownrot2=(($part_orient || 0)) % 4; #$orientation+
+    $ownrot2=($d{'ORIENTATION'})%4 if($d{'ORIENTATION'}); # This line is most likely buggy and should be improved
+    #ext if($ownrot!=$ownrot2);
+    #next unless($d{'ORIENTATION'});
+    #next if($ownrot!=1);
+
+    #print $d{'TEXT'}." -> $t -> $commentpos{$LIBREFERENCE}\n"; # if($d{'NAME'} eq "Rule");
+    #print "906: $d{TEXT} globalp:$globalp orient:$orientation partorient:".($partorientation{$globalp}||"")." ownrot:$ownrot ownrot2:$ownrot2\n"; # if(!defined($ownrot));
+
+    ($x,$y)=rotatepivot($x,$y,$ownrot,$relx,$rely);
+    #print "resultx: $x\nresulty: $y\n";
+    $y=$sheety-$y;
+
+    $x = int($x);
+    $y = int($y);
+
+    my $orient = $hvmap{$orientation};
+    my $dir = mapDir($ownrot2,$d{'ISMIRRORED'},0);
+    return ($x, $y, $orient, $dir);
+}
+
 
 foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'))
 {
@@ -982,29 +1019,15 @@ EOF
 	  elsif($d{'RECORD'} eq '34') #Designator
 	  {
         #RECORD=34|OWNERPARTID=  -1|OWNERINDEX=  27|LINENO=146|LOCATION.X=600|LOCATION.Y=820|NAME=Designator|OWNERINDEX=27|TEXT=U200|COLOR=8388608|FONTID=3
-        my $x=(($d{'LOCATION.X'}+(($d{'LOCATION.X_FRAC'}||0)/100000.0))*$f);
-		my $y=(($d{'LOCATION.Y'}+(($d{'LOCATION.Y_FRAC'}||0)/100000.0))*$f);
-        my $orientation=$d{'ORIENTATION'} || 0;
-		$orientation=($orientation+$partorientation{$globalp})%4;
-        my $ownrot=(($partorientation{$globalp}||0)%4)+($d{'ISMIRRORED'}?4:0);
-		my $ownrot2=(($partorientation{$globalp}||0))%4; #$orientation+
-		#$ownrot2=(4-($partorientation{$globalp}||0))%4 if($d{'ORIENTATION'});
-		$ownrot2=($d{'ORIENTATION'})%4 if($d{'ORIENTATION'}); # This line is most likely buggy and should be improved
-		#next if($ownrot!=1);
-        #next unless($d{'ORIENTATION'});
-		#print "\n863: $d{TEXT} globalp:$globalp orient:$orientation partorient:".($partorientation{$globalp}||"")." ownrot:$ownrot ownrot2:$ownrot2\n"; # if(!defined($ownrot)); 
-		($x,$y)=rotatepivot($x,$y,$ownrot,$relx,$rely);
-		$y=$sheety-$y;
-		
+	        my ($x, $y, $orient, $dir) = get_f_position(%d, $f, $partorientation{$globalp}, $relx, $rely, $sheety);
+
 		my $desig="IC"; $desig=$1 if($d{'TEXT'}=~m/^([A-Z]*)/);
 		my $ref=uniquify($d{'TEXT'});
-		
-		$x = int($x);
-		$y = int($y);
-		push @{$parts{$globalp}},"F 0 \"$ref\" ".$hvmap{$orientation}." $x $y 60  0000 ".mapDir($ownrot2,$d{'ISMIRRORED'},1)."\n"; # L BNN\n";
- 		
-	    $x=($d{'LOCATION.X'}*$f)-$relx;
-        $y=($d{'LOCATION.Y'}*$f)-$rely;
+
+		push @{$parts{$globalp}},"F 0 \"$ref\" $orient $x $y 60  0000 $dir\n"; # L BNN\n";
+
+		$x=($d{'LOCATION.X'}*$f)-$relx;
+		$y=($d{'LOCATION.Y'}*$f)-$rely;
 		$globalreference{$globalp}=$ref;
 		$designatorpos{$LIBREFERENCE}="\"$desig\" $x $y 60 H V L BNN"; # $desig 70 H V L BNN
       }
@@ -1015,41 +1038,22 @@ EOF
 	    #print "UNIQ: $d{UNIQUEID} -> $ts\n";
         if($d{'NAME'} eq "Comment")
 		{
-		  my $x=($d{'LOCATION.X'}*$f)-$relx;
-          my $y=($d{'LOCATION.Y'}*$f)-$rely;
-		  #($x,$y)=rotate($x,$y,$partorientation{$globalp});
-      	  my $orientation=$d{'ORIENTATION'} || 0;
-          $orientation=($orientation+$partorientation{$globalp})%4;
+		  my ($x, $y, $orient, $dir) = get_f_position(%d, $f, $partorientation{$globalp}, $relx, $rely, $sheety);
 
-		  my $t=""; $t=$LIBREFERENCE; # If we put in $d{'TEXT'} instead then KiCad will load it, but it will break when saving or printing/plotting!, since $d{'TEXT'} is slightly different. 
-		  $commentpos{$LIBREFERENCE}="\"".$t."\" $x $y 60 ".$hvmap{$orientation}." V L BNN";
+		  #$dat.="Text Label $x $y $orientation 70 ~\n$d{TEXT}\n";
+		  if (defined($d{'TEXT'}))
+		  {
+		      my $value = $d{'TEXT'};
+		      push @{$parts{$globalp}},"F 1 \"$value\" $orient $x $y 60  0000 $dir\n"; #L BNN
+		      push @{$parts{$globalp}},"F 2 \"\" H $x $y 60  0000 C CNN\n";
+		      push @{$parts{$globalp}},"F 3 \"\" H $x $y 60  0000 C CNN\n";
+		  }
+
+		  $x=($d{'LOCATION.X'}*$f)-$relx;
+		  $y=($d{'LOCATION.Y'}*$f)-$rely;
+
+		  $commentpos{$LIBREFERENCE}="\"$LIBREFERENCE\" $x $y 60 $orient V L BNN";
 		  $globalcomment{$globalp}=$d{'TEXT'};
-		  
-          $x=($d{'LOCATION.X'}*$f);
-		  $y=($d{'LOCATION.Y'}*$f);
-		  
-		  #print "d{ORIENTATION}: ".($d{ORIENTATION}||"")." orientation: $orientation\n";
-		  #print "LOC.X: ".($d{'LOCATION.X'}*$f)." relx: $relx\n";
-		  #print "LOC.Y: ".($d{'LOCATION.Y'}*$f)." rely: $rely sheety=$sheety\n";
-		  my $ownrot=(($partorientation{$globalp}||0)%4)+($d{'ISMIRRORED'}?4:0);
-		  my $ownrot2=(($partorientation{$globalp}||0))%4; #$orientation+
-		  $ownrot2=($d{'ORIENTATION'})%4 if($d{'ORIENTATION'}); # This line is most likely buggy and should be improved
-		  #ext if($ownrot!=$ownrot2);
-		  #next unless($d{'ORIENTATION'});
-		  #next if($ownrot!=1);
-
-		  #print $d{'TEXT'}." -> $t -> $commentpos{$LIBREFERENCE}\n"; # if($d{'NAME'} eq "Rule");
-		  #print "906: $d{TEXT} globalp:$globalp orient:$orientation partorient:".($partorientation{$globalp}||"")." ownrot:$ownrot ownrot2:$ownrot2\n"; # if(!defined($ownrot)); 
-
-  		  ($x,$y)=rotatepivot($x,$y,$ownrot,$relx,$rely);
-		  #print "resultx: $x\nresulty: $y\n";
-          $y=$sheety-$y;
-      	  #$dat.="Text Label $x $y $orientation 70 ~\n$d{TEXT}\n";
-		  
-          push @{$parts{$globalp}},"F 1 \"".($d{'TEXT'}||"")."\" ".$hvmap{$orientation}." $x $y 60  0000 ".mapDir($ownrot2,$d{'ISMIRRORED'},0)."\n"; #L BNN
-          push @{$parts{$globalp}},"F 2 \"\" H $x $y 60  0000 C CNN\n";
-          push @{$parts{$globalp}},"F 3 \"\" H $x $y 60  0000 C CNN\n";
-
 		}
 		elsif($d{'NAME'} eq "Rule")
         {
@@ -1057,6 +1061,17 @@ EOF
 		  my $y=$sheety-($d{'LOCATION.Y'}*$f);
 		  my $o=$d{'ORIENTATION'} || 0;
     	  $dat.="Text Label $x $y $o 70 ~\n$d{DESCRIPTION}\n" if($d{'DESCRIPTION'} ne "");
+		}
+		elsif($d{'NAME'} eq "Value")
+		{
+		    my ($x, $y, $orient, $dir) = get_f_position(%d, $f, $partorientation{$globalp}, $relx, $rely, $sheety);
+		    if (defined($d{'TEXT'}))
+		    {
+			my $value = $d{'TEXT'};
+			push @{$parts{$globalp}},"F 1 \"$value\" $orient $x $y 60  0000 $dir\n"; #L BNN
+			push @{$parts{$globalp}},"F 2 \"\" H $x $y 60  0000 C CNN\n";
+			push @{$parts{$globalp}},"F 3 \"\" H $x $y 60  0000 C CNN\n";
+		    }
 		}
 		elsif(defined($d{'LOCATION.X'}))
 		{
@@ -1255,7 +1270,7 @@ EOF
 	my $ts=uniqueid2timestamp($ICcount);
     print OUT "U 1 1 $ts\n";
     print OUT "P $xypos{$part}\n";
-    print OUT $_ foreach(@{$parts{$part}});
+    print OUT $_ foreach(sort @{$parts{$part}});
 	print OUT "\t1    $xypos{$part}\n";
 	my %orient=("0"=>"1    0    0    -1","3"=>"0    1    1    0","2"=>"-1   0    0    1","1"=>"0    -1   -1   0",
 	            "4"=>"-1    0    0    -1","5"=>"0    -1    1    0","6"=>"1   0    0    1","7"=>"0    1   -1   0");
@@ -1269,7 +1284,7 @@ EOF
   {
     my $comp="#\n# $component\n#\nDEF $component IC 0 40 Y Y 1 F N\n";
 	$comp.="F0 ".($designatorpos{$component}||"\"IC\" 0 0 60 H V C CNN")."\n";
-    $comp.="F1 ".($commentpos{$component}||"\"XC6SLX9-2CSG324C_1\" 0 0 60 H V C CNN")."\n";
+    $comp.="F1 ".($commentpos{$component}||"\"\" 0 0 60 H V C CNN")."\n";
     $comp.="F2 \"\" 0 0 60 H V C CNN\n";
     $comp.="F3 \"\" 0 0 60 H V C CNN\n";
     $comp.="DRAW\n";
