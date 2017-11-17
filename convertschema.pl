@@ -737,6 +737,11 @@ EOF
 		my $text=$d{'TEXT'}||""; $text=~s/\~/~~/g; $text=~s/\n/\\n/gs;
 	    $dat="Text Notes ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." $rot    $size   ~ $bold\n$text\n" if($text ne "" && $text ne " ");
 	  }
+	  elsif($d{'RECORD'} eq '12') # Arc
+	  {
+	    print "This circle/arc is not part of a component, but KiCad does not support that. As a workaround we are creating a dummy component.\n";
+		# TODO: Dummy creation
+	  }
 	  elsif($d{'RECORD'} eq '15') # Sheet Symbol
 	  {
 	    #|SYMBOLTYPE=Normal|RECORD=15|LOCATION.X=40|ISSOLID=T|YSIZE=30|OWNERPARTID=-1|COLOR=128|INDEXINSHEE=41|AREACOLOR=8454016|XSIZE=90|LOCATION.Y=230|UNIQUEID=OLXGMUHL
