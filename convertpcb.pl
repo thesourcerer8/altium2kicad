@@ -10,7 +10,7 @@ use Cwd qw(abs_path cwd getcwd);
 
 # Things that are missing in KiCad:
 # Octagonal pads, needed for Arduino designs (converting them to circles can cause overlaps!)
-# More than 32 layers
+# More than 32 layers, seems not to be a big problem at the moment
 # Multi-line Text Frames (Workaround: The text can be rendered by the converter)
 # A GND symbol with multiple horizontal lines arranged as a triangle
 # Individual colors for single objects like lines, ...
@@ -95,6 +95,11 @@ sub msubstr # My SubString is a substr function that annotates the fields while 
 {
   $fieldlabels{$_[0]}{$_[1]}{$_[2]}=$_[3]||"?";
   $bytelabels{$_}=$_[3]||"?" foreach($_[1] .. $_[1]+$_[2]-1);
+  if($_[1]>length($_[0]))
+  {
+    print STDERR "Error: substring out of range: length:".length($_[0])." pos:$_[1] wantedsize:$_[2] field:$_[3]\n";
+    return undef;
+  }
   return substr($_[0],$_[1],$_[2]);
 }
 sub dumpAnnotatedHex($)
@@ -1549,10 +1554,10 @@ EOF
 	  }
 	  if(msubstr($value,$pos,1,"Type") ne "\x02")
 	  {
-        my $xpos=sprintf("0x%X",$pos);
+            my $xpos=sprintf("0x%X",$pos);
 	    print "Parsing error in Pads, header code 02 does not match ".bin2hex(substr($value,$pos,1))." at pos $pos ($xpos)\n";
-		print AOUT bin2hex(substr($value,$pos))."\n";
-		last;
+            print AOUT bin2hex(substr($value,$pos))."\n";
+            last;
 	  }
 	  my $len=unpack("V",msubstr($value,$pos+1,4,"len"));
 	  my $len3=unpack("C",msubstr($value,$pos+5,1,"len3"));
@@ -1738,12 +1743,12 @@ EOF
   	  print AOUT bin2hex(substr($value,$pos,$len2))."\n";
       $pos+=$len2;
 	  
-	  my $id=msubstr($value,$pos+2,16,"uniqueid");
-      #print "ID: $uniqueid\n";
-	  
+  	  my $id=msubstr($value,$pos+2,16,"uniqueid"); # This seems to be very wrong, it is beyond the end of $value
+          print "uniqueid: ".bin2hex($id)."\n" if(defined($id));
+
 	  #print "len2: $len2\n";
 	  
-	  if(substr($value,$pos-4,4) eq "\x8B\x02\x00\x00")
+	  if(length($value)>=$pos && substr($value,$pos-4,4) eq "\x8B\x02\x00\x00")
 	  {
 	    #print "Double addition detected\n";
 		$pos+=unpack("V",substr($value,$pos-4,4));
@@ -1788,7 +1793,7 @@ EOF
       #print "Component: $component\n$pads{$component}\n";
 	  
 	  #print "Checking... pos:$pos\n";
-	  if(substr($value,$pos,1) ne "\x02" && (length($value)>$pos+0x1e0) && substr($value,$pos+0x1e0,1) eq "\x02")
+	  if((length($value)>$pos+0x1e0) && substr($value,$pos,1) ne "\x02" && substr($value,$pos+0x1e0,1) eq "\x02")
 	  {
 	     print "Seems we should skip 0x1e0 bytes\n";
 		 $pos+=0x1e0;
@@ -3543,5 +3548,4 @@ foreach(glob("ASCII*.PcbDoc"))
   }
   close OUT;
 }
-
 
