@@ -111,9 +111,9 @@ sub dumpAnnotatedHex($)
   foreach(0 .. length($value)-1)
   {
     $content.="<br/>" if($linebreaks{$_});
-    my $this=$bytelabels{$_}||"";;
+    my $this=$bytelabels{$_}||"";
 	my $next=$bytelabels{$_+1}||"";
-    $content.="<div title='$this' style='background-color:".($this?"yellow":"white").";'>" if($prev ne $this);
+    $content.="<div title='$this $_' style='background-color:".($this?"yellow":"white").";'>" if($prev ne $this);
 	$content.=sprintf("%02X",unpack("C",substr($value,$_,1)));
 	$content.= $this eq $next ? " ":"</div> ";
 	$prev=$this;
@@ -1533,6 +1533,7 @@ EOF
 	{
 	  #print "Loop: pos: $pos(".sprintf("0x%X",$pos).")\n";
 	  my $opos=$pos;
+	  #$linebreaks{$pos}=1;
 	  if(msubstr($value,$pos,1,"Type") =~m/[\x80\x86]/)
 	  {
 	    print AOUT bin2hex(substr($value,$pos,1302/2))."\n";
@@ -1547,7 +1548,7 @@ EOF
 	    #print "Checking2... pos:$pos\n";
 	    if(msubstr($value,$pos,1,"Type") ne "\x02" && (length($value)>$pos+0x1e0) && substr($value,$pos+0x1e0,1) eq "\x02")
   	    {
-	       #print "Seems we should skip 0x1e0 bytes\n";
+	       print "Seems we should skip 0x1e0 bytes\n";
 		   $pos+=0x1e0;
         }		
 		next;
@@ -1555,9 +1556,31 @@ EOF
 	  if(msubstr($value,$pos,1,"Type") ne "\x02")
 	  {
             my $xpos=sprintf("0x%X",$pos);
-	    print "Parsing error in Pads, header code 02 does not match ".bin2hex(substr($value,$pos,1))." at pos $pos ($xpos)\n";
+			print "Parsing error in Pads, header code 02 does not match ".bin2hex(substr($value,$pos,1))." at pos $pos ($xpos)\n";
             print AOUT bin2hex(substr($value,$pos))."\n";
-            last;
+			my $spos=$pos-30;
+			my $found=0;
+			foreach($spos .. length($value)-100)
+			{
+			  if(substr($value,$_,1) eq "\x02")
+			  {
+			    print "Found a potential startbyte at $_\n";
+				print "V: ".unpack("V",substr($value,$_+1,4))."\n";
+				print "C: ".unpack("C",substr($value,$_+5,1))."\n";
+			    if(unpack("V",substr($value,$_+1,4)) == unpack("C",substr($value,$_+5,1))+1)
+				{
+				   $pos=$_;
+				   $found=1;
+				   print "Found next start at $_\n";
+				   last;
+				}
+			  }
+			}
+			if(!$found)
+			{
+			  print "ERROR: Cannot find another start byte 0x02\n";
+              last;
+			}
 	  }
 	  my $len=unpack("V",msubstr($value,$pos+1,4,"len"));
 	  my $len3=unpack("C",msubstr($value,$pos+5,1,"len3"));
@@ -1749,8 +1772,8 @@ EOF
   	  print AOUT bin2hex(substr($value,$pos,$len2))."\n";
       $pos+=$len2;
 	  
-  	  my $id=msubstr($value,$pos+2,16,"uniqueid"); # This seems to be very wrong, it is beyond the end of $value
-          print "uniqueid: ".bin2hex($id)."\n" if(defined($id));
+  	  #my $id=msubstr($value,$pos+2,16,"uniqueid"); # This seems to be very wrong, it is beyond the end of $value
+      #    print "uniqueid: ".bin2hex($id)."\n" if(defined($id));
 
 	  #print "len2: $len2\n";
 	  
