@@ -1621,18 +1621,18 @@ EOF
 	  $layer.=" F.Mask F.Paste" if($layer=~m/[F\*]\.Cu/);
 	  $layer.=" B.Mask B.Paste" if($layer=~m/[B\*]\.Cu/);
 
-	  my $sx=bmil2mm(msubstr($value,$pos+44,4,"sx"));
-	  my $sy=bmil2mm(msubstr($value,$pos+48,4,"sy"));
+	  my $sx=bmil2mm(msubstr($value,$pos+44,4,"sx")); # For Padmode=1, this is TOPXSIZE
+	  my $sy=bmil2mm(msubstr($value,$pos+48,4,"sy")); # For Padmode=1, this is TOPYSIZE
   	  assertdata("Pad",$counter,"XSIZE",bmil2(substr($value,$pos+44,4)));
   	  assertdata("Pad",$counter,"YSIZE",bmil2(substr($value,$pos+48,4)));
       #print "sx: $sx sy: $sy\n";
 	  
-	  # Some Pads have TOPXSIZE, MIDXSIZE, BOTXSIZE, TOPYSIZE, ... instead of XSIZE+YSIZE
+	  # Some Pads have TOPXSIZE, MIDXSIZE, BOTXSIZE, TOPYSIZE, ... instead of XSIZE+YSIZE, this is decided by PADMODE below.
 	  
-	  my $topxsize=bmil2mm(msubstr($value,$pos+52,4,"topxsize?"));
-	  my $topysize=bmil2mm(msubstr($value,$pos+56,4,"topysize?"));
-	  my $topasize=bmil2mm(msubstr($value,$pos+60,4,"topasize?"));
-	  my $topbsize=bmil2mm(msubstr($value,$pos+64,4,"topbsize?"));
+	  my $midxsize=bmil2mm(msubstr($value,$pos+52,4,"midxsize"));
+	  my $midysize=bmil2mm(msubstr($value,$pos+56,4,"midysize"));
+	  my $botxsize=bmil2mm(msubstr($value,$pos+60,4,"botxsize"));
+	  my $botysize=bmil2mm(msubstr($value,$pos+64,4,"botysize"));
   	  #assertdata("Pad",$counter,"XSIZE",bmil2(substr($value,$pos+44,4)));
   	  #assertdata("Pad",$counter,"YSIZE",bmil2(substr($value,$pos+48,4)));
 	  
@@ -1657,8 +1657,10 @@ EOF
 	  my $mdir=($dir==0)?"":" $dir";
 	  
 	  my %typemap=("2"=>"rect","1"=>"circle","3"=>"oval","0"=>"Unknown"); 
-	  my %typemapalt=("2"=>"RECTANGLE","1"=>$len2?"ROUNDEDRECTANGLE":"ROUND","3"=>"OCTAGONAL","0"=>"Unknown"); 
-	  my $otype=unpack("C",msubstr($value,$pos+72,1,"OTYPE"));
+	  my %typemapalt=("2"=>"RECTANGLE","1"=>$len2?"ROUNDEDRECTANGLE":"ROUND","3"=>"OCTAGONAL","0"=>"ROUND","9"=>"ROUNDEDRECTANGLE","4"=>"THERMALRELIEF","6"=>"POINT","7"=>"POINT"); 
+	  my $otype=unpack("C",msubstr($value,$pos+72,1,"TOPOTYPE"));
+	  my $midotype=unpack("C",msubstr($value,$pos+73,1,"MIDOTYPE")); # different shapes for different layers are not supported by KiCad
+	  my $bototype=unpack("C",msubstr($value,$pos+74,1,"BOTOTYPE"));
   	  assertdata("Pad",$counter,"SHAPE",$typemapalt{$otype});
       my $type=$typemap{$otype};
 	  #print "otype: $otype typemapalt: $typemapalt{$otype} type: $type\n";
@@ -1735,7 +1737,11 @@ EOF
 	  
 	  my $PADMODE=unpack("C",msubstr($value,$pos+85,1,"PadMode"));
 	  assertdata("Pad",$counter,"PADMODE",$PADMODE);
-	  
+	  if($PADMODE>0)
+	  {
+	    my %padmodes=(0=>"Simple",1=>"Top-Middle-Bottom",2=>"Full Stack");
+	    print STDERR "WARNING: Currently only the PadMode (Size and Shape) Simple is supported, ".$padmodes{$PADMODE}." is not supported by KiCad because KiCad uses the same Shape and Size on all layers.\n";
+	  }
 	  
 	  #print "layer:$layer net:$net component=$component type:$type dir:$dir \n";
 	  print AOUT bin2hex(substr($value,$pos,147))." ";
