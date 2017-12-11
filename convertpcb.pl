@@ -43,6 +43,8 @@ my $absoluteWRLpath=1;
 my $wrlprefix=$absoluteWRLpath ? Cwd::cwd() : ".";
 
 
+our %shownwarnings=();
+
 
 my $current_status=<<EOF
 Advanced Placer Options6 # Not needed
@@ -110,7 +112,7 @@ sub dumpAnnotatedHex($)
   my $prev="";
   foreach(0 .. length($value)-1)
   {
-    $content.="<br/>" if($linebreaks{$_});
+    $content.="<br/>".("&#160;" x $linebreaks{$_})  if($linebreaks{$_});
     my $this=$bytelabels{$_}||"";
 	my $next=$bytelabels{$_+1}||"";
     $content.="<div title='$this $_' style='background-color:".($this?"yellow":"white").";'>" if($prev ne $this);
@@ -288,7 +290,7 @@ sub HandleBinFile
     my $rtyp=substr($content,$pos,length($recordtype));
 	if($rtyp ne $recordtype && !($recordtype eq "\x01\x00" && $rtyp=~m/^(\x01|\x03|\x05|\x07|\x08)\x00$/)) # Dimensions have both 01:00 and 05:00 record types
 	{
-	  print "Error: Wrong recordtype: ".bin2hex($rtyp).", expected ".bin2hex($recordtype)." at pos $pos.\n";
+	  print "ERROR: Wrong recordtype: ".bin2hex($rtyp).", expected ".bin2hex($recordtype)." at pos $pos.\n";
 	  if(!$ARGV[0] eq "CRLF")
 	  {
 	    print "The wrong record type could be a new record type, or a decoding error due to wrong CRLF encoding.\n";
@@ -870,6 +872,8 @@ foreach my $filename(@files)
   our @asciilines=();
   our %positions=();
   
+  %shownwarnings=();
+  
   # assertdata asserts that a parsed binary field has been parsed properly, by comparing it to the ascii variant.
   sub assertdata
   {
@@ -1432,7 +1436,7 @@ EOF
 	}
 	if(!defined($layermap{$_[0]}) && !defined($layererrors{$_[0]}))
 	{
-      print "No mapping for Layer ".$_[0]." defined!\n" ;
+      print "WARNING: No mapping for Layer ".$_[0]." defined!\n" ;
 	  $layererrors{$_[0]}=1;
 	}
 	return $layermap{$_[0]}; 
@@ -1521,12 +1525,12 @@ EOF
   #The output is collected in %pads, which is later on filled into the output file in the ComponentBodies Section.
   #HandleBinFile("$short/Root Entry/Pads6/Data.dat","\x02",0,0, sub 
   {
+    %linebreaks=(); # These must be initialized before the parsing since we might handle several files
+    %bytelabels=();
     print "Pads6...\n";
     my $value=readfile("$short/Root Entry/Pads6/Data.dat");
     #$value=~s/\r\n/\n/gs;
-	open AOUT,">$short/Root Entry/Pads6/Data.dat.txt";
 	open DOUT,">Pads.txt";
-	open HOUT,">Pads.html";
 	my $pos=0;
 	my $counter="0";
 	while(($pos+140)<length($value) && $pos>=0)
@@ -1536,15 +1540,14 @@ EOF
 	  #$linebreaks{$pos}=1;
 	  if(msubstr($value,$pos,1,"Type") =~m/[\x80\x86]/)
 	  {
-	    print AOUT bin2hex(substr($value,$pos,1302/2))."\n";
 	    $pos+=1302/2;
+		print STDERR "ERROR: 0x80 / 0x86 found in pads\n";
 		next;
 	  }
 	  if(msubstr($value,$pos,1,"Type") =~m/[\x00]/)
 	  {
-	    print AOUT bin2hex(substr($value,$pos,1402/2))."\n";
 	    $pos+=1402/2;
-	
+		print STDERR "ERROR: 0x00 found in pads\n";
 	    #print "Checking2... pos:$pos\n";
 	    if(msubstr($value,$pos,1,"Type") ne "\x02" && (length($value)>$pos+0x1e0) && substr($value,$pos+0x1e0,1) eq "\x02")
   	    {
@@ -1556,8 +1559,7 @@ EOF
 	  if(msubstr($value,$pos,1,"Type") ne "\x02")
 	  {
             my $xpos=sprintf("0x%X",$pos);
-			print "Parsing error in Pads, header code 02 does not match ".bin2hex(substr($value,$pos,1))." at pos $pos ($xpos)\n";
-            print AOUT bin2hex(substr($value,$pos))."\n";
+			print "ERROR: Parsing error in Pads, header code 02 does not match ".bin2hex(substr($value,$pos,1))." at pos $pos ($xpos)\n";
 			my $spos=$pos-30;
 			my $found=0;
 			foreach($spos .. length($value)-100)
@@ -1582,19 +1584,34 @@ EOF
               last;
 			}
 	  }
+	  
+	  my @starts=();
+	  my @lengths=();
+	  my @contents=();
+	  
 	  my $len=unpack("V",msubstr($value,$pos+1,4,"len"));
-	  my $len3=unpack("C",msubstr($value,$pos+5,1,"len3"));
+	  my $namelen=unpack("C",msubstr($value,$pos+5,1,"namelen"));
+
+
+	  my $tpos=$pos+1;
+	  foreach(0 .. 5)
+	  {
+		$linebreaks{$tpos}=3;
+	    $starts[$_]=$tpos+4;
+		$lengths[$_]=unpack("V",msubstr($value,$tpos,4,"len[$_]"));
+		$contents[$_]=substr($value,$tpos,$lengths[$_]);
+		$tpos+=4+$lengths[$_];
+	  }
+	  
 	  #print "len: $len\n";
 	  
 	  if($len>256 || $len<0)
 	  {
-	    print "Parsing error with length: $len at position $pos+1 (".sprintf("0x%X",$pos+1).")\n";
+	    print "ERROR: Parsing error with length: $len at position $pos+1 (".sprintf("0x%X",$pos+1).")\n";
 		last;
 	  }
   	  $linebreaks{$pos}=1;
 
-	  print AOUT bin2hex(substr($value,$pos,5))." ";
-	  print AOUT sprintf("A:%12s",bin2hex(substr($value,$pos+5,$len)))." ";
 	  my $name=msubstr($value,$pos+6,$len-1,"name");
       #print "Name: $name\n";
 	  
@@ -1602,10 +1619,15 @@ EOF
   	  assertdata("Pad",$counter,"INDEXFORSAVE",$counter);
 	  assertdata("Pad",$counter,"NAME",$name);
 	  
-	  $pos+=5+$len;
-	  $linebreaks{$pos}=1;
+	  #$pos+=5+$len; # This ignores the length of the initial fields, and is therefore wrong
+	  
+	  $pos=$starts[4]-23; # This correctly parses the initial fields. Unfortunately the rest of the code depends on the pos being 23 bytes ahead of the start of this field, so we set the pos accordingly here.
+	  #print "Difference: ".($starts[4]-$pos)."\n";
+	  
+	  
+	  #$linebreaks{$pos}=1;
 	  #print "pos: ".sprintf("0x%X",$pos+143)."\n";
-  	  my $len2=unpack("V",msubstr($value,$pos+143,4,"len2"));
+  	  my $len2=unpack("V",msubstr($value,$pos+143,4,"len2")); # This len2 field seems wrong and needs further examination
 	  $len2=50 if($len2>1000);
 	  $len2=50 if($len2==1);
       #print "len2: $len2\n"; # if($len2);
@@ -1620,7 +1642,6 @@ EOF
 	  #print "Component: $component\n";
 	  assertdata("Pad",$counter,"COMPONENT",$component) if($component>=0);
 
-	  #print AOUT "component:$component net:$net\n";
 	  assertdata("Pad",$counter,"X",bmil2(msubstr($value,$pos+36,4,"X")));
 	  assertdata("Pad",$counter,"Y",bmil2(msubstr($value,$pos+40,4,"Y")));
 	  #print "Pad x: ".bmil2(substr($value,$pos+36,4))."\n";
@@ -1690,13 +1711,15 @@ EOF
 
 	  if($otype eq "3")
 	  {
-	     print "Warning: Octagonal pads are currently not supported by KiCad. We convert them to oval for now, please verify the PCB design afterwards. This can cause overlaps and production problems!\n";
+	     print "WARNING: Octagonal pads are currently not supported by KiCad. We convert them to oval for now, please verify the PCB design afterwards. This can cause overlaps and production problems!\n" if(!defined($shownwarnings{'OCTAGONAL'}));
+		 $shownwarnings{'OCTAGONAL'}++;
 	  }
 	  
 	  if($typemapalt{$otype} eq "ROUNDEDRECTANGLE")
 	  {
   	    #print "Pad: $counter $otype ".bin2hex(substr($value,$pos,200))."\n";
-        print "Warning: This is a rounded rectangle pad, and those are currently not supported by KiCad. We convert them to rounded pads for now, please verify the PCB design afterwards. This can cause overlaps and production problems!\n";
+        print "WARNING: This is a rounded rectangle pad, and those are currently not supported by KiCad. We convert them to rounded pads for now, please verify the PCB design afterwards. This can cause overlaps and production problems!\n" if(!defined($shownwarnings{'ROUNDEDRECTANGLE'}));
+		$shownwarnings{'ROUNDEDRECTANGLE'}++;
 		#print "len2: $len2\n";
 		#print bin2hex(substr($value,$pos+147,$len2))."\n";
 	  }
@@ -1717,7 +1740,7 @@ EOF
 	  
 	  my %soldermaskexpansionmap=("1"=>"Rule","2"=>"Manual");
   	  assertdata("Pad",$counter,"SOLDERMASKEXPANSIONMODE",$soldermaskexpansionmap{unpack("C",msubstr($value,$pos+125,1,"SolderMaskExpansionMode"))});
-	  my $soldermaskexpansionmode=$soldermaskexpansionmap{unpack("C",msubstr($value,$pos+125,1,"SolderMaskExpansionMode"))};
+	  my $soldermaskexpansionmode=$soldermaskexpansionmap{unpack("C",msubstr($value,$pos+125,1,"SolderMaskExpansionMode"))}||"Rule";
 
 	  my $PASTEMASKEXPANSIONMODE=unpack("C",msubstr($value,$pos+124,1,"PasteMaskExpansionMode"));
 	  assertdata("Pad",$counter,"PASTEMASKEXPANSIONMODE",$altrule{$PASTEMASKEXPANSIONMODE});
@@ -1763,21 +1786,19 @@ EOF
 	  if($PADMODE>0)
 	  {
 	    my %padmodes=(0=>"Simple",1=>"Top-Middle-Bottom",2=>"Full Stack");
-	    print STDERR "WARNING: Currently only the PadMode (Size and Shape) Simple is supported, ".$padmodes{$PADMODE}." is not supported by KiCad because KiCad uses the same Shape and Size on all layers.\n";
+	    print STDERR "WARNING: Currently only the PadMode (Size and Shape) Simple is supported, ".$padmodes{$PADMODE}." is not supported by KiCad because KiCad uses the same Shape and Size on all layers.\n" if(!defined($shownwarnings{'SIMPLE'}));
+		$shownwarnings{'SIMPLE'}++;
 	  }
 	  
 	  #print "layer:$layer net:$net component=$component type:$type dir:$dir \n";
-	  print AOUT bin2hex(substr($value,$pos,147))." ";
-	  $pos+=147;
-  	  print AOUT bin2hex(substr($value,$pos,$len2))."\n";
-      $pos+=$len2;
+	  
 	  
   	  #my $id=msubstr($value,$pos+2,16,"uniqueid"); # This seems to be very wrong, it is beyond the end of $value
       #    print "uniqueid: ".bin2hex($id)."\n" if(defined($id));
 
 	  #print "len2: $len2\n";
 	  
-	  if(length($value)>=$pos && substr($value,$pos-4,4) eq "\x8B\x02\x00\x00")
+	  if(length($value)>=$pos && msubstr($value,$pos-4,4,"doubleaddition") eq "\x8B\x02\x00\x00")
 	  {
 	    #print "Double addition detected\n";
 		$pos+=unpack("V",substr($value,$pos-4,4));
@@ -1828,12 +1849,20 @@ EOF
 		 $pos+=0x1e0;
       }
 	  
+	  
+	  if($pos != $tpos)
+	  {
+	    #print "POS should be $tpos but it is currently $pos\n";
+	  }
+	  $pos=$tpos;
+	  
+	  
 	  $counter++;
 	  
 	}
-    close AOUT;
 	close DOUT;
-	
+
+	open HOUT,">Pads.html";
 	print HOUT <<EOF
 	<html>
 <head>
@@ -2465,7 +2494,7 @@ EOF
 	$pourindex-=100 if($pourindex>=100);
 	if(defined($pourindex) && ( $pourindex<0 || $pourindex>100))
 	{
-	  print "Warning: Pourindex $pourindex out of the expected range (0 .. 100)\n";
+	  print "WARNING: Pourindex $pourindex out of the expected range (0 .. 100)\n";
 	}
 	my $net=($d{'NET'}||-1)+2; my $netname=$netnames{$net};
 	#print "Polygon $_[3] has net $net\n";
@@ -3385,7 +3414,6 @@ sub decodePcbLib($)
 		  last;
 		}
         my $component=unpack("s",substr($value,$pos+30,2));	
-	    #print AOUT "component:$component net:$net\n";
         my $x1=-$xmove+bmil2mm(substr($value,$pos+36,4));
 	    my $y1=$ymove-bmil2mm(substr($value,$pos+40,4));
   	    #MarkPoint($x1,$y1) if($counter eq 2);
