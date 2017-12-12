@@ -160,6 +160,7 @@ foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'))
   my @a=();
   
   our %localcontains=();
+  our %partstextcounter=();
 
   open OUT,">$filename.txt";
   my $line=0;
@@ -277,6 +278,7 @@ EOF
   my %xypos=();
   my %lib=();
   our %componentdraw=();
+  our %customfields=();
   our %componentcontains=();
   our $LIBREFERENCE;
   my %partcomp=();
@@ -384,6 +386,7 @@ EOF
 	
 	print LOG sprintf("RECORD=%2d|LINENO=%4d|OWNERPARTID=%4d|OWNERINDEX=%4d|%s\n",defined($d{'RECORD'})?$d{'RECORD'}:-42,$d{'LINENO'},defined($d{'OWNERPARTID'})?$d{'OWNERPARTID'}+1:-42,defined($d{'OWNERINDEX'})?$d{'OWNERINDEX'}+1:-42,$o) if($USELOGGING);
 
+	
     next unless defined($d{'RECORD'});
     my $f=10;
  
@@ -398,7 +401,7 @@ EOF
 	
 	if ($d{'RECORD'} ne '34') {
 	  # ignore hidden records, except type 34 (designator)
-	  next if(defined($d{'ISHIDDEN'}) && $d{'ISHIDDEN'} eq "T");
+	  #next if(defined($d{'ISHIDDEN'}) && $d{'ISHIDDEN'} eq "T");
 	}
 
 	if(defined($OWNERPARTDISPLAYMODE) && defined($d{'OWNERINDEX'}))
@@ -406,6 +409,7 @@ EOF
 	  #print "Checking for\nOWNERINDEX: $d{'OWNERINDEX'} vs. ".($OWNERLINENO-1)." ?\n $OWNERPARTDISPLAYMODE vs. ".($d{'OWNERPARTDISPLAYMODE'}||-1)." ?\n";
 	  next if ((($d{'OWNERINDEX'} || 0) eq $OWNERLINENO-1) && ($d{'OWNERPARTDISPLAYMODE'}||-1) ne $OWNERPARTDISPLAYMODE); 
 	}
+	
 	
     if(defined($d{'OWNERPARTID'}) && $d{'OWNERPARTID'}>=0)
 	{
@@ -1064,10 +1068,10 @@ EOF
 		}
 		elsif($d{'NAME'} eq "Rule")
         {
-		  my $x=($d{'LOCATION.X'}*$f);
-		  my $y=$sheety-($d{'LOCATION.Y'}*$f);
+		  my $x=(($d{'LOCATION.X'} || 0) *$f);
+		  my $y=$sheety-(($d{'LOCATION.Y'}||0)*$f);
 		  my $o=$d{'ORIENTATION'} || 0;
-    	  $dat.="Text Label $x $y $o 70 ~\n$d{DESCRIPTION}\n" if($d{'DESCRIPTION'} ne "");
+    	  $dat.="Text Label $x $y $o 70 ~\n".($d{'DESCRIPTION'}||"")."\n" if(defined($d{'DESCRIPTION'}) && $d{'DESCRIPTION'} ne "");
 		}
 		elsif($d{'NAME'} eq "Value")
 		{
@@ -1082,14 +1086,23 @@ EOF
 		}
 		elsif(defined($d{'LOCATION.X'}))
 		{
+		  #print "Field $d{'NAME'} found on line 1093\n";
           my $x=($d{'LOCATION.X'}*$f);
 		  my $y=$sheety-($d{'LOCATION.Y'}*$f);
 		  my $o=$d{'ORIENTATION'} || 0;
+		  if(defined($d{'TEXT'}))
+		  {
+		    #print "globalp: $globalp OWNERINDEX: $d{OWNERINDEX}\n" if($d{'NAME'} eq "MPN"); I am not sure, whether the association through globalp is correct here
+		    my $counter=$partstextcounter{$globalp} || 4;
+            push @{$parts{$globalp}},"F $counter \"".$d{'TEXT'}."\" V 1400 2000 60  0001 C CNN \"".$d{'NAME'}."\"\n";
+			$partstextcounter{$globalp}=$counter+1;
+		  }
     	  $dat.="Text Label $x $y $o 70 ~\n$d{TEXT}\n" if(defined($d{'TEXT'}) && $d{'TEXT'} ne "");
 		}
 		else
 		{
-		  #print "Error: Parameter without position!\n";
+		  # Here we are getting Spice, Netlist, ... data. We should do something with that...
+		  #print "Error: Parameter $d{'NAME'}=$d{'TEXT'} without position!\n" if(defined($d{'TEXT'}) && $d{'TEXT'} ne "*"); 
 		}
       }
 	  elsif($d{'RECORD'} eq '43') #Comment?
@@ -1167,16 +1180,15 @@ EOF
 		my $ident="";
 		if(-f $png)
 		{
-		` $ident="$imagemagick$identify" "$png"`;
+		 $ident=`"$imagemagick$identify" "$png"`;
 		}
-	    #print "$ident\n";
-		my $imagex=1; my $imagey=1;
+	    my $imagex=1; my $imagey=1;
 		if($ident=~m/PNG (\w+)x(\w+)/)
 		{
 		  $imagex=$1; $imagey=$2;
 		}
 		my $scale=$widthx/$imagex/3.3; $scale=~s/\./,/;
-		#print "$png $imagex $imagey $widthx $scale\n";
+		#print "$png $imagex $imagey $widthx $scale $ident\n";
 		if(-f $png)
 		{
 		  $dat.="\$Bitmap\nPos $mx $my\nScale $scale\nData\n";
@@ -1294,8 +1306,9 @@ EOF
     $comp.="F1 ".($commentpos{$component}||"\"\" 0 0 60 H V C CNN")."\n";
     $comp.="F2 \"\" 0 0 60 H V C CNN\n";
     $comp.="F3 \"\" 0 0 60 H V C CNN\n";
+	$comp.=$customfields{$component}||""; # "F 4 "MEINMPN0192301923" V 1400 2000 60  0001 C CNN "MPN"
     $comp.="DRAW\n";
-	$comp.=$componentdraw{$component};
+	$comp.=$componentdraw{$component}||"";
 	$comp.="ENDDRAW\nENDDEF\n";
 	$globalcomp.=$comp unless(defined($globalcontains{$component}));
 	$globalcontains{$component}=1;
