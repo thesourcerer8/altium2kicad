@@ -140,8 +140,10 @@ sub get_f_position(\%$$$$$) {
     return ($x, $y, $orient, $dir);
 }
 
+#Protel for Windows - Schematic Capture Ascii File Version 5.0    -> supported
+#DProtel for Windows - Schematic Capture Binary File Version 1.2 - 2.0    -> not supported
 
-foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'), glob('"*.sch"'))
+foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'), glob('"*.sch"'), glob('"*.schdoc"'))
 {
   print "Handling $filename\n";
   my $short=$filename; 
@@ -154,11 +156,11 @@ foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'), glob('"*.sch"'))
   my $content=<IN>;
   close IN;
   
-  
   next unless defined($content);
   next unless length($content)>4;
   next if($content=~m/EESchema Schematic File Version/); # Skipping KiCad schematics
   next if($content=~m/PCB \d+.\d+ Binary Library File/); # Skipping PCB Files
+  next if(substr($content,0,2) eq "\xD0\xCF");
   next if((!$protel) && unpack("l",substr($content,0,4))>length($content));
 
   my $text="";
@@ -169,27 +171,41 @@ foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'), glob('"*.sch"'))
 
   open OUT,">$filename.txt";
   my $line=0;
-  while(length($content)>4 )
+  
+  if($content=~m/Protel for Windows - Schematic Capture Ascii File/)
   {
-    my $len=unpack("l",substr($content,0,4));
-	if($len<0)
-	{
-	  print "Error: Length is negative $filename $line: $len\n";
-	  last;
-	}
-    
-    #print "len: $len\n";
-    my $data=substr($content,4,$len); 
-    if($data=~m/\n/)
+    foreach(split "\n",$content)
     {
-      #print "Warning: data contains newline!\n";
+      s/\r//;
+      push @a,"|LINENO=$line|$_";
+      print OUT "$_\n\n";
+      $line++;
     }
-    $data=~s/\x00//g;
-    push @a,"|LINENO=$line|".$data;
-    $text.=$data."\n";
-    print OUT $data."\n";
-    substr($content,0,4+$len)="";  
-	$line++;
+  }
+  else
+  {
+    while(length($content)>4 )
+    {
+      my $len=unpack("l",substr($content,0,4));
+	  if($len<0)
+	  {
+        print "Error: Length is negative $filename $line: $len\n";
+	    last;
+	  }
+    
+      #print "len: $len\n";
+      my $data=substr($content,4,$len); 
+      if($data=~m/\n/)
+      {
+        #print "Warning: data contains newline!\n";
+      }
+      $data=~s/\x00//g;
+      push @a,"|LINENO=$line|".$data;
+      $text.=$data."\n";
+      print OUT $data."\n";
+      substr($content,0,4+$len)="";  
+	  $line++;
+    }
   }
   close OUT;
 
@@ -305,8 +321,8 @@ EOF
   # Rotates 2 coordinates x y around the angle o and returns the new x and y
   sub rotate($$$) # x,y,o
   {
-    my $o=$_[2]; 
-	my $m=$_[2]&4;
+    my $o=$_[2]||0; 
+	my $m=($_[2]||0)&4;
 	$o&=3; # Perhaps mirroring needs something else?
 	#orient=("0"=>"1    0    0    -1","1"=>"0    1    1    0","2"=>"-1   0    0    1","3"=>"0    -1   -1   0");
 	if(!$o)
@@ -400,8 +416,8 @@ EOF
 	
 	sub drawcomponent($)
 	{
-  	  $componentdraw{$LIBREFERENCE}.=$_[0] unless(defined($componentcontains{$LIBREFERENCE}{$_[0]}));
-      $componentcontains{$LIBREFERENCE}{$_[0]}=1;
+  	  $componentdraw{$LIBREFERENCE||0}.=$_[0] unless(defined($componentcontains{$LIBREFERENCE||0}{$_[0]}));
+      $componentcontains{$LIBREFERENCE||0}{$_[0]}=1;
 	}
 	
 	if ($d{'RECORD'} ne '34') {
@@ -558,8 +574,8 @@ EOF
 		  my $pinnamesize=(($d{'PINCONGLOMERATE'}||0)&8)?70:1; # There is a bug in KiCad´s plotting code BZR5054, which breaks all components when this size is 0
 		  my $pinnumbersize=(($d{'PINCONGLOMERATE'}||0)&16)?70:1; # The :1 should be changed to :0 as soon as the bug is resolved.
 		  my %map2=("0"=>"0","1"=>"3","2"=>"2","3"=>"1");
-		  $pinorient+=$map2{$partorientation{$globalp}&3}; $pinorient&=3;
-		  my $mirrored=$partorientation{$globalp}&4;
+		  $pinorient+=$map2{($partorientation{$globalp}||0)&3}; $pinorient&=3;
+		  my $mirrored=($partorientation{$globalp}||0)&4;
 		  my $dir=$dirtext{$pinorient};
 		  my $x=$d{'LOCATION.X'}*$f;
 		  my $y=$d{'LOCATION.Y'}*$f;
@@ -662,8 +678,8 @@ EOF
 		  my ($sa,$ea)=@$_;
 		  #print "  $sa $ea\n";
 		  #print "partorient: $partorientation{$globalp}, winkel: ".$winkel{$partorientation{$globalp}&3}."\n";
-		  $sa=3600-$winkel{$partorientation{$globalp}&3}*10+$sa;$sa%=3600; $sa-=3600 if($sa>1800);
-		  $ea=3600-$winkel{$partorientation{$globalp}&3}*10+$ea;$ea%=3600; $ea-=3600 if($ea>1800);
+		  $sa=3600-$winkel{($partorientation{$globalp}||0)&3}*10+$sa;$sa%=3600; $sa-=3600 if($sa>1800);
+		  $ea=3600-$winkel{($partorientation{$globalp}||0)&3}*10+$ea;$ea%=3600; $ea-=3600 if($ea>1800);
 		  #print "sa: $sa ea:$ea\n";
 		  my $sarad=$sa/1800*$pi;
 		  my $earad=$ea/1800*$pi;
@@ -680,10 +696,10 @@ EOF
 	    #RECORD=41|OWNERPARTID=1|OWNERINDEX=1568|LOCATION.X=80|LOCATION.Y=846|NAME=Comment|OWNERINDEX=1568|TEXT=2.1mm x 5.5mm DC jack|
 		#RECORD=41|OWNERPARTID=1|OWNERINDEX=219|LOCATION.X=514|LOCATION.Y=144|NAME=>NAME|ORIENTATION=2|COLOR=8388608|FONTID=3|TEXT=R39|UNIQUEID=MCQTJAIN|NOTAUTOPOSITION=T|INDEXINSHEET=7
 
-		my $x=($d{'LOCATION.X'}*$f)-$relx;
-		my $y=($d{'LOCATION.Y'}*$f)-$rely;
+		my $x=(($d{'LOCATION.X'}||0)*$f)-$relx;
+		my $y=(($d{'LOCATION.Y'}||0)*$f)-$rely;
 		($x,$y)=rotate($x,$y,$partorientation{$globalp});
-		my $text=$d{'DESCRIPTION'} || $d{'TEXT'}; $text=~s/\~/~~/g; $text=~s/\~1/\~/g; $text=~s/ /\~/g; 
+		my $text=$d{'DESCRIPTION'} || $d{'TEXT'} || ""; $text=~s/\~/~~/g; $text=~s/\~1/\~/g; $text=~s/ /\~/g; 
 		if($d{'NOTAUTOPOSITION'})
 		{
      	  my $rot=$d{'ORIENTATION'} || $myrot{$fontrotation{$d{'FONTID'}}};
@@ -1092,8 +1108,8 @@ EOF
 		elsif(defined($d{'LOCATION.X'}))
 		{
 		  #print "Field $d{'NAME'} found on line 1093\n";
-          my $x=($d{'LOCATION.X'}*$f);
-		  my $y=$sheety-($d{'LOCATION.Y'}*$f);
+          my $x=(($d{'LOCATION.X'}||0)*$f);
+		  my $y=$sheety-(($d{'LOCATION.Y'}||0)*$f);
 		  my $o=$d{'ORIENTATION'} || 0;
 		  if(defined($d{'TEXT'}))
 		  {
@@ -1288,6 +1304,7 @@ EOF
   }
   foreach my $part (sort keys %parts)
   {
+    next if(!defined($partcomp{$part}));
     print OUT "\$Comp\n";
 	#print "Reference: $part -> $globalreference{$part}\n";
 	print OUT "L $partcomp{$part} ".($globalreference{$part}||"IC$ICcount")."\n"; # IC$ICcount\n";
