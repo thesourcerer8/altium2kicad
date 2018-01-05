@@ -431,8 +431,12 @@ EOF
 	  next if ((($d{'OWNERINDEX'} || 0) eq $OWNERLINENO-1) && ($d{'OWNERPARTDISPLAYMODE'}||-1) ne $OWNERPARTDISPLAYMODE); 
 	}
 	
+	if(($d{'OWNERPARTID'}||"") eq "0")
+	{
+	  print "Warning: Edge case: OWNERPARTID=".(defined($d{'OWNERPARTID'})?$d{'OWNERPARTID'}:"")." RECORD=$d{'RECORD'} the behaviour has been changed on 2018-01-05. If this causes a regression, please file an issue.\n";
+	}
 	
-    if(defined($d{'OWNERPARTID'}) && $d{'OWNERPARTID'}>=0)
+    if(defined($d{'OWNERPARTID'}) && $d{'OWNERPARTID'}>0)
 	{
 	  if(defined($CURRENTPARTID))
 	  {
@@ -739,6 +743,25 @@ EOF
 		my $px=($d{'LOCATION.X'}*$f);
 		my $py=($sheety-$d{'LOCATION.Y'}*$f);
 		print OUT "Connection ~ $px $py\n";
+	  }
+  	  elsif($d{'RECORD'} eq '1')  # Schematic Component
+	  {
+        #RECORD= 1|OWNERPARTID=  -1|OWNERINDEX=   0|AREACOLOR=11599871|
+		#COMPONENTDESCRIPTION=4-port multiple-TT hub with USB charging support|CURRENTPARTID=1|DESIGNITEMID=GLI8024-48_4|DISPLAYMODECOUNT=1|LIBRARYPATH=*|
+		#LIBREFERENCE=GLI8024-48_4|
+		#LOCATION.X=1380|LOCATION.Y=520|PARTCOUNT=2|PARTIDLOCKED=F|SHEETPARTFILENAME=*|SOURCELIBRARYNAME=*|TARGETFILENAME=*|
+		$LIBREFERENCE=$d{'LIBREFERENCE'}; $LIBREFERENCE=~s/ /_/g;
+		$LIBREFERENCE.="_".$d{'CURRENTPARTID'} if($d{'PARTCOUNT'}>2);
+		$CURRENTPARTID=$d{'CURRENTPARTID'} || undef;
+		$OWNERPARTDISPLAYMODE=$d{'DISPLAYMODE'};
+		$OWNERLINENO=$d{'LINENO'};
+		$globalp++;
+		$nextxypos=($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f);
+		$partorientation{$globalp}=$d{'ORIENTATION'}||0;
+		$partorientation{$globalp}+=4 if(defined($d{'ISMIRRORED'}) && $d{'ISMIRRORED'} eq 'T');
+        $xypos{$globalp}=$nextxypos ;
+		$relx=$d{'LOCATION.X'}*$f;
+		$rely=$d{'LOCATION.Y'}*$f;
 	  }
 	  else
 	  {
@@ -1068,7 +1091,7 @@ EOF
         #RECORD=41|OWNERPARTID=  -1|OWNERINDEX=2659|ISHIDDEN=T|LINENO=2661|LOCATION.X=1400|LOCATION.Y=260|NAME=PinUniqueId|OWNERINDEX=2659|TEXT=DXTGJKVR|
 		#my $ts=uniqueid2timestamp($d{'UNIQUEID'});
 	    #print "UNIQ: $d{UNIQUEID} -> $ts\n";
-        if($d{'NAME'} eq "Comment")
+        if(($d{'NAME'}||"") eq "Comment")
 		{
 		  my ($x, $y, $orient, $dir) = get_f_position(%d, $f, $partorientation{$globalp}, $relx, $rely, $sheety);
 
@@ -1087,14 +1110,14 @@ EOF
 		  $commentpos{$LIBREFERENCE}="\"$LIBREFERENCE\" $x $y 60 $orient V L BNN";
 		  $globalcomment{$globalp}=$d{'TEXT'};
 		}
-		elsif($d{'NAME'} eq "Rule")
+		elsif(($d{'NAME'}||"") eq "Rule")
         {
 		  my $x=(($d{'LOCATION.X'} || 0) *$f);
 		  my $y=$sheety-(($d{'LOCATION.Y'}||0)*$f);
 		  my $o=$d{'ORIENTATION'} || 0;
     	  $dat.="Text Label $x $y $o 70 ~\n".($d{'DESCRIPTION'}||"")."\n" if(defined($d{'DESCRIPTION'}) && $d{'DESCRIPTION'} ne "");
 		}
-		elsif($d{'NAME'} eq "Value")
+		elsif(($d{'NAME'}||"") eq "Value")
 		{
 		    my ($x, $y, $orient, $dir) = get_f_position(%d, $f, $partorientation{$globalp}, $relx, $rely, $sheety);
 		    if (defined($d{'TEXT'}))
@@ -1115,7 +1138,7 @@ EOF
 		  {
 		    #print "globalp: $globalp OWNERINDEX: $d{OWNERINDEX}\n" if($d{'NAME'} eq "MPN"); I am not sure, whether the association through globalp is correct here
 		    my $counter=$partstextcounter{$globalp} || 4;
-            push @{$parts{$globalp}},"F $counter \"".$d{'TEXT'}."\" V 1400 2000 60  0001 C CNN \"".$d{'NAME'}."\"\n";
+            push @{$parts{$globalp}},"F $counter \"".($d{'TEXT'}||"")."\" V 1400 2000 60  0001 C CNN \"".($d{'NAME'}||"")."\"\n";
 			$partstextcounter{$globalp}=$counter+1;
 		  }
     	  $dat.="Text Label $x $y $o 70 ~\n$d{TEXT}\n" if(defined($d{'TEXT'}) && $d{'TEXT'} ne "");
@@ -1304,7 +1327,7 @@ EOF
   }
   foreach my $part (sort keys %parts)
   {
-    next if(!defined($partcomp{$part}));
+    #next if(!defined($partcomp{$part}));
     print OUT "\$Comp\n";
 	#print "Reference: $part -> $globalreference{$part}\n";
 	print OUT "L $partcomp{$part} ".($globalreference{$part}||"IC$ICcount")."\n"; # IC$ICcount\n";
