@@ -109,8 +109,8 @@ sub get_f_position(\%$$$$$) {
 
     #my $x=($d{'LOCATION.X'}*$f);
     #my $y=($d{'LOCATION.Y'}*$f);
-    my $x=(($d{'LOCATION.X'}+(($d{'LOCATION.X_FRAC'}||0)/100000.0))*$f);
-    my $y=(($d{'LOCATION.Y'}+(($d{'LOCATION.Y_FRAC'}||0)/100000.0))*$f);
+    my $x=((($d{'LOCATION.X'}||0)+(($d{'LOCATION.X_FRAC'}||0)/100000.0))*$f);
+    my $y=((($d{'LOCATION.Y'}||0)+(($d{'LOCATION.Y_FRAC'}||0)/100000.0))*$f);
 
     my $orientation=$d{'ORIENTATION'} || 0;
     $orientation=($orientation + $part_orient) % 4;
@@ -141,20 +141,25 @@ sub get_f_position(\%$$$$$) {
 }
 
 
-foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'))
+foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'), glob('"*.sch"'))
 {
   print "Handling $filename\n";
-  my $short=$filename; $short=~s/\/Root Entry\/FileHeader\.dat$//;
-  next if -d "$short/Root Entry/Arcs6"; 
+  my $short=$filename; 
+  my $protel=($filename=~m/Root Entry\/FileHeader\.dat/)?0:1;
+  $short=~s/\/Root Entry\/FileHeader\.dat$//;
+  $short=~s/\.sch$/-kicad/;
+  next if -d "$short/Root Entry/Arcs6"; # Skipping PCB files
   open IN,"<$filename";
   undef $/;
   my $content=<IN>;
   close IN;
   
+  
   next unless defined($content);
   next unless length($content)>4;
-  next if($content=~m/PCB \d+.\d+ Binary Library File/);
-  next if(unpack("l",substr($content,0,4))>length($content));
+  next if($content=~m/EESchema Schematic File Version/); # Skipping KiCad schematics
+  next if($content=~m/PCB \d+.\d+ Binary Library File/); # Skipping PCB Files
+  next if((!$protel) && unpack("l",substr($content,0,4))>length($content));
 
   my $text="";
   my @a=();
@@ -269,7 +274,7 @@ EOF
   my $prevname="";
   my $symbol="";
   my %globalf=();
-  my $globalp="";
+  my $globalp=0;
   my %globalcomment=();
   my %globalreference=();
   my %componentheader=();
@@ -549,9 +554,9 @@ EOF
 		if(defined($d{'LOCATION.X'})&&defined($d{'LOCATION.Y'}))
 		{
 		  my %dirtext=("0"=>"L","1"=>"D","2"=>"R","3"=>"U");
-		  my $pinorient=$d{'PINCONGLOMERATE'}&3;
-		  my $pinnamesize=($d{'PINCONGLOMERATE'}&8)?70:1; # There is a bug in KiCad´s plotting code BZR5054, which breaks all components when this size is 0
-		  my $pinnumbersize=($d{'PINCONGLOMERATE'}&16)?70:1; # The :1 should be changed to :0 as soon as the bug is resolved.
+		  my $pinorient=($d{'PINCONGLOMERATE'}||0)&3;
+		  my $pinnamesize=(($d{'PINCONGLOMERATE'}||0)&8)?70:1; # There is a bug in KiCad´s plotting code BZR5054, which breaks all components when this size is 0
+		  my $pinnumbersize=(($d{'PINCONGLOMERATE'}||0)&16)?70:1; # The :1 should be changed to :0 as soon as the bug is resolved.
 		  my %map2=("0"=>"0","1"=>"3","2"=>"2","3"=>"1");
 		  $pinorient+=$map2{$partorientation{$globalp}&3}; $pinorient&=3;
 		  my $mirrored=$partorientation{$globalp}&4;
