@@ -658,7 +658,7 @@ EOF
 		my $LINEWIDTH=$d{LINEWIDTH}||1;
 		drawcomponent "C $x $y ".(($d{'RADIUS'}||0)*$f)." 0 1 $LINEWIDTH"."0 $fill\n";
 	  }
-	  elsif($d{'RECORD'} eq '12') # Arc
+      elsif($d{'RECORD'} eq '12' || $d{'RECORD'} eq '11') # Arc or Elliptical arc (we ignore the secondary axis as KiCad doesn't support it)
 	  {
 	    #RECORD=12|ENDANGLE=180.000|LINEWIDTH=1|LOCATION.X=1065|LOCATION.Y=700|OWNERINDEX=738|RADIUS=5|STARTANGLE=90.000|		
         my $x=($d{'LOCATION.X'}*$f)-$relx;
@@ -667,6 +667,7 @@ EOF
 		my $r=int(($d{'RADIUS'}||0)+(($d{'RADIUS_FRAC'}||0)/100000.0))*$f;
 		my $sa="0"; $sa="$1$2" if(defined($d{'STARTANGLE'}) && $d{'STARTANGLE'}=~m/(\d+)\.(\d)(\d+)/);
 		my $ea="3600"; $ea="$1$2" if(defined($d{'ENDANGLE'}) && $d{'ENDANGLE'}=~m/(\d+)\.(\d)(\d+)/);
+        $sa+=1800, $ea+=1800 if ( $d{'RECORD'} eq '11' );  # Hack for elliptical arcs
 		my @liste=();
 		if(($ea-$sa)>=1800)
 		{
@@ -734,13 +735,6 @@ EOF
 		($cx,$cy)=rotate($cx,$cy,$partorientation{$globalp});
 		drawcomponent "S $x $y $cx $cy 0 1 10 f\n";
       }
-	  elsif($d{'RECORD'} eq '11') # Ellipse ???
-	  {
-	    print "Ellipses are not yet supported by KiCAD\n";
-		#RADIUS=9|RADIUS_FRAC=93698|SECONDARYRADIUS=5|SECONDARYRADIUS_FRAC=4539
-		#LOCATION.X=130|LOCATION.Y=90|
-		#LINEWIDTH=1|STARTANGLE=0.809|ENDANGLE=179.510|COLOR=16711680
-	  }
 	  elsif($d{'RECORD'} eq '29') # Junction
 	  {
 	    #RECORD=29|OWNERPARTID=  -1|OWNERINDEX=   0|LOCATION.X=130|LOCATION.Y=1230|
