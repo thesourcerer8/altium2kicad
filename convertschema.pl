@@ -805,7 +805,7 @@ EOF
       }
 	  elsif($d{'RECORD'} eq '33') # Sheet Symbol
 	  {
-        $prevfilename=$d{'TEXT'} if($d{'RECORD'} eq '33'); $prevfilename=~s/\.SchDoc/-SchDoc\.sch/;	
+        $prevfilename=$d{'TEXT'} if($d{'RECORD'} eq '33'); $prevfilename=~s/\.SchDoc/-SchDoc\.sch/i;	
 	    $dat="$symbol\nF0 \"$prevname\" 60\nF1 \"$prevfilename\" 60\n\$EndSheet\n";
 		$rootlibraries{"$short-cache.lib"}=1;
 	  }	  
