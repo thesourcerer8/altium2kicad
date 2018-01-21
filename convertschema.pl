@@ -667,7 +667,11 @@ EOF
 		my $r=int(($d{'RADIUS'}||0)+(($d{'RADIUS_FRAC'}||0)/100000.0))*$f;
 		my $sa="0"; $sa="$1$2" if(defined($d{'STARTANGLE'}) && $d{'STARTANGLE'}=~m/(\d+)\.(\d)(\d+)/);
 		my $ea="3600"; $ea="$1$2" if(defined($d{'ENDANGLE'}) && $d{'ENDANGLE'}=~m/(\d+)\.(\d)(\d+)/);
-        $sa+=1800, $ea+=1800 if ( $d{'RECORD'} eq '11' );  # Hack for elliptical arcs
+        if ( $d{'RECORD'} eq '11' )
+        {
+            print "WARNING: Elliptical arcs are not supported in KiCad - creating circular arc using primary radius only\n";
+        }
+        $ea+=3600 if ( $sa > $ea );
 		my @liste=();
 		if(($ea-$sa)>=1800)
 		{
