@@ -54,6 +54,7 @@ our $timestamp=$start_time;  # this value gets decreased every time we need a un
 my %hvmap=("0"=>"H","1"=>"V","2"=>"H","3"=>"V");
 our %uniquereferences=();
 my %myrot=("0"=>"0","90"=>"1","270"=>"2");
+my %iotypes=("0"=>"BiDi","1"=>"Input","2"=>"Output"); # Others unknown yet
 
 #Reads a file with one function
 sub readfile($)
@@ -1288,9 +1289,19 @@ EOF
 	  {
 	    # References $d{'FILENAME'} as a filepath, but this likely does not exist
 	  }
-	  elsif($d{'RECORD'} eq '18')
+	  elsif($d{'RECORD'} eq '18') # Port
 	  {
-	    print "RECORD=18: $b\n";
+        #RECORD=18|INDEXINSHEET=75|OWNERPARTID=-1|STYLE=3|IOTYPE=1|ALIGNMENT=1|WIDTH=60|LOCATION.X=510|LOCATION.Y=990|COLOR=128|FONTID=1|AREACOLOR=8454143|TEXTCOLOR=128|NAME=ADC_VIN|UNIQUEID=ANXOUWEQ|HEIGHT=10
+        #RECORD=18|INDEXINSHEET=73|OWNERPARTID=-1|STYLE=3|ALIGNMENT=1|WIDTH=45|LOCATION.X=625|LOCATION.Y=325|COLOR=128|FONTID=1|AREACOLOR=8454143|TEXTCOLOR=128|NAME=GPIO_IF|HARNESSTYPE=GPIO|UNIQUEID=RNYSNNOD|HEIGHT=10
+        # No support for HARNESSTYPE yet (KiCad doesn't have such a feature)  We could instantiate lots of Ports as per the .Hardness file definition, but how would we lay them out?
+        # Location for Input/Output works, but for BiDi it doesn't connect - need some manual adjustment, as we can't use the WIDTH property in a KiCad global label
+        my $x=($d{'LOCATION.X'}*$f);
+        my $y=$sheety-($d{'LOCATION.Y'}*$f);
+        my $orientation=$d{'ALIGNMENT'}+1 || 0; # Altium seems to ignore this for harnesses?
+        my $shape=$iotypes{$d{'IOTYPE'} || 0 }; # Altium never seems to write out IOTYPE=0 for BiDi's
+        my $name=$d{'NAME'};
+        $name.="_HARN" if ( defined($d{'HARNESSTYPE'}) ); # Annotated bodge for missing harness feature
+        $dat.="Text GLabel $x $y $orientation 70 ${shape} ~\n${name}\n";
 	  }
 	  elsif($d{'RECORD'} eq '16')
 	  {
