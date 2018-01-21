@@ -1168,9 +1168,16 @@ EOF
   	  elsif($d{'RECORD'} eq '22') #No ERC
 	  {
         #RECORD=22|OWNERPARTID=  -1|OWNERINDEX=   0|ISACTIVE=T|LINENO=1833|LOCATION.X=630|LOCATION.Y=480|SUPPRESSALL=T|SYMBOL=Thin Cross|
-        my $x=($d{'LOCATION.X'}*$f);
-		my $y=$sheety-($d{'LOCATION.Y'}*$f);
-    	$dat.="NoConn ~ $x $y\n";
+        if(defined($d{'LOCATION.X'}))
+        {
+          my $x=($d{'LOCATION.X'}*$f);
+		  my $y=$sheety-($d{'LOCATION.Y'}*$f);
+    	  $dat.="NoConn ~ $x $y\n";
+        }
+        else
+        {
+          print "Error: No ERC without position !  $b\n";
+        }
       }
 	  elsif($d{'RECORD'} =~m/^(10|14)$/) # Rectangle
 	  {
