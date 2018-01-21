@@ -1338,7 +1338,7 @@ EOF
   }
   foreach my $part (sort keys %parts)
   {
-    #next if(!defined($partcomp{$part}));
+    next if(!defined($partcomp{$part}));
     print OUT "\$Comp\n";
 	#print "Reference: $part -> $globalreference{$part}\n";
 	print OUT "L $partcomp{$part} ".($globalreference{$part}||"IC$ICcount")."\n"; # IC$ICcount\n";
