@@ -55,6 +55,7 @@ my %hvmap=("0"=>"H","1"=>"V","2"=>"H","3"=>"V");
 our %uniquereferences=();
 my %myrot=("0"=>"0","90"=>"1","270"=>"2");
 my %iotypes=("0"=>"BiDi","1"=>"Input","2"=>"Output"); # Others unknown yet
+my %partparams=();
 
 #Reads a file with one function
 sub readfile($)
@@ -1090,65 +1091,75 @@ EOF
 	  elsif($d{'RECORD'} eq '41') #Parameter
 	  {
         #RECORD=41|OWNERPARTID=  -1|OWNERINDEX=2659|ISHIDDEN=T|LINENO=2661|LOCATION.X=1400|LOCATION.Y=260|NAME=PinUniqueId|OWNERINDEX=2659|TEXT=DXTGJKVR|
+        #RECORD=41|OWNERINDEX=1293|INDEXINSHEET=-1|OWNERPARTID=-1|LOCATION.X=845|LOCATION.Y=310|COLOR=8388608|FONTID=1|TEXT==Value|NAME=Comment|UNIQUEID=ROAWIONW
 		#my $ts=uniqueid2timestamp($d{'UNIQUEID'});
 	    #print "UNIQ: $d{UNIQUEID} -> $ts\n";
-        if(($d{'NAME'}||"") eq "Comment")
-		{
-		  my ($x, $y, $orient, $dir) = get_f_position(%d, $f, $partorientation{$globalp}, $relx, $rely, $sheety);
-
-		  #$dat.="Text Label $x $y $orientation 70 ~\n$d{TEXT}\n";
-		  if (defined($d{'TEXT'}))
-		  {
-		      my $value = $d{'TEXT'};
-		      push @{$parts{$globalp}},"F 1 \"$value\" $orient $x $y 60  0000 $dir\n"; #L BNN
-		      push @{$parts{$globalp}},"F 2 \"\" H $x $y 60  0000 C CNN\n";
-		      push @{$parts{$globalp}},"F 3 \"\" H $x $y 60  0000 C CNN\n";
-		  }
-
-		  $x=($d{'LOCATION.X'}*$f)-$relx;
-		  $y=($d{'LOCATION.Y'}*$f)-$rely;
-
-		  $commentpos{$LIBREFERENCE}="\"$LIBREFERENCE\" $x $y 60 $orient V L BNN";
-		  $globalcomment{$globalp}=$d{'TEXT'};
-		}
-		elsif(($d{'NAME'}||"") eq "Rule")
+        $partparams{$d{'NAME'}}=$d{'TEXT'};
+        if ( !( defined($d{'ISHIDDEN'}) && $d{'ISHIDDEN'} eq 'T') )
         {
-		  my $x=(($d{'LOCATION.X'} || 0) *$f);
-		  my $y=$sheety-(($d{'LOCATION.Y'}||0)*$f);
-		  my $o=$d{'ORIENTATION'} || 0;
-    	  $dat.="Text Label $x $y $o 70 ~\n".($d{'DESCRIPTION'}||"")."\n" if(defined($d{'DESCRIPTION'}) && $d{'DESCRIPTION'} ne "");
-		}
-		elsif(($d{'NAME'}||"") eq "Value")
-		{
-		    my ($x, $y, $orient, $dir) = get_f_position(%d, $f, $partorientation{$globalp}, $relx, $rely, $sheety);
-		    if (defined($d{'TEXT'}))
-		    {
-			my $value = $d{'TEXT'};
-			push @{$parts{$globalp}},"F 1 \"$value\" $orient $x $y 60  0000 $dir\n"; #L BNN
-			push @{$parts{$globalp}},"F 2 \"\" H $x $y 60  0000 C CNN\n";
-			push @{$parts{$globalp}},"F 3 \"\" H $x $y 60  0000 C CNN\n";
-		    }
-		}
-		elsif(defined($d{'LOCATION.X'}))
-		{
-		  #print "Field $d{'NAME'} found on line 1093\n";
-          my $x=(($d{'LOCATION.X'}||0)*$f);
-		  my $y=$sheety-(($d{'LOCATION.Y'}||0)*$f);
-		  my $o=$d{'ORIENTATION'} || 0;
-		  if(defined($d{'TEXT'}))
-		  {
-		    #print "globalp: $globalp OWNERINDEX: $d{OWNERINDEX}\n" if($d{'NAME'} eq "MPN"); I am not sure, whether the association through globalp is correct here
-		    my $counter=$partstextcounter{$globalp} || 4;
-            push @{$parts{$globalp}},"F $counter \"".($d{'TEXT'}||"")."\" V 1400 2000 60  0001 C CNN \"".($d{'NAME'}||"")."\"\n";
-			$partstextcounter{$globalp}=$counter+1;
-		  }
-    	  $dat.="Text Label $x $y $o 70 ~\n$d{TEXT}\n" if(defined($d{'TEXT'}) && $d{'TEXT'} ne "");
-		}
-		else
-		{
-		  # Here we are getting Spice, Netlist, ... data. We should do something with that...
-		  #print "Error: Parameter $d{'NAME'}=$d{'TEXT'} without position!\n" if(defined($d{'TEXT'}) && $d{'TEXT'} ne "*"); 
-		}
+          if(($d{'NAME'}||"") eq "Comment")
+          {
+            my ($x, $y, $orient, $dir) = get_f_position(%d, $f, $partorientation{$globalp}, $relx, $rely, $sheety);
+
+            #$dat.="Text Label $x $y $orientation 70 ~\n$d{TEXT}\n";
+            if ( defined($d{'TEXT'}) )
+            {
+                my $value = $d{'TEXT'};
+                if ( substr($value,0,1) eq '=' ) # It's an xref - look it up
+                {
+                    my $paramname = substr($value,1);
+                    $value = $partparams{$paramname} || $value;
+                }
+                push @{$parts{$globalp}},"F 1 \"$value\" $orient $x $y 60  0000 $dir\n"; #L BNN
+                push @{$parts{$globalp}},"F 2 \"\" H $x $y 60  0000 C CNN\n";
+                push @{$parts{$globalp}},"F 3 \"\" H $x $y 60  0000 C CNN\n";
+            }
+
+            $x=($d{'LOCATION.X'}*$f)-$relx;
+            $y=($d{'LOCATION.Y'}*$f)-$rely;
+
+            $commentpos{$LIBREFERENCE}="\"$LIBREFERENCE\" $x $y 60 $orient V L BNN";
+            $globalcomment{$globalp}=$d{'TEXT'};
+          }
+          elsif(($d{'NAME'}||"") eq "Rule")
+          {
+            my $x=(($d{'LOCATION.X'} || 0) *$f);
+            my $y=$sheety-(($d{'LOCATION.Y'}||0)*$f);
+            my $o=$d{'ORIENTATION'} || 0;
+            $dat.="Text Label $x $y $o 70 ~\n".($d{'DESCRIPTION'}||"")."\n" if(defined($d{'DESCRIPTION'}) && $d{'DESCRIPTION'} ne "");
+          }
+          elsif(($d{'NAME'}||"") eq "Value")
+          {
+              my ($x, $y, $orient, $dir) = get_f_position(%d, $f, $partorientation{$globalp}, $relx, $rely, $sheety);
+              if (defined($d{'TEXT'}))
+              {
+              my $value = $d{'TEXT'};
+              push @{$parts{$globalp}},"F 1 \"$value\" $orient $x $y 60  0000 $dir\n"; #L BNN
+              push @{$parts{$globalp}},"F 2 \"\" H $x $y 60  0000 C CNN\n";
+              push @{$parts{$globalp}},"F 3 \"\" H $x $y 60  0000 C CNN\n";
+              }
+          }
+          elsif(defined($d{'LOCATION.X'}))
+          {
+            #print "Field $d{'NAME'} found on line 1093\n";
+            my $x=(($d{'LOCATION.X'}||0)*$f);
+            my $y=$sheety-(($d{'LOCATION.Y'}||0)*$f);
+            my $o=$d{'ORIENTATION'} || 0;
+            if(defined($d{'TEXT'}))
+            {
+              #print "globalp: $globalp OWNERINDEX: $d{OWNERINDEX}\n" if($d{'NAME'} eq "MPN"); I am not sure, whether the association through globalp is correct here
+              my $counter=$partstextcounter{$globalp} || 4;
+              push @{$parts{$globalp}},"F $counter \"".($d{'TEXT'}||"")."\" V 1400 2000 60  0001 C CNN \"".($d{'NAME'}||"")."\"\n";
+              $partstextcounter{$globalp}=$counter+1;
+            }
+            $dat.="Text Label $x $y $o 70 ~\n$d{TEXT}\n" if(defined($d{'TEXT'}) && $d{'TEXT'} ne "");
+          }
+          else
+          {
+            # Here we are getting Spice, Netlist, ... data. We should do something with that...
+            #print "Error: Parameter $d{'NAME'}=$d{'TEXT'} without position!\n" if(defined($d{'TEXT'}) && $d{'TEXT'} ne "*"); 
+          }
+        }
       }
 	  elsif($d{'RECORD'} eq '43') #Comment?
 	  {
