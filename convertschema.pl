@@ -307,6 +307,8 @@ EOF
   my %partcomp=();
   my $relx=0;
   my $rely=0;
+  my $relh=0;
+  my $relw=0;
   my $nextxypos=undef;
   my $CURRENTPARTID=undef;
   my %partorientation;
@@ -797,6 +799,10 @@ EOF
 	    #|SYMBOLTYPE=Normal|RECORD=15|LOCATION.X=40|ISSOLID=T|YSIZE=30|OWNERPARTID=-1|COLOR=128|INDEXINSHEE=41|AREACOLOR=8454016|XSIZE=90|LOCATION.Y=230|UNIQUEID=OLXGMUHL
 		$symbol="\$Sheet\nS ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." ".($d{'XSIZE'}*$f)." ".($d{'YSIZE'}*$f);
 	    #$dat="\$Sheet\nS ".($symbolx)." ".($symboly)." ".($symbolsizex)." ".($d{'YSIZE'}*$f)."\nF0 \"$prevname\" 60\nF1 \"$prevfilename\" 60\n\$EndSheet\n";
+        $relx=$d{'LOCATION.X'}*$f;
+        $rely=$d{'LOCATION.Y'}*$f;
+        $relw=$d{'XSIZE'}*$f;
+        $relh=$d{'YSIZE'}*$f;
 	  }
 	  elsif($d{'RECORD'} eq '32') # Sheet Name
 	  {
@@ -1321,9 +1327,23 @@ EOF
         $name.="_HARN" if ( defined($d{'HARNESSTYPE'}) ); # Annotated bodge for missing harness feature
         $dat.="Text GLabel $x $y $orientation 70 ${shape} ~\n${name}\n";
 	  }
-	  elsif($d{'RECORD'} eq '16')
+	  elsif($d{'RECORD'} eq '16') # sheet entry
 	  {
-	    print "RECORD=16: $b\n";
+        # RECORD=16|OWNERINDEX=70|OWNERPARTID=-1|SIDE=1|DISTANCEFROMTOP=4|DISTANCEFROMTOP_FRAC1=500000|COLOR=128|AREACOLOR=8454143|TEXTCOLOR=128|TEXTFONTID=1|TEXTSTYLE=Full|NAME=POR|UNIQUEID=WKEEFSHT|IOTYPE=1|STYLE=3|ARROWKIND=Block & Triangle
+        # RECORD=16|OWNERINDEX=77|OWNERPARTID=-1|SIDE=1|DISTANCEFROMTOP=21|COLOR=128|AREACOLOR=8454143|TEXTCOLOR=128|TEXTFONTID=1|TEXTSTYLE=Full|NAME=Ethernet_IF|HARNESSTYPE=Ethernet|UNIQUEID=TVQYSGEL|STYLE=3|ARROWKIND=Block & Triangle
+        # Sides are: 0=left, 1=right, 2=top, 3=bottom - only left/right tested
+        my $x=$relx;
+        my $y=$sheety-($rely - (($d{'DISTANCEFROMTOP'}*10+($d{DISTANCEFROMTOP_FRAC1}||0)/100000.0)*$f));
+        my $shape=$iotypes{$d{'IOTYPE'} || 0 };
+        my $name=$d{'NAME'};
+        my $orient=0;
+        $orient = 2 if ( ($d{'SIDE'}||0) eq '0' );
+        $orient = 1 if ( ($d{'SIDE'}||0) eq '2' );
+        $orient = 3 if ( ($d{'SIDE'}||0) eq '3' );
+        $x+=$relw if ( $orient == 0 );
+        $y+=$relh if ( $orient % 2 == 1 );
+        $name.="_HARN" if ( defined($d{'HARNESSTYPE'}) ); # Annotated bodge for missing harness feature
+        $dat.="Text HLabel $x $y ${orient} 70 ${shape} ~\n${name}\n";
 	  }
   	  elsif($d{'RECORD'} eq '37') # Entry Wire Line / Bus connector
 	  {
