@@ -54,7 +54,7 @@ our $timestamp=$start_time;  # this value gets decreased every time we need a un
 my %hvmap=("0"=>"H","1"=>"V","2"=>"H","3"=>"V");
 our %uniquereferences=();
 my %myrot=("0"=>"0","90"=>"1","270"=>"2");
-my %iotypes=("0"=>"BiDi","1"=>"Input","2"=>"Output"); # Others unknown yet
+my %iotypes=("0"=>"BiDi","1"=>"Output","2"=>"Input"); # Others unknown yet
 my %partparams=();
 
 #Reads a file with one function
