@@ -385,6 +385,33 @@ EOF
 	return $mirrored?$dirmapmirrored{$_[0]}:$dirmap{$_[0]};
   }
   
+  my %globalparams=();
+  
+  # Preprocess to find references for xrefs - yugh
+  foreach my $b(@a)
+  {
+    #print "b: $b\n";
+    my %d=();
+    my @l=split('\|',$b);
+    foreach my $c(@l)
+    {
+      #print "c: $c\n";
+      if($c=~m/^([^=]*)=(.*)$/s)
+      {
+        #print "$1 -> $2\n";
+        $d{$1}=$2;
+      }
+    }
+    next unless defined($d{'RECORD'});
+    if ( $d{'RECORD'} eq '41' )
+    {
+      if ( !defined($d{'COMPONENTINDEX'}) )
+      {
+        $globalparams{lc($d{'NAME'})} = $d{'TEXT'};
+      }
+    }
+  }
+  
   foreach my $b(@a)
   {
     #print "b: $b\n";
@@ -455,7 +482,13 @@ EOF
         my $fid=4+$globalf{$globalp}++;
         my $o=($d{'ORIENTATION'}||0)*900;
 		my $size=$fontsize{$d{'FONTID'}}*6;
-	    drawcomponent "T $o $x $y $size 0 1 1 \"$d{'TEXT'}\" Normal 0 L B\n";
+        my $value=$d{'TEXT'};
+        if ( substr($value,0,1) eq '=' ) # It's an xref - look it up
+        {
+            my $paramname = substr($value,1);
+            $value = $globalparams{lc($paramname)} || $value;
+        }
+	    drawcomponent "T $o $x $y $size 0 1 1 \"$value\" Normal 0 L B\n";
 	  }
 	  elsif($d{'RECORD'} eq '32') # Sheet Name
 	  {
@@ -784,7 +817,13 @@ EOF
 		my $bold=$fontbold{$d{'FONTID'}}?"12":"0";
 		my $rot=$d{'ORIENTATION'} || $myrot{$fontrotation{$d{'FONTID'}}};
 		#print "FONTROT: $fontrotation{$d{'FONTID'}}\n" if($text=~m/0xA/);
-		my $text=$d{'TEXT'}||""; $text=~s/\~/~~/g; $text=~s/\n/\\n/gs;
+		my $text=$d{'TEXT'}||"";
+        if ( substr($text,0,1) eq '=' ) # It's an xref - look it up
+        {
+            my $paramname = substr($text,1);
+            $text = $globalparams{lc($paramname)} || $text;
+        }
+        $text=~s/\~/~~/g; $text=~s/\n/\\n/gs;
 	    $dat="Text Notes ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." $rot    $size   ~ $bold\n$text\n" if($text ne "" && $text ne " ");
 	  }
 	  elsif($d{'RECORD'} eq '12') # Arc
