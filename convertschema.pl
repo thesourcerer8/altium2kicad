@@ -648,7 +648,22 @@ EOF
 	  
 	  }
 	
+      elsif($d{'RECORD'} eq '3') # Pin symbol
 	  {
+        #|RECORD=3|OWNERINDEX=1989|ISNOTACCESIBLE=T|INDEXINSHEET=9|OWNERPARTID=1|SYMBOL=1|LOCATION.X=1145|LOCATION.Y=821|SCALEFACTOR=10
+        my $x=($d{'LOCATION.X'}*$f)-$relx;
+        my $y=($d{'LOCATION.Y'}*$f)-$rely;
+        ($x,$y)=rotate($x,$y,$partorientation{$globalp});
+        if ( $d{'SYMBOL'} eq '1' )
+        {
+            # A 'Not' symbol - a small circle
+            drawcomponent "C $x $y ".(($d{'SCALEFACTOR'}||10)*$f/5.0)." 0 1 10 N\n";
+        }
+        else
+        {
+            print "WARNING: Pin symbol type $d{'SYMBOL'} not understood - IGNORING!\n";
+        }
+      }
       elsif($d{'RECORD'} eq '6'|| $d{'RECORD'} eq '5') # Polyline or Bezier!
 	  {
         #RECORD=5|OWNERINDEX=183|ISNOTACCESIBLE=T|INDEXINSHEET=12|OWNERPARTID=1|LINEWIDTH=1|COLOR=16711680|LOCATIONCOUNT=2|X1=464|Y1=943|X2=466|Y2=946
