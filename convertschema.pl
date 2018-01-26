@@ -1332,17 +1332,21 @@ EOF
 	  }
 	  elsif($d{'RECORD'} eq '28' || $d{'RECORD'} eq '209') # Text Frame
 	  {
+        sub min ($$) { $_[$_[0] > $_[1]] }
   		my $x=($d{'LOCATION.X'}*$f);
 		my $y=$sheety-($d{'LOCATION.Y'}*$f);
 		#my $x=($d{'LOCATION.X'}*$f)-$relx;
 		#my $y=($d{'LOCATION.Y'}*$f)-$rely;
-        ($x,$y)=rotate($x,$y,$partorientation{$globalp});
-		my $cx=($d{'CORNER.X'}*$f)-$relx;
-		my $cy=($d{'CORNER.Y'}*$f)-$rely;
-		($cx,$cy)=rotate($cx,$cy,$partorientation{$globalp});
-		my $text=$d{'TEXT'}; $text=~s/\~1/\~/g; $text=~s/ /\~/g;
+        #($x,$y)=rotate($x,$y,$partorientation{$globalp});
+		my $cx=($d{'CORNER.X'}*$f);
+		my $cy=$sheety-($d{'CORNER.Y'}*$f);
+		#($cx,$cy)=rotate($cx,$cy,$partorientation{$globalp});
+        my $text=$d{'TEXT'}; $text=~s/\~1/  /g; $text=~s/ /\~/g if ( ($d{'WORDWRAP'}||'N') eq 'N' );
         my $o=$d{'ORIENTATION'} || 0;
-   	    $dat.="Text Label $x $y $o 70 ~\n$text\n";
+        $x=$x<$cx?$x:$cx;
+        $y=$y<$cy?$y:$cy;
+        my $size=$fontsize{$d{'FONTID'}}*6;
+   	    $dat.="Text Label $x $y $o $size ~\n$text\n";
 		#drawcomponent "T 0 $x $y 100 0 1 1 $text 1\n";
 		#!!! Line-break, Alignment, ...
       }	  
