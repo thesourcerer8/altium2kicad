@@ -1134,7 +1134,9 @@ EOF
         my $x=($d{'LOCATION.X'}*$f);
 		my $y=$sheety-($d{'LOCATION.Y'}*$f);
 		my $orientation=$d{'ORIENTATION'} || 0;
-    	$dat.="Text Label $x $y $orientation 70 ~\n$d{TEXT}\n" if($d{'TEXT'} ne "");
+        my $size=$fontsize{$d{'FONTID'}}*6;
+        my $name=$d{'TEXT'}||"";  $name=~s/((.\\)+)/\~$1\~/g; $name=~s/(.)\\/$1/g; 
+    	$dat.="Text Label $x $y $orientation $size ~\n$name\n" if($d{'TEXT'} ne "");
       }
 	  elsif($d{'RECORD'} eq '34') #Designator
 	  {
@@ -1380,9 +1382,9 @@ EOF
         my $y=$sheety-($d{'LOCATION.Y'}*$f);
         my $orientation=$d{'ALIGNMENT'}+1 || 0; # Altium seems to ignore this for harnesses?
         my $shape=$iotypes{$d{'IOTYPE'} || 0 }; # Altium never seems to write out IOTYPE=0 for BiDi's
-        my $name=$d{'NAME'};
         $name.="_HARN" if ( defined($d{'HARNESSTYPE'}) ); # Annotated bodge for missing harness feature
         $dat.="Text GLabel $x $y $orientation 70 ${shape} ~\n${name}\n";
+        my $name=$d{'NAME'}; $name=~s/((.\\)+)/\~$1\~/g; $name=~s/(.)\\/$1/g; 
 	  }
 	  elsif($d{'RECORD'} eq '16') # sheet entry
 	  {
@@ -1392,7 +1394,7 @@ EOF
         my $x=$relx;
         my $y=$sheety-($rely - (($d{'DISTANCEFROMTOP'}*10+($d{DISTANCEFROMTOP_FRAC1}||0)/100000.0)*$f));
         my $shape=$iotypes{$d{'IOTYPE'} || 0 };
-        my $name=$d{'NAME'};
+        my $name=$d{'NAME'};  $name=~s/((.\\)+)/\~$1\~/g; $name=~s/(.)\\/$1/g; 
         my $orient=0;
         $orient = 2 if ( ($d{'SIDE'}||0) eq '0' );
         $orient = 1 if ( ($d{'SIDE'}||0) eq '2' );
