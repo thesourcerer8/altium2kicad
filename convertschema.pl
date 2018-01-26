@@ -709,18 +709,20 @@ EOF
 		my $LINEWIDTH=$d{LINEWIDTH}||1;
 		drawcomponent "C $x $y ".(($d{'RADIUS'}||0)*$f)." 0 1 $LINEWIDTH"."0 $fill\n";
 	  }
-      elsif($d{'RECORD'} eq '12' || $d{'RECORD'} eq '11') # Arc or Elliptical arc (we ignore the secondary axis as KiCad doesn't support it)
+      elsif($d{'RECORD'} eq '12' || $d{'RECORD'} eq '11') # Arc or Elliptical arc (we average the axes as KiCad doesn't support it)
 	  {
 	    #RECORD=12|ENDANGLE=180.000|LINEWIDTH=1|LOCATION.X=1065|LOCATION.Y=700|OWNERINDEX=738|RADIUS=5|STARTANGLE=90.000|		
         my $x=($d{'LOCATION.X'}*$f)-$relx;
 		my $y=($d{'LOCATION.Y'}*$f)-$rely;
 		($x,$y)=rotate($x,$y,$partorientation{$globalp});
-		my $r=int(($d{'RADIUS'}||0)+(($d{'RADIUS_FRAC'}||0)/100000.0))*$f;
+		my $r=int((($d{'RADIUS'}||0)+(($d{'RADIUS_FRAC'}||0)/100000.0))*$f);
 		my $sa="0"; $sa="$1$2" if(defined($d{'STARTANGLE'}) && $d{'STARTANGLE'}=~m/(\d+)\.(\d)(\d+)/);
 		my $ea="3600"; $ea="$1$2" if(defined($d{'ENDANGLE'}) && $d{'ENDANGLE'}=~m/(\d+)\.(\d)(\d+)/);
         if ( $d{'RECORD'} eq '11' )
         {
-            print "WARNING: Elliptical arcs are not supported in KiCad - creating circular arc using primary radius only\n";
+            my $sc=int((($d{'SECONDARYRADIUS'}||0)+(($d{'SECONDARYRADIUS_FRAC'}||0)/100000.0))*$f);
+            $r=($r+$sc)/2;
+            print "WARNING: Elliptical arcs are not supported in KiCad - creating circular arc using average radius instead\n";
         }
         $ea+=3600 if ( $sa > $ea );
 		my @liste=();
