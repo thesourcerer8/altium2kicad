@@ -1159,7 +1159,7 @@ EOF
         #RECORD=41|OWNERINDEX=1293|INDEXINSHEET=-1|OWNERPARTID=-1|LOCATION.X=845|LOCATION.Y=310|COLOR=8388608|FONTID=1|TEXT==Value|NAME=Comment|UNIQUEID=ROAWIONW
 		#my $ts=uniqueid2timestamp($d{'UNIQUEID'});
 	    #print "UNIQ: $d{UNIQUEID} -> $ts\n";
-        $partparams{$d{'NAME'}}=$d{'TEXT'};
+        $partparams{lc($d{'NAME'})}=$d{'TEXT'};
         if ( !( defined($d{'ISHIDDEN'}) && $d{'ISHIDDEN'} eq 'T') )
         {
           if(($d{'NAME'}||"") eq "Comment")
@@ -1173,7 +1173,7 @@ EOF
                 if ( substr($value,0,1) eq '=' ) # It's an xref - look it up
                 {
                     my $paramname = substr($value,1);
-                    $value = $partparams{$paramname} || $value;
+                    $value = $partparams{lc($paramname)} || $value;
                 }
                 push @{$parts{$globalp}},"F 1 \"$value\" $orient $x $y 60  0000 $dir\n"; #L BNN
                 push @{$parts{$globalp}},"F 2 \"\" H $x $y 60  0000 C CNN\n";
