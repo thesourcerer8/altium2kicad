@@ -1204,7 +1204,7 @@ EOF
               push @{$parts{$globalp}},"F 3 \"\" H $x $y 60  0000 C CNN\n";
               }
           }
-          elsif(defined($d{'LOCATION.X'}))
+          elsif(defined($d{'LOCATION.X'}) && $d{'LOCATION.Y'} >=0 )
           {
             #print "Field $d{'NAME'} found on line 1093\n";
             my $x=(($d{'LOCATION.X'}||0)*$f);
