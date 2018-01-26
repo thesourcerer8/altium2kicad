@@ -54,7 +54,7 @@ our $timestamp=$start_time;  # this value gets decreased every time we need a un
 my %hvmap=("0"=>"H","1"=>"V","2"=>"H","3"=>"V");
 our %uniquereferences=();
 my %myrot=("0"=>"0","90"=>"1","270"=>"2");
-my %iotypes=("0"=>"BiDi","1"=>"Output","2"=>"Input"); # Others unknown yet
+my %iotypes=("0"=>"BiDi","1"=>"Output","2"=>"Input","3"=>"BiDi"); # Others unknown yet (0 is really 'unspecified' in Altium)
 my %partparams=();
 
 #Reads a file with one function
@@ -1377,14 +1377,17 @@ EOF
         #RECORD=18|INDEXINSHEET=75|OWNERPARTID=-1|STYLE=3|IOTYPE=1|ALIGNMENT=1|WIDTH=60|LOCATION.X=510|LOCATION.Y=990|COLOR=128|FONTID=1|AREACOLOR=8454143|TEXTCOLOR=128|NAME=ADC_VIN|UNIQUEID=ANXOUWEQ|HEIGHT=10
         #RECORD=18|INDEXINSHEET=73|OWNERPARTID=-1|STYLE=3|ALIGNMENT=1|WIDTH=45|LOCATION.X=625|LOCATION.Y=325|COLOR=128|FONTID=1|AREACOLOR=8454143|TEXTCOLOR=128|NAME=GPIO_IF|HARNESSTYPE=GPIO|UNIQUEID=RNYSNNOD|HEIGHT=10
         # No support for HARNESSTYPE yet (KiCad doesn't have such a feature)  We could instantiate lots of Ports as per the .Hardness file definition, but how would we lay them out?
-        # Location for Input/Output works, but for BiDi it doesn't connect - need some manual adjustment, as we can't use the WIDTH property in a KiCad global label
         my $x=($d{'LOCATION.X'}*$f);
         my $y=$sheety-($d{'LOCATION.Y'}*$f);
-        my $orientation=$d{'ALIGNMENT'}+1 || 0; # Altium seems to ignore this for harnesses?
+        my $orientation=($d{'ALIGNMENT'}||0)>2 ? 0:2; # Altium seems to ignore this for harnesses?
         my $shape=$iotypes{$d{'IOTYPE'} || 0 }; # Altium never seems to write out IOTYPE=0 for BiDi's
-        $name.="_HARN" if ( defined($d{'HARNESSTYPE'}) ); # Annotated bodge for missing harness feature
-        $dat.="Text GLabel $x $y $orientation 70 ${shape} ~\n${name}\n";
+        #$x += $d{'WIDTH'}*10 ; # WRONG for ports on the "right side" of components (which need to be taggead as 'left' types too) - but we can't know that, as it's not encoded in the Altium file!
+        print "WARNING: Port orientation may be incorrect and thus unconnected - ports on the 'left' of wires may need moving and orientation flipping\n";
         my $name=$d{'NAME'}; $name=~s/((.\\)+)/\~$1\~/g; $name=~s/(.)\\/$1/g; 
+        my $labeltype="GLabel";
+        my $size=$fontsize{$d{'FONTID'}}*6;
+        $name.="_HARN", $labeltype="HLabel" if ( defined($d{'HARNESSTYPE'}) ); # Annotated bodge for missing harness feature
+        $dat.="Text $labeltype $x $y $orientation $size ${shape} ~\n${name}\n";
 	  }
 	  elsif($d{'RECORD'} eq '16') # sheet entry
 	  {
@@ -1392,17 +1395,19 @@ EOF
         # RECORD=16|OWNERINDEX=77|OWNERPARTID=-1|SIDE=1|DISTANCEFROMTOP=21|COLOR=128|AREACOLOR=8454143|TEXTCOLOR=128|TEXTFONTID=1|TEXTSTYLE=Full|NAME=Ethernet_IF|HARNESSTYPE=Ethernet|UNIQUEID=TVQYSGEL|STYLE=3|ARROWKIND=Block & Triangle
         # Sides are: 0=left, 1=right, 2=top, 3=bottom - only left/right tested
         my $x=$relx;
-        my $y=$sheety-($rely - (($d{'DISTANCEFROMTOP'}*10+($d{DISTANCEFROMTOP_FRAC1}||0)/100000.0)*$f));
+        my $y=$sheety-$rely;
+        my $distance=(($d{'DISTANCEFROMTOP'}||0)*10+($d{'DISTANCEFROMTOP_FRAC1'}||0)/100000.0)*$f;
+        my $side=$d{'SIDE'}||0;
         my $shape=$iotypes{$d{'IOTYPE'} || 0 };
         my $name=$d{'NAME'};  $name=~s/((.\\)+)/\~$1\~/g; $name=~s/(.)\\/$1/g; 
         my $orient=0;
-        $orient = 2 if ( ($d{'SIDE'}||0) eq '0' );
-        $orient = 1 if ( ($d{'SIDE'}||0) eq '2' );
-        $orient = 3 if ( ($d{'SIDE'}||0) eq '3' );
-        $x+=$relw if ( $orient == 0 );
-        $y+=$relh if ( $orient % 2 == 1 );
+        $orient = 2, $y+=$distance            if ( $side eq '0' );
+        $orient = 0, $y+=$distance, $x+=$relw if ( $side eq '1' );
+        $orient = 3, $x+=$distance            if ( $side eq '2' );
+        $orient = 1, $x+=$distance, $y+=$relh if ( $side eq '3' );
         $name.="_HARN" if ( defined($d{'HARNESSTYPE'}) ); # Annotated bodge for missing harness feature
-        $dat.="Text HLabel $x $y ${orient} 70 ${shape} ~\n${name}\n";
+        my $size=$fontsize{$d{'TEXTFONTID'}}*6;
+        $dat.="Text HLabel $x $y ${orient} $size ${shape} ~\n${name}\n";
 	  }
   	  elsif($d{'RECORD'} eq '37') # Entry Wire Line / Bus connector
 	  {
