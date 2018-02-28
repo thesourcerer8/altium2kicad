@@ -194,6 +194,21 @@ sub bin2hex($)
   return $value;
 }
 
+# This function converts a binary string to its hex representation for debugging
+sub bin2hexLF($)
+{
+  my $orig=$_[0];
+  my $value="";
+  return "" if(!defined($orig) || $orig eq "");
+  foreach(0 .. length($orig)-1)
+  {
+    $value.="\n##" if(($_ % 100)==99);
+    $value.=sprintf("%02X",unpack("C",substr($orig,$_,1)));
+  }
+  return $value;
+}
+
+
 # This function returns, whether 2 values are near each other
 sub near($$)
 {
@@ -1886,7 +1901,7 @@ EOF
   #The results are also added to %pads
   HandleBinFile("$short/Root Entry/ComponentBodies6/Data.dat","",23,16, sub 
   { 
-    print OUT "#ComponentBodies#".escapeCRLF($_[3]).": ".bin2hex($_[2])." ".escapeCRLF($_[1])."\n" if($annotate);
+    print OUT "#ComponentBodies#".escapeCRLF($_[3]).": ".bin2hexLF($_[2])." ".escapeCRLF($_[1])."\n" if($annotate);
 
     my %d=%{$_[0]};
 	my $header=$_[2];
@@ -1983,7 +1998,7 @@ if(0 && defined($stp));
         if(defined($modelhints{$wrl}))
         {
 		  #print "OK: $wrl\n";
-          $pads{$component}.="#921 component:$component id:$id nr:$_[3]\n#".join("|",map { "$_=$_[0]{$_}" } sort keys %{$_[0]})." 0:".bin2hex($header)."\n    (model \"$wrl\"\n".$modelhints{$wrl}."\n";
+          $pads{$component}.="#921 component:$component id:$id nr:$_[3]\n#".join("|",map { "$_=$_[0]{$_}" } sort keys %{$_[0]})." 0:".bin2hexLF($header)."\n    (model \"$wrl\"\n".$modelhints{$wrl}."\n";
         }		
 		else
 		{
@@ -2037,14 +2052,14 @@ EOF
   HandleBinFile("$short/Root Entry/ShapeBasedComponentBodies6/Data.dat","\x0c",0,0, sub 
   { 
     my $value=$_[1];
-    print OUT "#ShapeBasedComponentBodies#".escapeCRLF($_[3]).": ".bin2hex($value)."\n" if($annotate);
+    print OUT "#ShapeBasedComponentBodies#".escapeCRLF($_[3]).": ".bin2hexLF($value)."\n" if($annotate);
     #print "#ShapeBasedComponentBodies#".$_[3]."\n" if($annotate);
 	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
 	my $component=unpack("s",substr($value,7,2));
 	#print "Shape Component: $component\n";
 	assertdata("ShapeBasedComponentBody",$_[3],"COMPONENT",$component);
 	$rawbinary{"ShapeBasedComponentBody"}{$_[3]}=$_[2];
-    print OUT "# ".bin2hex($unknownheader)."\n" if($annotate);
+    print OUT "# ".bin2hexLF($unknownheader)."\n" if($annotate);
     my $textlen=unpack("l",substr($value,18,4));
 	my $text=substr($value,22,$textlen);$text=~s/\x00$//;
 	assertdata("ShapeBasedComponentBody",$_[3],"TEXT",$text);
@@ -2352,7 +2367,7 @@ EOF
 	my $x2=sprintf("%.5f",$x+cos($earad)*$r);
 	my $y2=sprintf("%.5f",$y+sin($earad)*$r);
 
-	print OUT "#Arc#$_[3]: ".bin2hex($value)."\n" if($annotate);
+	print OUT "#Arc#$_[3]: ".bin2hexLF($value)."\n" if($annotate);
 	print OUT "#Arc#$_[3]: xorig:$xorig yorig:$yorig layer:$layerorig component:$component\n" if($annotate);
 	print OUT "#Arc#$_[3]: x:$x y:$y radius:$r layer:$layer sa:$sa ea:$ea sarad:$sarad earad:$earad width:$width x1:$x1 x2:$x2 y1:$y1 y2:$y2\n" if($annotate);
 	if(($r*1.0)<=($width/2.0))
@@ -2391,7 +2406,7 @@ EOF
   { 
     my $value=$_[1];
 	$rawbinary{"Via"}{$_[3]}=$_[1];
-	print OUT "#Vias#".escapeCRLF($_[3]).": ".bin2hex($value)."\n" if($annotate);
+	print OUT "#Vias#".escapeCRLF($_[3]).": ".bin2hexLF($value)."\n" if($annotate);
     my $debug=($count<100);
     my $x=sprintf("%.5f",-$xmove+bmil2mm(substr($value,13,4)));
 	assertdata("Via",$_[3],"X",bmil2(substr($value,13,4)));
@@ -2471,7 +2486,7 @@ EOF
  	      #print "  (segment (start $x1 $y1) (end $x2 $y2) (width $width) (layer B.Paste) (net 1))\n";
      	  #print OUT "  (segment (start $x1 $y1) (end $x1 2000) (width $width) (layer B.Paste) (net 1))\n";
 	      #print OUT "  (segment (start $x2 $y2) (end $x2 2000) (width $width) (layer B.Paste) (net 1))\n";
-	      #print "DEBUG: ".bin2hex($value)."\n\n";
+	      #print "DEBUG: ".bin2hexLF($value)."\n\n";
 		}
 	  }
 	}
@@ -2556,7 +2571,7 @@ EOF
   HandleBinFile("$short/Root Entry/Tracks6/Data.dat","\x04",0,0, sub 
   { 
     my $value=$_[1];
-	print OUT "#Tracks#".escapeCRLF($_[3]).": ".bin2hex($value)."\n" if($annotate);
+	print OUT "#Tracks#".escapeCRLF($_[3]).": ".bin2hexLF($value)."\n" if($annotate);
     $rawbinary{"Track"}{$_[3]}=$_[1];
     my $net=unpack("s",substr($value,3,2))+2;	 
 	assertdata("Track",$_[3],"RECORD","Track");
@@ -2697,7 +2712,7 @@ EOF
   HandleBinFile("$short/Root Entry/Fills6/Data.dat","\x06",0,0, sub 
   { 
     my $value=$_[1];
-    print OUT "#Fills#".escapeCRLF($_[3]).": ".bin2hex($value)."\n" if($annotate);
+    print OUT "#Fills#".escapeCRLF($_[3]).": ".bin2hexLF($value)."\n" if($annotate);
     $rawbinary{"Fill"}{$_[3]}=$_[1];
 	my $component=unpack("s",substr($value,7,2));
 	assertdata("Fill",$_[3],"COMPONENT",unpack("s",substr($value,7,2))) if($component>=0);
@@ -2748,7 +2763,7 @@ EOF
   { 
     my $value=$_[1];
 	$rawbinary{"Region"}{$_[3]}=$value;
-    print OUT "#Regions#".escapeCRLF($_[3]).": ".bin2hex(substr($value,0,1000))."\n" if($annotate);
+    print OUT "#Regions#".escapeCRLF($_[3]).": ".bin2hexLF(substr($value,0,1000))."\n" if($annotate);
 	my $unknownheader=substr($value,0,18); # I do not know yet, what the information in the header could mean
 
 
@@ -3059,7 +3074,7 @@ EOF
 	  my $text=substr($content,$pos+1,$textlen-1); 
   	  assertdata("Text",$counter,"TEXT",$text);
 	  $pos+=$textlen;
-	  print OUT "#Texts#".$opos.": ".bin2hex(substr($content,$opos,$pos-$opos))."\n";# if($annotate);
+	  print OUT "#Texts#".$opos.": ".bin2hexLF(substr($content,$opos,$pos-$opos))."\n";# if($annotate);
 	  print OUT "#Layer: $olayer Component:$component COMMENT=$comment DESIGNATOR=$designator\n";# if($annotate);
 	  print OUT "#Commenton: ".($commenton{$component}||"")." nameon: ".($nameon{$component}||"")."\n";#	  if($component>=0 && $annotate);
 	  print OUT "#Mirror: $mirror\n";# if($annotate);
