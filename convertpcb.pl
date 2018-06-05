@@ -36,7 +36,7 @@ use Cwd qw(abs_path cwd getcwd);
 # Correct positioning for Cones, Cylinders, ... 
 
 
-my $annotate=1;
+my $annotate=0;
 
 my $absoluteWRLpath=0;
 
@@ -1479,9 +1479,16 @@ EOF
 	  #$component=$uniquemap{"Pad"}{$counter} if($component==-1);
 	  #print "Component: $component\n";
 	  
-	  $pads{$component}.=<<EOF
+	  if($annotate)
+	  {
+	    $pads{$component}.=<<EOF
 #1309 counter:$counter pos:$opos(0x$oposhex) type:$otype net:$onet
 #$dump
+EOF
+        ;
+	  }
+      $name=~s/\\//g;
+	  $pads{$component}.=<<EOF
     (pad "$name" $tp $type (at $x1 $y1$mdir) (size $sx $sy) $drill
       (layers $layer) $nettext
     )
@@ -1838,6 +1845,7 @@ foreach my $filename(@files)
 	assertdata("Net",$_[3],"ID",$_[3]);
 	assertdata("Net",$_[3],"INDEXFORSAVE",$_[3]);
 	assertdata("Net",$_[3],$_,$_[0]{$_}) foreach(keys %{$_[0]});
+	$name=~s/\\//g;
 	$netnames{$line}=$name;
     $nets.= "  (net $line \"$name\")\n";
   });
@@ -2365,7 +2373,7 @@ EOF
   our %shapes=();
   mkdir "wrlshp";
   
-  print OUT "#Now handling Shape Based Bodies ...\n";
+  print OUT "#Now handling Shape Based Bodies ...\n" if($annotate);
   # The results are also added to the %pads and only printed later on
   HandleBinFile("$short/Root Entry/ShapeBasedComponentBodies6/Data.dat","\x0c",0,0, sub 
   { 
@@ -3070,7 +3078,7 @@ EOF
   }
   print VOUT ")\n";
   close VOUT;
-  print OUT "#Finished handling Shape Based Bodies.\n";
+  print OUT "#Finished handling Shape Based Bodies.\n" if($annotate);
   
   # Converting from UCS2 to UTF-8 by removing all 0-Bytes
   sub ucs2utf($)
@@ -3168,10 +3176,10 @@ EOF
 	  my $text=substr($content,$pos+1,$textlen-1); 
   	  assertdata("Text",$counter,"TEXT",$text);
 	  $pos+=$textlen;
-	  print OUT "#Texts#".$opos.": ".bin2hexLF(substr($content,$opos,$pos-$opos))."\n";# if($annotate);
-	  print OUT "#Layer: $olayer Component:$component COMMENT=$comment DESIGNATOR=$designator\n";# if($annotate);
-	  print OUT "#Commenton: ".($commenton{$component}||"")." nameon: ".($nameon{$component}||"")."\n";#	  if($component>=0 && $annotate);
-	  print OUT "#Mirror: $mirror\n";# if($annotate);
+	  print OUT "#Texts#".$opos.": ".bin2hexLF(substr($content,$opos,$pos-$opos))."\n" if($annotate);
+	  print OUT "#Layer: $olayer Component:$component COMMENT=$comment DESIGNATOR=$designator\n" if($annotate);
+	  print OUT "#Commenton: ".($commenton{$component}||"")." nameon: ".($nameon{$component}||"")."\n" if($component>=0 && $annotate);
+	  print OUT "#Mirror: $mirror\n" if($annotate);
 	  $mirrors{$mirror}++;
 	  my $mirrortext=$mirror?" (justify mirror)":"";
 	  print OUT "#hide: $hide (".escapeCRLF($text).")\n" if($annotate);
