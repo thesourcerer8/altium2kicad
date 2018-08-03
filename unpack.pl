@@ -3,6 +3,7 @@ use strict;
 use Compress::Zlib;
 use Cwd qw();
 use Encode qw/encode decode/;
+use File::Glob qw(:globally :nocase);
 
 # This tool unpacks Microsoft Composite Document File V2
 # It was developed based on the documentation from 
