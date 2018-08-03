@@ -152,7 +152,7 @@ foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'), glob('"*.sch"'), glo
   my $short=$filename; 
   my $protel=($filename=~m/Root Entry\/FileHeader\.dat/)?0:1;
   $short=~s/\/Root Entry\/FileHeader\.dat$//;
-  $short=~s/\.sch$/-kicad/;
+  $short=~s/\.sch$/-kicad/i;
   next if -d "$short/Root Entry/Arcs6"; # Skipping PCB files
   open IN,"<$filename";
   undef $/;
