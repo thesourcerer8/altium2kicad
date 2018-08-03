@@ -6,6 +6,7 @@ use lib "$FindBin::Bin";
 use Math::Geometry::Planar;
 use Data::Dumper;
 use Cwd qw(abs_path cwd getcwd);
+use File::Glob qw(:globally :nocase);
 #use Math::Bezier;
 
 # Things that are missing in KiCad:
