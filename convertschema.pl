@@ -4,6 +4,7 @@ use FindBin;
 use lib "$FindBin::Bin";
 use Math::Bezier;
 use POSIX qw(strftime);
+use File::Glob qw(:globally :nocase);
 
 my $searchimagemagick="\\Program Files\\ImageMagick-6.8.9-Q16\\";
 
