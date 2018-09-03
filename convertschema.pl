@@ -1171,12 +1171,13 @@ EOF
             #$dat.="Text Label $x $y $orientation 70 ~\n$d{TEXT}\n";
             if ( defined($d{'TEXT'}) )
             {
-                my $value = $d{'TEXT'}; $value=~s/"/'/g;
+                my $value = $d{'TEXT'}; 
                 if ( substr($value,0,1) eq '=' ) # It's an xref - look it up
                 {
                     my $paramname = substr($value,1);
                     $value = $partparams{lc($paramname)} || $value;
                 }
+				$value=~s/"/'/g;
                 push @{$parts{$globalp}},"F 1 \"$value\" $orient $x $y 60  0000 $dir\n"; #L BNN
                 push @{$parts{$globalp}},"F 2 \"\" H $x $y 60  0000 C CNN\n";
                 push @{$parts{$globalp}},"F 3 \"\" H $x $y 60  0000 C CNN\n";
