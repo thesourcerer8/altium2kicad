@@ -495,7 +495,8 @@ EOF
 	  {
 	    #|RECORD=32|LOCATION.X=40|TEXT=U_02cpu_power|OWNERINDEX=42|OWNERPARTID=-1|COLOR=8388608|INDEXINSHEET=-1|LOCATION.Y=240|FONTID=1
 		my $f=$globalf{$globalp}++;
-	    $dat.="F $f \"$d{'TEXT'}\" H ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)."\n";		
+		my $TEXT=$d{'TEXT'}; $TEXT=~s/"/'/g;
+	    $dat.="F $f \"$TEXT\" H ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)."\n";		
 	  }
 	  elsif($d{'RECORD'} eq '13') # Line
 	  {
