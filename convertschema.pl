@@ -868,7 +868,7 @@ EOF
 	    #|RECORD=32|LOCATION.X=40|TEXT=U_02cpu_power|OWNERINDEX=42|OWNERPARTID=-1|COLOR=8388608|INDEXINSHEET=-1|LOCATION.Y=240|FONTID=1
 		#These Texts are transferred to the Sheet Symbol, and do not need to be duplicated here:
 	    #$dat="Text Label ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." 0    60   ~ 0\n".$d{'TEXT'}."\n";
-        $prevname=$d{'TEXT'};
+        $prevname=$d{'TEXT'}; $prevname=~s/"/'/g;
       }
 	  elsif($d{'RECORD'} eq '33') # Sheet Symbol
 	  {
@@ -1146,7 +1146,7 @@ EOF
 	        my ($x, $y, $orient, $dir) = get_f_position(%d, $f, $partorientation{$globalp}, $relx, $rely, $sheety);
 
 		my $desig="IC"; $desig=$1 if($d{'TEXT'}=~m/^([A-Z]*)/);
-		my $ref=uniquify($d{'TEXT'});
+		my $ref=uniquify($d{'TEXT'}); $ref=~s/"/'/g;
 
 		push @{$parts{$globalp}},"F 0 \"$ref\" $orient $x $y 60  0000 $dir\n"; # L BNN\n";
 
@@ -1171,7 +1171,7 @@ EOF
             #$dat.="Text Label $x $y $orientation 70 ~\n$d{TEXT}\n";
             if ( defined($d{'TEXT'}) )
             {
-                my $value = $d{'TEXT'};
+                my $value = $d{'TEXT'}; $value=~s/"/'/g;
                 if ( substr($value,0,1) eq '=' ) # It's an xref - look it up
                 {
                     my $paramname = substr($value,1);
@@ -1200,7 +1200,7 @@ EOF
               my ($x, $y, $orient, $dir) = get_f_position(%d, $f, $partorientation{$globalp}, $relx, $rely, $sheety);
               if (defined($d{'TEXT'}))
               {
-              my $value = $d{'TEXT'};
+              my $value = $d{'TEXT'}; $value=~s/"/'/g;
               push @{$parts{$globalp}},"F 1 \"$value\" $orient $x $y 60  0000 $dir\n"; #L BNN
               push @{$parts{$globalp}},"F 2 \"\" H $x $y 60  0000 C CNN\n";
               push @{$parts{$globalp}},"F 3 \"\" H $x $y 60  0000 C CNN\n";
@@ -1216,7 +1216,9 @@ EOF
             {
               #print "globalp: $globalp OWNERINDEX: $d{OWNERINDEX}\n" if($d{'NAME'} eq "MPN"); I am not sure, whether the association through globalp is correct here
               my $counter=$partstextcounter{$globalp} || 4;
-              push @{$parts{$globalp}},"F $counter \"".($d{'TEXT'}||"")."\" V 1400 2000 60  0001 C CNN \"".($d{'NAME'}||"")."\"\n";
+			  my $TEXT=$d{'TEXT'}||""; $TEXT=~s/"/'/g;
+			  my $NAME=$d{'NAME'}||""; $NAME=~s/"/'/g;
+              push @{$parts{$globalp}},"F $counter \"$TEXT\" V 1400 2000 60  0001 C CNN \"$NAME\"\n";
               $partstextcounter{$globalp}=$counter+1;
             }
             $dat.="Text Label $x $y $o 70 ~\n$d{TEXT}\n" if(defined($d{'TEXT'}) && $d{'TEXT'} ne "");
