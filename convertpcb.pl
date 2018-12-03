@@ -1117,7 +1117,7 @@ sub HandleArc($$$$) # $filename,$value,?,$data   (\%d,$data,$header,$line);
 		print OUT "#Arc#$_[3]: WARNING: width/2 exceeds radius*1.01 !\n" if($annotate);
 		$width=$r/2.0;
 	}
-    print OUT "  (gr_arc (start $x $y) (end $x1 $y1) (angle $angle) (layer $layer) (width $width))\n" if($annotate);
+    print OUT "  (gr_arc (start $x $y) (end $x1 $y1) (angle $angle) (layer $layer) (width $width))\n";
 	#print OUT "  (gr_text \"1\" (at $x1 $y1) (layer $layer))\n";
 	#print OUT "  (gr_text \"2\" (at $x2 $y2) (layer $layer))\n";
 	
