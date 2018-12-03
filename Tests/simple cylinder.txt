@@ -1,0 +1,12 @@
+ This board has one 3D shape:
+-3d model type: Cylinder
+-Radius: 3mm
+-Height: 20mm
+-Rotation X: 30 degrees
+-Rotation Y: 50 degrees
+-Rotation Z: 70 degrees
+-Standoff Height: 0mm
+
+coordinates on the board:
+X=50mm
+Y=40mm
