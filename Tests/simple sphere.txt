@@ -1,0 +1,8 @@
+This board has one 3D shape:
+-3d model type: Shpere
+-Radius: 5mm
+-Standoff Height: 7mm
+
+coordinates on the board:
+X=55mm
+Y=110mm
