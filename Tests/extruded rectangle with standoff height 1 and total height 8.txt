@@ -1,0 +1,11 @@
+ This board has 4 lines and one 3D shape:
+-3d model type: extruded
+-Overall height: 8mm
+-Standoff Height: 1mm
+coordinates of the 3D shape and the lines on the board:
+X=60mm to x=80mm
+Y=70mm to Y=85mm
+
+All lines:
+Layer: Top overlay
+Net: No net

@@ -1,0 +1,16 @@
+This board has 3 pads and one 3D shape:
+-3d model type: extruded
+-Overall height: 10mm
+-Standoff Height: 0mm
+coordinates of the 3D shape on the board:
+X=70mm to x=80mm
+Y=95mm to Y=110mm
+
+pad1:
+X=70mm Y=92mm Xsize=1.524mm Ysize=1.524mm Hole size=0.762mm
+
+Pad2:
+X=75mm Y=90mm Xsize=1.524mm Ysize=1.524mm Hole size=0.762mm
+
+Pad3:
+X=81mm Y=88mm Xsize=1.524mm Ysize=1.524mm Hole size=0.762mm

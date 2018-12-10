@@ -1,0 +1,8 @@
+This board has one 3D shape:
+-3d model type: extruded
+-Overall height: 17mm
+-Standoff Height: 0mm
+
+coordinates on the board:
+X=30mm to x=40mm
+Y=115mm to Y=125mm

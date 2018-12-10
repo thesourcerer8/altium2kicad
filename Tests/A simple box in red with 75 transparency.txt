@@ -1,0 +1,10 @@
+This board has one 3D shape:
+-3d model type: extruded
+-Overall height: 17mm
+-Standoff Height: 0mm
+-3D Color: Red (Basic 227)
+-3D Color Opacity: slider one tick from the left (almost invisible)
+
+coordinates on the board:
+X=35mm to x=50mm
+Y=35mm to Y=45mm

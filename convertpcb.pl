@@ -1117,7 +1117,7 @@ sub HandleArc($$$$) # $filename,$value,?,$data   (\%d,$data,$header,$line);
 		print OUT "#Arc#$_[3]: WARNING: width/2 exceeds radius*1.01 !\n" if($annotate);
 		$width=$r/2.0;
 	}
-    print OUT "  (gr_arc (start $x $y) (end $x1 $y1) (angle $angle) (layer $layer) (width $width))\n" if($annotate);
+    print OUT "  (gr_arc (start $x $y) (end $x1 $y1) (angle $angle) (layer $layer) (width $width))\n";
 	#print OUT "  (gr_text \"1\" (at $x1 $y1) (layer $layer))\n";
 	#print OUT "  (gr_text \"2\" (at $x2 $y2) (layer $layer))\n";
 	
@@ -2603,6 +2603,7 @@ EOF
 	my $PATTERN=$d{'PATTERN'};
 	my $SOURCEDESCRIPTION=$d{'SOURCEDESCRIPTION'}||""; $SOURCEDESCRIPTION=~s/"/\\"/g;
 	my $FOOTPRINTDESCRIPTION=$d{'FOOTPRINTDESCRIPTION'}||""; $FOOTPRINTDESCRIPTION=~s/"/\\"/g;
+	my $SOURCEDESIGNATOR=$d{'SOURCEDESIGNATOR'}||""; $SOURCEDESIGNATOR=~s/"/\\"/g;
     print OUT <<EOF
  (module "$PATTERN" (layer $layer) (tedit 4289BEAB) (tstamp 539EEDBF)
     (at $atx $aty)
@@ -2611,10 +2612,10 @@ EOF
 	(fp_text reference "$stp" (at 0 0) (layer F.SilkS) hide
       (effects (font (thickness 0.05)))
     )
-    (fp_text value "$FOOTPRINTDESCRIPTION" (at 0 0) (layer F.SilkS) hide
+    (fp_text value "$SOURCEDESIGNATOR" (at 0 0) (layer F.SilkS)
       (effects (font (thickness 0.05)))
     )
-	(fp_text value "$SOURCEDESCRIPTION" (at 0 0) (layer F.SilkS)
+	(fp_text value "$SOURCEDESCRIPTION" (at 0 0) (layer F.SilkS) hide
       (effects (font (thickness 0.05)))
     )
 
