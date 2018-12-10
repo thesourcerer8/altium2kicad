@@ -2603,6 +2603,7 @@ EOF
 	my $PATTERN=$d{'PATTERN'};
 	my $SOURCEDESCRIPTION=$d{'SOURCEDESCRIPTION'}||""; $SOURCEDESCRIPTION=~s/"/\\"/g;
 	my $FOOTPRINTDESCRIPTION=$d{'FOOTPRINTDESCRIPTION'}||""; $FOOTPRINTDESCRIPTION=~s/"/\\"/g;
+	my $SOURCEDESIGNATOR=$d{'SOURCEDESIGNATOR'}||""; $SOURCEDESIGNATOR=~s/"/\\"/g;
     print OUT <<EOF
  (module "$PATTERN" (layer $layer) (tedit 4289BEAB) (tstamp 539EEDBF)
     (at $atx $aty)
@@ -2611,10 +2612,10 @@ EOF
 	(fp_text reference "$stp" (at 0 0) (layer F.SilkS) hide
       (effects (font (thickness 0.05)))
     )
-    (fp_text value "$FOOTPRINTDESCRIPTION" (at 0 0) (layer F.SilkS) hide
+    (fp_text value "$SOURCEDESIGNATOR" (at 0 0) (layer F.SilkS)
       (effects (font (thickness 0.05)))
     )
-	(fp_text value "$SOURCEDESCRIPTION" (at 0 0) (layer F.SilkS)
+	(fp_text value "$SOURCEDESCRIPTION" (at 0 0) (layer F.SilkS) hide
       (effects (font (thickness 0.05)))
     )
 
