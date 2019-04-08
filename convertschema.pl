@@ -1396,7 +1396,7 @@ EOF
         my $labeltype="GLabel";
         my $size=$fontsize{$d{'FONTID'}}*6;
         $name.="_HARN", $labeltype="HLabel" if ( defined($d{'HARNESSTYPE'}) ); # Annotated bodge for missing harness feature
-        $dat.="Text $labeltype $x $y $orientation $size ${shape} ~\n${name}\n";
+        $dat.="Text $labeltype ".int($x)." ".int($y)." $orientation $size ${shape} ~\n${name}\n";
 	  }
 	  elsif($d{'RECORD'} eq '16') # sheet entry
 	  {
@@ -1416,7 +1416,7 @@ EOF
         $orient = 1, $x+=$distance, $y+=$relh if ( $side eq '3' );
         $name.="_HARN" if ( defined($d{'HARNESSTYPE'}) ); # Annotated bodge for missing harness feature
         my $size=$fontsize{$d{'TEXTFONTID'}}*6;
-        $dat.="Text HLabel $x $y ${orient} $size ${shape} ~\n${name}\n";
+        $dat.="Text HLabel ".int($x)." ".int($y)." ${orient} $size ${shape} ~\n${name}\n";
 	  }
   	  elsif($d{'RECORD'} eq '37') # Entry Wire Line / Bus connector
 	  {
