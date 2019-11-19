@@ -908,10 +908,10 @@ EOF
 		my $text=$d{'TEXT'};
 	    my $SHOWNETNAME=$d{'SHOWNETNAME'}?"0000":"00001";
 		my $ts=uniqueid2timestamp($d{'UNIQUEID'});
-	    my $PWR="L GND #PWR?$ts";
+	    my $PWR="L power:GND #PWR?$ts";
 		my $voltage=$d{'TEXT'} || "1.2V";
         my $device=$d{'TEXT'} || "+1.2V";
-		#print "#TEXT:$d{TEXT} $b\n";
+	#print "#TEXT:$d{TEXT} $b\n";
 		my %standardvoltages=("5V"=>1,"6V"=>1,"8V"=>1,"9V"=>1,"12V"=>1,"15V"=>1,"24V"=>1,"36V"=>1,"48V"=>1,"3\.3V"=>1);
 		if($d{'TEXT'}=~m/(0\.75V|1\.2V|1\.5V|1\.8V|2\.5V|2\.8V|3\.0V|3\.3VA|3\.3V|5\.0V|\d+\.\d+V)/)
 		{
@@ -957,6 +957,11 @@ X $device 1 0 0 0 U 20 20 0 0 W N
 C 0 60 20 0 1 0 N
 EOF
 ;
+		}
+		elsif($d{'TEXT'}=~m/(1V0|1V1|1V2|1V5|1V8|1V35|2V5|2V8|3V0|3V3|3V8|4V|5V|6V|8V|9V|10V|12V|15V|24V|28V|36V|48V)/)
+		{
+		  $voltage=$d{'TEXT'};
+		  $device="+".$voltage;
 		}
 		elsif($d{'TEXT'}=~m/VDD/)
 		{
@@ -1005,7 +1010,7 @@ EOF
 		
 		if(defined($d{'STYLE'}) && ($d{'STYLE'}eq"1" || $d{'STYLE'}eq"2"))
 		{
-		  $PWR="L $device #PWR?$ts"; # $ts";
+		  $PWR="L power:$device #PWR?$ts"; # $ts";
 		  $py1=$py;
 		  $py2=$py-70;
 		}
@@ -1016,7 +1021,7 @@ $PWR
 U 1 1 $ts
 P $px $py
 F 0 "$text" H $px $py1 20  $SHOWNETNAME C CNN
-F 1 "+$voltage" H $px $py2 30  0000 C CNN
+F 1 "$voltage" H $px $py2 30  0000 C CNN
 F 2 "" H $px $py 70  0000 C CNN
 F 3 "" H $px $py 70  0000 C CNN
 	1    $px $py
@@ -1071,7 +1076,7 @@ EOF
 		  my $x1=int(shift(@linepoints));
 		  my $y1=int(shift(@linepoints));
 	      $dat.="Wire Notes Line\n	".int($linepoints[0])." ".int($linepoints[1])." $x1 $y1\n";
-        }
+	    }
 		
 	  }
 	  elsif($d{'RECORD'} eq '8') # Ellipse
