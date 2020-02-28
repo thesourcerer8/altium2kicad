@@ -406,7 +406,7 @@ EOF
     next unless defined($d{'RECORD'});
     if ( $d{'RECORD'} eq '41' )
     {
-      if ( !defined($d{'COMPONENTINDEX'}) )
+      if (defined($d{'NAME'}) && !defined($d{'COMPONENTINDEX'}))
       {
         $globalparams{lc($d{'NAME'})} = $d{'TEXT'};
       }
