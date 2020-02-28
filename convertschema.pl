@@ -400,7 +400,7 @@ EOF
       if($c=~m/^([^=]*)=(.*)$/s)
       {
         #print "$1 -> $2\n";
-        $d{$1}=$2;
+        $d{uc $1}=$2;
       }
     }
     next unless defined($d{'RECORD'});
@@ -424,7 +424,7 @@ EOF
       if($c=~m/^([^=]*)=(.*)$/s)
       {
         #print "$1 -> $2\n";
-        $d{$1}=$2;
+        $d{uc $1}=$2;
       }
     }
     # Now we have parsed key value pairs into %d
