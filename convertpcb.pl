@@ -16,7 +16,6 @@ use File::Glob qw(:globally :nocase);
 # A GND symbol with multiple horizontal lines arranged as a triangle
 # Individual colors for single objects like lines, ...
 # Ellipse (Workaround: we could approximate them with Polylines)
-# Round Rectangle (Workaround: we could approximate them with Polylines + Arcs)
 # Elliptical Arc (Workaround: we could approximate them with Polylines)
 # Element Classes (All Top Components, All Bottom Components, HDMI, Power, All Resistors...)
 # Board regions for Rigid-Flex
@@ -1350,27 +1349,20 @@ sub HandlePads($$)
 	  
 	  my $mdir=($dir==0)?"":" $dir";
 	  
-	  my %typemap=("2"=>"rect","1"=>"circle","3"=>"oval","0"=>"Unknown"); 
+	  my %typemap=("2"=>"rect","1"=>"circle","3"=>"oval","9"=>"roundrect","0"=>"Unknown");
 	  my %typemapalt=("2"=>"RECTANGLE","1"=>"ROUND","3"=>"OCTAGONAL","0"=>"ROUND","9"=>"ROUNDEDRECTANGLE","4"=>"THERMALRELIEF","6"=>"POINT","7"=>"POINT"); 
-	  # "1"=>$len2?"ROUNDEDRECTANGLE":"ROUND"
 	  my $otype=unpack("C",msubstr($value,$pos+72,1,"TOPOTYPE"));
 	  my $midotype=unpack("C",msubstr($value,$pos+73,1,"MIDOTYPE")); # different shapes for different layers are not supported by KiCad
 	  my $bototype=unpack("C",msubstr($value,$pos+74,1,"BOTOTYPE"));
   	  assertdata("Pad",$counter,"SHAPE",$typemapalt{$otype});
-      my $type=$typemap{$otype};
+          my $type=$typemap{$otype};
+          $type="roundrect" if($otype==1 && length($contents[5]));
 	  #print "otype: $otype typemapalt: $typemapalt{$otype} type: $type\n";
 
 	  if($otype eq "3")
 	  {
 	     print STDERR "WARNING: Octagonal pads are currently not supported by KiCad. We convert them to oval for now, please verify the PCB design afterwards. This can cause overlaps and production problems!\n" if(!defined($shownwarnings{'OCTAGONAL'}));
 		 $shownwarnings{'OCTAGONAL'}++;
-	  }
-	  
-	  if($typemapalt{$otype} eq "ROUNDEDRECTANGLE")
-	  {
-  	    #print "Pad: $counter $otype ".bin2hex(substr($value,$pos,200))."\n";
-        print STDERR "WARNING: This is a rounded rectangle pad, and those are currently not supported by KiCad. We convert them to rounded pads for now, please verify the PCB design afterwards. This can cause overlaps and production problems!\n" if(!defined($shownwarnings{'ROUNDEDRECTANGLE'}));
-		$shownwarnings{'ROUNDEDRECTANGLE'}++;
 	  }
 	  
 	  $type="oval" if($type eq "circle" && $sx != $sy);
@@ -1482,11 +1474,11 @@ EOF
 	  
 	  if($annotate)
 	  {
-	    $pads{$component}.=<<EOF
-#1309 counter:$counter pos:$opos(0x$oposhex) type:$otype net:$onet
-#$dump
-EOF
-        ;
+	    $pads{$component}.="#1309 counter:$counter opos:$opos(0x$oposhex) otype:$otype onet:$onet hole:$holesize\n";
+            foreach(0 .. 5)
+            {
+              $pads{$component}.="#$_:".bin2hex($contents[0])."\n";
+            }
 	  }
       $name=~s/\\//g;
 	  $pads{$component}.=<<EOF
