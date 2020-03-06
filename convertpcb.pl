@@ -2679,7 +2679,9 @@ EOF
 	#print "Layer: $layer1 -> $layer2\n";
 	#print "Koordinaten:\n" if($debug);
 	#print "x:$x y:$y width:$width\n" if($debug);
-	print OUT "  (via (at $x $y) (size $width) (layers $layer1 $layer2) (net $net))\n";
+	my $addparams="";
+	$addparams.="(drill $HOLESIZE) " if($HOLESIZE);
+	print OUT "  (via (at $x $y) (size $width) (layers $layer1 $layer2) (net $net)$addparams)\n";
 
 
 	# The following was an experimental automatic reverse-engineering try. The code is disabled now.
