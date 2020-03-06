@@ -1311,8 +1311,8 @@ sub HandlePads($$)
 
       my $layer=mapLayer($altlayer) || "F.Cu"; $layer="*.Cu" if($altlayer==74);
 	  
-	  $layer.=" F.Mask F.Paste" if($layer=~m/[F\*]\.Cu/);
-	  $layer.=" B.Mask B.Paste" if($layer=~m/[B\*]\.Cu/);
+      #$layer.=" F.Mask F.Paste" if($layer=~m/[F\*]\.Cu/);
+      #  $layer.=" B.Mask B.Paste" if($layer=~m/[B\*]\.Cu/);
 
 	  my $sx=bmil2mm(msubstr($value,$pos+44,4,"sx")); # For Padmode=1, this is TOPXSIZE
 	  my $sy=bmil2mm(msubstr($value,$pos+48,4,"sy")); # For Padmode=1, this is TOPYSIZE
