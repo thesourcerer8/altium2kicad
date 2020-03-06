@@ -1464,13 +1464,16 @@ sub HandlePads($$)
 EOF
 ;
       }
+          my $roundness=unpack("C",substr($contents[5],568,1));
+	  #print "Roundness: $roundness\n" if($type eq "roundrect");
 
 	  my $tp=($holesize==0)?"smd":$plated eq "TRUE"?"thru_hole":"np_thru_hole";
-	  my $drill=($holesize==0)?"":" (drill $holesize) ";
+	  my $addparams=($holesize==0)?"":" (drill $holesize) ";
  	  my $nettext=($net>1)?"(net $net \"$netname\")":"";
       my $oposhex=sprintf("%X",$opos);
 	  #$component=$uniquemap{"Pad"}{$counter} if($component==-1);
 	  #print "Component: $component\n";
+	  $addparams.=" (roundrect_rratio ".($roundness/200.0).") " if($type eq "roundrect");
 	  
 	  if($annotate)
 	  {
@@ -1482,7 +1485,7 @@ EOF
 	  }
       $name=~s/\\//g;
 	  $pads{$component}.=<<EOF
-    (pad "$name" $tp $type (at $x1 $y1$mdir) (size $sx $sy) $drill
+    (pad "$name" $tp $type (at $x1 $y1$mdir) (size $sx $sy) $addparams
       (layers $layer) $nettext
     )
 EOF
