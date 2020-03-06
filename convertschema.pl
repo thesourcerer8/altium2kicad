@@ -221,7 +221,7 @@ foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'), glob('"*.sch"'), glo
 
   open OUT,">$short.sch";
   binmode(OUT, ":utf8");
-  print OUT "EESchema Schematic File Version 2\n";
+  print OUT "EESchema Schematic File Version 4\n";
   
   my %formats=(0=>"A4 11693 8268",1=>"A3 16535 11693",2=>"A2 23386 16535",3=>"A1 33110 23386",4=>"A0 46811 33110",5=>"A 11000 8500", 6=>"B 17000 11000",7=>"C 22000 17000",8=>"D 34000 22000",9=>"E 44000 34000",10=>"USLetter 11000 8500",11=>"USLegal 14000 8500",12=>"USLedger 17000 11000",13=>"A 11000 8500",14=>"B 17000 11000",15=>"C 22000 17000",16=>"D 34000 22000",17=>"E 44000 34000");
   
@@ -242,36 +242,7 @@ foreach my $filename(glob('"*/Root Entry/FileHeader.dat"'), glob('"*.sch"'), glo
   my $datetext=strftime("%d %m %Y", localtime($start_time));
 
   print OUT <<EOF
-LIBS:power
-LIBS:device
-LIBS:transistors
-LIBS:conn
-LIBS:linear
-LIBS:regul
-LIBS:cmos4000
-LIBS:adc-dac
-LIBS:memory
-LIBS:xilinx
-LIBS:special
-LIBS:microcontrollers
-LIBS:dsp
-LIBS:microchip
-LIBS:analog_switches
-LIBS:motorola
-LIBS:texas
-LIBS:intel
-LIBS:audio
-LIBS:interface
-LIBS:digital-audio
-LIBS:philips
-LIBS:display
-LIBS:cypress
-LIBS:siliconi
-LIBS:opto
-LIBS:atmel
-LIBS:contrib
-LIBS:valves
-EELAYER 27 0
+EELAYER 30 0
 EELAYER END
 \$Descr $sheetformat
 encoding utf-8
