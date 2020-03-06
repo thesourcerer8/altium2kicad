@@ -1477,7 +1477,7 @@ EOF
 	    $pads{$component}.="#1309 counter:$counter opos:$opos(0x$oposhex) otype:$otype onet:$onet hole:$holesize\n";
             foreach(0 .. 5)
             {
-              $pads{$component}.="#$_:".bin2hex($contents[0])."\n";
+              $pads{$component}.="#$_:".bin2hex($contents[$_])."\n";
             }
 	  }
       $name=~s/\\//g;
