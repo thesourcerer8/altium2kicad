@@ -1,0 +1,15 @@
+#!/bin/sh
+
+set -e
+
+if [ -z "$(ls *.PCBDOC)" -a -z "$(ls *.SCHDOC)" ]; then
+	echo "No altium pcb or schematic files in current working directory!" >&2
+	exit 1
+fi
+
+export PERL5LIB=$PERL5LIB:$(realpath $(dirname $(which $0))/../lib/perl)
+
+a2k-unpack
+a2k-convertschema
+a2k-convertpcb
+
