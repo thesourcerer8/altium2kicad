@@ -54,7 +54,7 @@ foreach my $file (@files)
   if(substr($content,0,length("|RECORD=Board|")) eq "|RECORD=Board|")
   {
     print "Skipping ASCII .PcbDoc\n";
-	next;
+    next;
   }
   print "filelength: ".length($content)."\n" if($debug);
   
@@ -90,29 +90,29 @@ foreach my $file (@files)
   our $MSAT=$firstpartMSAT;
   if($debug)
   {
-  print "maximum number of blocks: ".((length($content)-512)/$sectorsize)."\n";
-  #print "header: $header\n";
-  print "CDFident: ".bin2hex($CDFident)."\n";
-  print "uid: ".bin2hex($uid)."\n";
-  print "revision: $revision\n";
-  print "version: $version\n";
-  print "byteorder: ".unpack("n",$byteorder)."\n";
-  print "sectorpowersize: $sectorpowersize\n";
-  print "sectorsize: $sectorsize\n";
-  print "shortsectorpowersize: $shortsectorpowersize\n";
-  print "shortsectorsize: $shortsectorsize\n";
-  print "unused: ".bin2hex($unused)."\n";
-  print "SATsizeSectors: $SATsizeSectors\n";
-  print "SecIdDirStream: $SecIdDirStream\n";
-  print "unused2: ".bin2hex($unused2)."\n";
-  print "minByteSizeStdStream: $minByteSizeStdStream\n";
-  print "SecIdSSAT: $SecIdSSAT\n";
-  print "totalSectorsSSAT: $totalSectorsSSAT\n";
-  print "SecIdMSAT: $SecIdMSAT\n";
-  print "totalSectorsMSAT: $totalSectorsMSAT\n";
-  #print "firstpartMSAT: $firstpartMSAT\n";
-  print "filelength: ".length($content)."\n";
-  print "maximum number of blocks: ".((length($content)-512)/$sectorsize)."\n";
+    print "maximum number of blocks: ".((length($content)-512)/$sectorsize)."\n";
+    #print "header: $header\n";
+    print "CDFident: ".bin2hex($CDFident)."\n";
+    print "uid: ".bin2hex($uid)."\n";
+    print "revision: $revision\n";
+    print "version: $version\n";
+    print "byteorder: ".unpack("n",$byteorder)."\n";
+    print "sectorpowersize: $sectorpowersize\n";
+    print "sectorsize: $sectorsize\n";
+    print "shortsectorpowersize: $shortsectorpowersize\n";
+    print "shortsectorsize: $shortsectorsize\n";
+    print "unused: ".bin2hex($unused)."\n";
+    print "SATsizeSectors: $SATsizeSectors\n";
+    print "SecIdDirStream: $SecIdDirStream\n";
+    print "unused2: ".bin2hex($unused2)."\n";
+    print "minByteSizeStdStream: $minByteSizeStdStream\n";
+    print "SecIdSSAT: $SecIdSSAT\n";
+    print "totalSectorsSSAT: $totalSectorsSSAT\n";
+    print "SecIdMSAT: $SecIdMSAT\n";
+    print "totalSectorsMSAT: $totalSectorsMSAT\n";
+    #print "firstpartMSAT: $firstpartMSAT\n";
+    print "filelength: ".length($content)."\n";
+    print "maximum number of blocks: ".((length($content)-512)/$sectorsize)."\n";
   } 
   # Collecting the whole MSAT Table:
   if($totalSectorsMSAT)
@@ -309,9 +309,9 @@ foreach my $file (@files)
   foreach(0 .. (length($DirStream)/128)-1)
   {
     my $DirEntry=substr($DirStream,$_*128,128);
-	#print OUT bin2hex($DirEntry)." ";
+    #print OUT bin2hex($DirEntry)." ";
     my $namesize=unpack("v",substr($DirEntry,64,2));
-	my $type=unpack("C",substr($DirEntry,66,1));
+    my $type=unpack("C",substr($DirEntry,66,1));
     my $name=decode("UCS-2LE",substr($DirEntry,0,$namesize)); $name=~s/\x00//g;
     my $nodecolour=unpack("C",substr($DirEntry,67,1));
     my $DirIdLeftChild=unpack($v,substr($DirEntry,68,4));
@@ -336,7 +336,7 @@ foreach my $file (@files)
     my @SSAT=@{$_[6]};
     my $ShortStream=$_[7];
 
-	return unless defined($DirEntry);
+    return unless defined($DirEntry);
     my $namesize=unpack("v",substr($DirEntry,64,2));
     my $name=decode("UCS-2LE",substr($DirEntry,0,$namesize)); $name=~s/\x00//g;
     my $type=unpack("C",substr($DirEntry,66,1));
@@ -352,14 +352,14 @@ foreach my $file (@files)
     my $totalbytes=unpack($v,substr($DirEntry,120,4));
     my $unused=substr($DirEntry,124,4);
 
-	print "DirStream[$_[1]]: name:$name t:$type c:$nodecolour left:$DirIdLeftChild right:$DirIdRightChild root:$DirIdRootNode flags:$flags start:$SecIdStream total:$totalbytes\n" if($debug);
-	#print "creation: ".bin2hex($tstampcreation)." modification: ".bin2hex($tstamplastmod)."\n" if($debug);
+    print "DirStream[$_[1]]: name:$name t:$type c:$nodecolour left:$DirIdLeftChild right:$DirIdRightChild root:$DirIdRootNode flags:$flags start:$SecIdStream total:$totalbytes\n" if($debug);
+    #print "creation: ".bin2hex($tstampcreation)." modification: ".bin2hex($tstamplastmod)."\n" if($debug);
     #print "Name: $name namesize: $namesize\n" if($debug);
-	#exit if(length($name) != $namesize/2-1 && $type);
+    #exit if(length($name) != $namesize/2-1 && $type);
     
 
     #print "Making $path\n" if($debug);
-	$path=~s/\x13//g;
+    $path=~s/\x13//g;
     mkdir $path;
 
     my $bytes="";
@@ -429,17 +429,17 @@ foreach my $file (@files)
         print OUT $dest;
         close OUT;
       }
-	  if($fname=~m/^(.*)0\.(Pcb|Sch)Lib$/)
-	  {
-	    my $newpath=$1;
+      if($fname=~m/^(.*)0\.(Pcb|Sch)Lib$/)
+      {
+        my $newpath=$1;
         my $path = Cwd::cwd();
-		chdir $newpath;
+        chdir $newpath;
         my $newerpath = Cwd::cwd();
 
-	    print "Path: $path Newpath: $newpath Newerpath: $newerpath 0: $0\n" if($debug);
-        system "\"$0\"";
-		chdir $path;
-	  }
+        print "Path: $path Newpath: $newpath Newerpath: $newerpath 0: $0\n" if($debug);
+        #system "\"$0\""; ENDLESS LOOP, make sure to prevent that before re-enabling it
+	chdir $path;
+      }
     }
     else
     {
