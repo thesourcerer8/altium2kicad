@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
 use strict;
+use Encode;
 use FindBin;
 use lib "$FindBin::Bin";
 use Math::Bezier;
@@ -1198,6 +1199,7 @@ EOF
               push @{$parts{$globalp}},"F $counter \"$TEXT\" V 1400 2000 60  0001 C CNN \"$NAME\"\n";
               $partstextcounter{$globalp}=$counter+1;
             }
+			$d{'TEXT'}=decode("gb2312",$d{'TEXT'});
             $dat.="Text Label $x $y $o 70 ~\n$d{TEXT}\n" if(defined($d{'TEXT'}) && $d{'TEXT'} ne "");
           }
           else
