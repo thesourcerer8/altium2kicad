@@ -45,6 +45,12 @@ my $wrlprefix=$absoluteWRLpath ? Cwd::cwd() : ".";
 
 our %shownwarnings=();
 
+{
+  my $ofh = select STDOUT;
+  $|=1;
+  select $ofh;
+}
+
 
 my $current_status=<<EOF
 Advanced Placer Options6 # Not needed
