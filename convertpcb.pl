@@ -2923,8 +2923,9 @@ EOF
 	my $rest=substr($value,22+$textlen,length($value)-22-$textlen);
 	
 
-    my $verts=unpack("s",substr($contents[3],0,2));
+    my $verts=unpack("S",substr($contents[3],0,2));
     print OUT "# Verts: $verts\n";
+    #print "# Verts: $verts\n";
 
     my $net=unpack("s",substr($value,3,2))+2;
     assertdata("Fill",$_[3],"NET",unpack("s",substr($value,3,2))) if($net>1);
