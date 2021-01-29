@@ -12,12 +12,13 @@ To convert your Altium project to KiCad:
 
 This software is also provided as an online service: http://www2.futureware.at/KiCad/
 
+To use it on your computer, install the git client (e.g. apt-get install git ) and download the software (e.g. git clone https://github.com/thesourcerer8/altium2kicad/ )
 Go to the directory with your .PcbDoc and .SchDoc files and run:
 
-* unpack.pl (it unpacks the .PcbDoc and .SchDoc files into subdirectores)
+* perl unpack.pl (it unpacks the .PcbDoc and .SchDoc files into subdirectores)
 * If the Altium design contains 3D models in step format, run kicadd_oce_vis or step2wrl or FreeCAD to convert the files to wrl (with FreeCAD open and execute the macro step2wrl.FCMacro )
-* convertschema.pl (it converts the schematics from the subdirectories to .sch and -cache.lib files)
-* convertpcb.pl (it converts the PCB to .kicad_pcb files)
+* perl convertschema.pl (it converts the schematics from the subdirectories to .sch and -cache.lib files)
+* perl convertpcb.pl (it converts the PCB to .kicad_pcb files)
 
 Due to the huge differences between Altium and KiCad, the weak fileformat documentation and the high complexity of the fileformats, this converter cannot guarantee the quality of the conversion. Please verify the output of the converter
 If this converter does not work for your files, feel free to provide your files and screenshots of how they do look like and how they should look like, and I will try to help.
