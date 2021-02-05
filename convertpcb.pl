@@ -35,8 +35,8 @@ use File::Glob qw(:globally :nocase);
 # Wrong recordtype errors for Regions6
 # Correct positioning for Cones, Cylinders, ... 
 
-
-my $annotate=0;
+my $kicad6 = 1;
+my $annotate=1;
 
 my $absoluteWRLpath=0;
 
@@ -912,6 +912,12 @@ my $ymove=79.6;
 
 $xmove=0; $ymove=0; # Enable to align GPBB to the Gerber Imports
 
+# TE0703
+$xmove=63 + mil2mm(30.7 - 22.03); $ymove=112 - 0.300 - mil2mm(7.5 - 7.1);
+
+$xmove = $ymove = 0;
+
+print "# xmove=", $xmove, " ymove=", $ymove, "\n";
 
 our %componentatx=();
 our %pads=();
@@ -958,7 +964,7 @@ sub HandleFill($$$$)
 	print OUT <<EOF
 	  (zone $nettext (layer $layer) (tstamp 53EB93DD) (hatch edge 0.508)
 	$priority
-    (connect_pads (clearance 0.508))
+    (connect_pads yes (clearance 0.508))
     (min_thickness 0.254)
     (fill (arc_segments 16) (thermal_gap 0.508) (thermal_bridge_width 0.508))
     (polygon
@@ -1548,6 +1554,9 @@ if(!scalar(@files))
   @files=glob('"*/Root Entry/Board6/Data.dat"')
 }
 
+
+my @board_outline;
+
 # Now we start handling all the PCB files that were unpacked by unpack.pl already:
 my $filecounter=0;
 foreach my $filename(@files)
@@ -1647,6 +1656,8 @@ foreach my $filename(@files)
   my %activelayer=();
   my %layernext=();
   my %layerprev=();
+
+
   # At first we extract Layer-information and other Board-related information from the Board file
   HandleBinFile($filename,"",0,0,sub {
     my %d=%{$_[0]};
@@ -1690,7 +1701,19 @@ foreach my $filename(@files)
 	    #print "Version: $d{$_}\n";
 		$version=$d{$_};
 	  }
+
+	  if (/^VX(\d+)$/) {
+		$board_outline[$1] ||= [];
+		$board_outline[$1][0] = $d{$_};
+	  } elsif (/^VY(\d+)$/) {
+		$board_outline[$1] ||= [];
+		$board_outline[$1][1] = $d{$_};
+	  }
 	}
+
+	($xmove, $ymove) = (mil2mm($d{ORIGINX}), mil2mm($d{ORIGINY}));
+	print "xmove now: $xmove y: $ymove\n";
+
   }); # Board
   
   # We search for the first and last layer
@@ -2374,6 +2397,13 @@ EOF
   }
 
 
+
+  print OUT "# Board outline\n";
+  for (1 .. @board_outline - 1) {
+	print OUT "(gr_line (start ", -$xmove + mil2mm($board_outline[$_ - 1][0]), " ", $ymove - mil2mm($board_outline[$_ - 1][1]), ") (end ", -$xmove + mil2mm($board_outline[$_][0]), " ", $ymove - mil2mm($board_outline[$_][1]), ") (layer Edge.Cuts) (width 0.05))\n";
+  }
+
+
   our %shapes=();
   mkdir "wrlshp";
   
@@ -2876,8 +2906,28 @@ EOF
     {
       $linebreaks{$tpos}=3;
       $starts[$_]=$tpos+2;
-      $lengths[$_]=unpack("s",msubstr($value,$tpos,2,"len[$_]"));
-      #$lengths[$_]=16*unpack("C",msubstr($value,$tpos+2,1)."verts")+4 if($_==3);
+	  if (length($value) < $tpos + 2) {
+		print OUT "#fmterr invalid data\n";
+	  }
+
+	  $lengths[$_]=unpack("s",msubstr($value,$tpos,2,"len[$_]"));
+
+	  if ($_ == 0) {
+		if ($lengths[$_] > 512) {
+		  print OUT "#fmterr record length adjusted by -512\n";
+		  $lengths[$_] -= 512;
+		} elsif ($lengths[$_] == 0x1c) {
+		  print OUT "#fmterr record length adjusted by -16\n";
+		  $lengths[$_] -= 16;
+		} elsif ($lengths[$_] != 12) {
+		  print OUT "#fmterr record length odd. ignoring this region\n";
+		  return;
+		}
+	  }
+	  
+
+
+	  #$lengths[$_]=16*unpack("C",msubstr($value,$tpos+2,1)."verts")+4 if($_==3);
       $lengths[$_]=16*unpack("S",msubstr($value,$tpos + 2,2))+4 if($_==3);
       $contents[$_]=substr($value,$starts[$_],$lengths[$_]);
       #print "contents[$_] $lengths[$_]: ".bin2hex($contents[$_])."\n"; #  ".bin2hex(substr($value,$starts[$_]+$lengths[$_]))."\n";
@@ -2951,6 +3001,9 @@ EOF
 	$layer = "Eco1.User" unless defined $layer;
 
 	my $subpoly = $d{'SUBPOLYINDEX'};
+
+	my $pad_connections = "thru_hole_only";
+	my $min_thickness = "";
 	if ($subpoly >= 0) {
 	  my $master = unpack("S", substr($value, 5, 2));
 
@@ -2960,18 +3013,31 @@ EOF
 		$net = $polygon_nets[$master];
 	  }
 	  if (defined $polygon_prio[$master]) {
-		$priority = "(priority " . ($polygon_prio[$master]) . ")";
+		$priority = "(priority " . ($polygon_prio[$master] + 1) . ")";
 	  }
 	}
-    my $netname=$netnames{$net};
-    my $nettext=($net>=1)?"(net $net) (net_name \"$netname\")":"";
+	$pad_connections = "yes";
+	$min_thickness = "(min_thickness 0.0254)";
+	my $netname=$netnames{$net};
+	my $keepout = "";
+	if ($net == 1) {
+	  $net = 0;
+	  $netname = "";
+	  $keepout = "(keepout (copperpour allowed) (vias allowed) (tracks allowed))";
+	}
+
+
+	my $island_removal = $kicad6 ? "(island_removal_mode 1) (island_area_min 0)" : "";
+    my $nettext=($net>=0)?"(net $net) (net_name \"$netname\")":"";
 	
     print OUT <<EOF
 # region: ${regioncount}
   (zone $nettext (layer $layer) (tstamp 547BA6E6) (hatch edge 0.508)
 	$priority
-    (connect_pads thru_hole_only (clearance 0.09144))
-    (fill (mode segment) (arc_segments 32) )
+    (connect_pads ${pad_connections} (clearance 0.09144))
+    $keepout
+    ${min_thickness}
+    (fill (mode segment) (arc_segments 32) ${island_removal})
     (polygon
       (pts
 EOF
@@ -2984,7 +3050,7 @@ EOF
       my $y=+$ymove-mil2mm(unpack("d",msubstr($contents[3],$vpos+8,8,"Y$ver")))/10000;
       #print OUT "# x/y ".bin2hex(substr($contents[3],$vpos+0,16))." $x $y \n";
 
-      print OUT "(xy $x $y) " if $x || $y;
+      print OUT "(xy ", sprintf("%.5f %.5f", $x, $y), ") ";
     }
 
 	  print OUT <<EOF
@@ -3034,8 +3100,12 @@ EOF
 	}
 	my $net=($d{'NET'}||-1)+2;
 
+	my $keepout = "";
+
 	if ($has_subpoly_region{$count}) {
-	  $net = 1;
+	  $net = 0;
+	  #$keepout = "(keepout (copperpour not_allowed))";
+	  $keepout = "(keepout (copperpour allowed) (vias allowed) (tracks allowed))";
 	}
 	
 	my $netname=$netnames{$net};
@@ -3066,7 +3136,8 @@ EOF
 	  $minthickness = $thermalbridgewidth - 0.001 if ($thermalbridgewidth le $minthickness);
 	  print OUT <<EOF
 (zone $nettext (layer $layer) (tstamp 547BA6E6) (hatch edge 0.508) $priority
-    (connect_pads thru_hole_only (clearance 0.09144))
+    (connect_pads yes (clearance 0.09144))
+    ${keepout}
     (min_thickness $minthickness)
     (fill (mode segment) (arc_segments 32) (thermal_gap $thermalgap) (thermal_bridge_width $thermalbridgewidth))
     (polygon
