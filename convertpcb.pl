@@ -762,6 +762,11 @@ KiCad Design with 10 layers:
     (6 In6.Cu signal)
     (7 In7.Cu signal)
     (8 In8.Cu signal)
+    (9 In9.Cu signal)
+    (10 In10.Cu signal)
+    (11 In11.Cu signal)
+    (12 In12.Cu signal)
+    (13 In13.Cu signal)
     (31 B.Cu signal)
     (32 B.Adhes user)
     (33 F.Adhes user)
@@ -1475,6 +1480,7 @@ EOF
 
 	  my $tp=($holesize==0)?"smd":$plated eq "TRUE"?"thru_hole":"np_thru_hole";
 	  my $addparams=($holesize==0)?"":" (drill $holesize) ";
+	  $netname=~s/ //g;
  	  my $nettext=($net>1)?"(net $net \"$netname\")":"";
       my $oposhex=sprintf("%X",$opos);
 	  #$component=$uniquemap{"Pad"}{$counter} if($component==-1);
@@ -1848,6 +1854,7 @@ foreach my $filename(@files)
 	assertdata("Net",$_[3],"INDEXFORSAVE",$_[3]);
 	assertdata("Net",$_[3],$_,$_[0]{$_}) foreach(keys %{$_[0]});
 	$name=~s/\\//g;
+        $name=~s/ //g;
 	$netnames{$line}=$name;
     $nets.= "  (net $line \"$name\")\n";
   });
@@ -2801,6 +2808,7 @@ EOF
       #MarkPoint($sx,$sy) if($d{'POLYGONTYPE'} eq "Split Plane" && $counter eq 1);
 	  print OUT "(gr_line (start $sx $sy) (end $ex $ey) (angle 90) (layer $layer) (width $width))\n" if($d{'POLYGONTYPE'} eq "Polygon" && $d{'POLYGONOUTLINE'} eq "TRUE");
 	  print OUT "(xy $sx $sy) " if($d{'POLYGONTYPE'} eq "Split Plane" || $d{'HATCHSTYLE'} eq "Solid");
+	  print OUT "\n" if(($_ %4) == 3); # This should prevent too long lines
 	}
 	
 	if($d{'POLYGONTYPE'} eq "Split Plane" || $d{'HATCHSTYLE'} eq "Solid")
@@ -2886,7 +2894,7 @@ EOF
       $lengths[$_]=unpack("s",msubstr($value,$tpos,2,"len[$_]"));
       $lengths[$_]=16*unpack("C",msubstr($value,$tpos+2,1)."verts")+4 if($_==3);
       $contents[$_]=substr($value,$starts[$_],$lengths[$_]);
-      #print "contents[$_] $lengths[$_]: ".bin2hex($contents[$_])."\n"; #  ".bin2hex(substr($value,$starts[$_]+$lengths[$_]))."\n";
+      print "#Regions6-$_[3]-contents[$_] $lengths[$_]: ".bin2hex($contents[$_])."\n"; #  ".bin2hex(substr($value,$starts[$_]+$lengths[$_]))."\n";
       $tpos+=2+$lengths[$_];
       $tpos+=1 if($_==1);
     }
@@ -2931,7 +2939,7 @@ EOF
 
     my $verts=unpack("S",substr($contents[3],0,2));
     print OUT "# Verts: $verts\n";
-    #print "# Verts: $verts\n";
+    print "# Verts: $verts\n";
 
     my $net=unpack("s",substr($value,3,2))+2;
     assertdata("Fill",$_[3],"NET",unpack("s",substr($value,3,2))) if($net>1);
@@ -2956,8 +2964,13 @@ EOF
       my $vpos=4+$ver*16;
       my $x=-$xmove+mil2mm(unpack("d",msubstr($contents[3],$vpos+0,8,"X$ver")))/10000;
       my $y=+$ymove-mil2mm(unpack("d",msubstr($contents[3],$vpos+8,8,"Y$ver")))/10000;
-      #print OUT "# x/y ".bin2hex(substr($contents[3],$vpos+0,16))." $x $y \n";
+      print "# X$ver x/y ".bin2hex(substr($contents[3],$vpos+0,16))." $x $y \n";
       print OUT "(xy $x $y) ";
+      if($vpos>length($contents[3]))
+      {
+        print "Overflow!\n";
+	return;
+      }
     }
 	  print OUT <<EOF
       )
