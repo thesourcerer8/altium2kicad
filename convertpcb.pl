@@ -2608,7 +2608,7 @@ EOF
 	
 	#print "stp -> $rot\n";
 	# We have to handle (attr smd) and (tag ...) here ...
-	my $PATTERN=$d{'PATTERN'};
+	my $PATTERN=$d{'PATTERN'}; $PATTERN=~s/"/\\"/g;
 	my $SOURCEDESCRIPTION=$d{'SOURCEDESCRIPTION'}||""; $SOURCEDESCRIPTION=~s/"/\\"/g;
 	my $FOOTPRINTDESCRIPTION=$d{'FOOTPRINTDESCRIPTION'}||""; $FOOTPRINTDESCRIPTION=~s/"/\\"/g;
 	my $SOURCEDESIGNATOR=$d{'SOURCEDESIGNATOR'}||""; $SOURCEDESIGNATOR=~s/"/\\"/g;
