@@ -1481,7 +1481,7 @@ EOF
 	  my $tp=($holesize==0)?"smd":$plated eq "TRUE"?"thru_hole":"np_thru_hole";
 	  my $addparams=($holesize==0)?"":" (drill $holesize) ";
 	  $netname=~s/ //g;
- 	  my $nettext=($net>1)?"(net $net) (net_name \"$netname\")":"";
+ 	  my $nettext=($net>1)?"(net $net \"$netname\")":"";
       my $oposhex=sprintf("%X",$opos);
 	  #$component=$uniquemap{"Pad"}{$counter} if($component==-1);
 	  #print "Component: $component\n";
@@ -1856,7 +1856,7 @@ foreach my $filename(@files)
 	$name=~s/\\//g;
         $name=~s/ //g;
 	$netnames{$line}=$name;
-    $nets.= "  (net $line) (net_name \"$name\")\n";
+    $nets.= "  (net $line \"$name\")\n";
   });
 
 
