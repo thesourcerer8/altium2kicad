@@ -1481,7 +1481,7 @@ EOF
 	  my $tp=($holesize==0)?"smd":$plated eq "TRUE"?"thru_hole":"np_thru_hole";
 	  my $addparams=($holesize==0)?"":" (drill $holesize) ";
 	  $netname=~s/ //g;
- 	  my $nettext=($net>1)?"(net $net \"$netname\")":"";
+ 	  my $nettext=($net>1)?"(net $net) (net_name \"$netname\")":"";
       my $oposhex=sprintf("%X",$opos);
 	  #$component=$uniquemap{"Pad"}{$counter} if($component==-1);
 	  #print "Component: $component\n";
@@ -1856,7 +1856,7 @@ foreach my $filename(@files)
 	$name=~s/\\//g;
         $name=~s/ //g;
 	$netnames{$line}=$name;
-    $nets.= "  (net $line \"$name\")\n";
+    $nets.= "  (net $line) (net_name \"$name\")\n";
   });
 
 
@@ -2945,7 +2945,7 @@ EOF
     assertdata("Fill",$_[3],"NET",unpack("s",substr($value,3,2))) if($net>1);
     my $netname=$netnames{$net};
 
-    my $nettext=($net>1)?"(net $net \"$netname\")":"";
+    my $nettext=($net>1)?"(net $net) (net_name \"$netname\")":"";
 
     #my $layer=mapLayer(unpack("C",substr($content,0,1))) || "Cmts.User";
     my $layer=defined($d{'V7_LAYER'})?mapLayer($d{'V7_LAYER'}):"Eco1.User";
@@ -2969,7 +2969,7 @@ EOF
       if($vpos>length($contents[3]))
       {
         print "Overflow!\n";
-	return;
+	last;
       }
     }
 	  print OUT <<EOF
