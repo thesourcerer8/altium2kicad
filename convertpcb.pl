@@ -1105,19 +1105,25 @@ sub HandleArc($$$$) # $filename,$value,?,$data   (\%d,$data,$header,$line);
 
 	$sa=-$sa;
 	$ea=-$ea;
-    $angle=-$angle;
-	
+        $angle=-$angle;
+
+        if($ea>$sa)
+	{
+	  $ea-=360;
+        }
+
 	#($sa,$ea)=($ea,$sa) if($sa>$ea);
-    my $sarad=$sa/180*$pi;
+        my $sarad=$sa/180*$pi;
 	my $earad=$ea/180*$pi;
 	my $width=bmil2mm(substr($value,41,4));
 	assertdata("Arc",$_[3],"WIDTH",bmil2(substr($value,41,4)));
-	
-	
-    my $x1=sprintf("%.5f",$x+cos($sarad)*$r);
+
+        my $x1=sprintf("%.5f",$x+cos($sarad)*$r);
 	my $y1=sprintf("%.5f",$y+sin($sarad)*$r);
 	my $x2=sprintf("%.5f",$x+cos($earad)*$r);
 	my $y2=sprintf("%.5f",$y+sin($earad)*$r);
+	my $xm=sprintf("%.5f",$x+cos(($sarad+$earad)/2)*$r);
+	my $ym=sprintf("%.5f",$y+sin(($sarad+$earad)/2)*$r);
 
 	print OUT "#Arc#$_[3]: ".bin2hexLF($value)."\n" if($annotate);
 	print OUT "#Arc#$_[3]: xorig:$xorig yorig:$yorig layer:$layerorig component:$component\n" if($annotate);
@@ -1127,7 +1133,8 @@ sub HandleArc($$$$) # $filename,$value,?,$data   (\%d,$data,$header,$line);
 		print OUT "#Arc#$_[3]: WARNING: width/2 exceeds radius*1.01 !\n" if($annotate);
 		$width=$r/2.0;
 	}
-    print OUT "  (gr_arc (start $x $y) (end $x1 $y1) (angle $angle) (layer $layer) (width $width))\n";
+    print OUT "  (arc (start $x1 $y1) (end $x2 $y2) (mid $xm $ym) (layer $layer) (width $width) ".($net>=0?"(net $net)":"").")\n";
+
 	#print OUT "  (gr_text \"1\" (at $x1 $y1) (layer $layer))\n";
 	#print OUT "  (gr_text \"2\" (at $x2 $y2) (layer $layer))\n";
 	
@@ -2552,7 +2559,7 @@ EOF
 	  #print "Not available, pads: ".defined($pads{$componentid})." model: ".(($pads{$componentid}||"")=~m/\(model/)."\n";
 	  if(defined($pads{$componentid}) && $pads{$componentid}=~m/\(model/)
 	  {
-	    print "Where did the model come from? componentid: $componentid\n"; # !!! TODO
+		  #print "Where did the model come from? componentid: $componentid\n"; # !!! TODO
 	  }
 	  #print "kicad: ".defined($kicadwrl{$componentid})." ".($pads{$componentid}=~m/\(model/)."\n";
 	  #print "pad: ".$pads{$componentid}."\n----\n";
@@ -2894,7 +2901,7 @@ EOF
       $lengths[$_]=unpack("s",msubstr($value,$tpos,2,"len[$_]"));
       $lengths[$_]=16*unpack("C",msubstr($value,$tpos+2,1)."verts")+4 if($_==3);
       $contents[$_]=substr($value,$starts[$_],$lengths[$_]);
-      print "#Regions6-$_[3]-contents[$_] $lengths[$_]: ".bin2hex($contents[$_])."\n"; #  ".bin2hex(substr($value,$starts[$_]+$lengths[$_]))."\n";
+      #print "#Regions6-$_[3]-contents[$_] $lengths[$_]: ".bin2hex($contents[$_])."\n"; #  ".bin2hex(substr($value,$starts[$_]+$lengths[$_]))."\n";
       $tpos+=2+$lengths[$_];
       $tpos+=1 if($_==1);
     }
@@ -2939,7 +2946,7 @@ EOF
 
     my $verts=unpack("S",substr($contents[3],0,2));
     print OUT "# Verts: $verts\n";
-    print "# Verts: $verts\n";
+    #print "# Verts: $verts\n";
 
     my $net=unpack("s",substr($value,3,2))+2;
     assertdata("Fill",$_[3],"NET",unpack("s",substr($value,3,2))) if($net>1);
@@ -2962,15 +2969,16 @@ EOF
     foreach my $ver(0 .. $verts-1)
     {
       my $vpos=4+$ver*16;
-      my $x=-$xmove+mil2mm(unpack("d",msubstr($contents[3],$vpos+0,8,"X$ver")))/10000;
-      my $y=+$ymove-mil2mm(unpack("d",msubstr($contents[3],$vpos+8,8,"Y$ver")))/10000;
-      print "# X$ver x/y ".bin2hex(substr($contents[3],$vpos+0,16))." $x $y \n";
-      print OUT "(xy $x $y) ";
-      if($vpos>length($contents[3]))
+      if($vpos>=length($contents[3]))
       {
         print "Overflow!\n";
 	last;
       }
+
+      my $x=-$xmove+mil2mm(unpack("d",msubstr($contents[3],$vpos+0,8,"X$ver")))/10000;
+      my $y=+$ymove-mil2mm(unpack("d",msubstr($contents[3],$vpos+8,8,"Y$ver")))/10000;
+      #print "# X$ver x/y ".bin2hex(substr($contents[3],$vpos+0,16))." $x $y \n";
+      print OUT "(xy $x $y) ";
     }
 	  print OUT <<EOF
       )
