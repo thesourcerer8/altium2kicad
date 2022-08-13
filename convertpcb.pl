@@ -1860,6 +1860,7 @@ foreach my $filename(@files)
 	assertdata("Net",$_[3],"ID",$_[3]);
 	assertdata("Net",$_[3],"INDEXFORSAVE",$_[3]);
 	assertdata("Net",$_[3],$_,$_[0]{$_}) foreach(keys %{$_[0]});
+	$name=~s/((.\\)+)/\~$1\~/g; $name=~s/(.)\\/$1/g; 
 	$name=~s/\\//g;
         $name=~s/ //g;
 	$netnames{$line}=$name;
@@ -2002,7 +2003,13 @@ EOF
     (uvia_drill 0.127)
 EOF
 ;
-    print OUT "    (add_net \"$_\")\n" foreach(sort keys %{$netclass{$class}});
+    foreach my $name(sort keys %{$netclass{$class}})
+    {
+      $name=~s/((.\\)+)/\~$1\~/g; $name=~s/(.)\\/$1/g;
+      $name=~s/\\//g;
+	  $name=~s/ //g;
+      print OUT "    (add_net \"$name\")\n"
+    }
     print OUT "  )\n";
   }
 
