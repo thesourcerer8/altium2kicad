@@ -2881,8 +2881,8 @@ EOF
 	{
 	  my $v=$d{$key};
 	  #print "k: $key v: $v\n";
-	  $v=~s/TRUE/1/g;
-	  $v=~s/FALSE/0/g;
+	  $v=~s/TRUE/49/g;
+	  $v=~s/FALSE/48/g;
 	  my @a=split",",$v;
 	  my $msg="";
 	  $msg.=pack("C",$_) foreach(@a);
