@@ -2880,6 +2880,9 @@ EOF
 	foreach my $key (sort keys %d)
 	{
 	  my $v=$d{$key};
+	  #print "k: $key v: $v\n";
+	  $v=~s/TRUE/1/g;
+	  $v=~s/FALSE/0/g;
 	  my @a=split",",$v;
 	  my $msg="";
 	  $msg.=pack("C",$_) foreach(@a);
@@ -2978,7 +2981,7 @@ EOF
       my $vpos=4+$ver*16;
       if($vpos>=length($contents[3]))
       {
-        print "Overflow!\n";
+        print "Overflow: verts:$verts ver:$ver vpos:$vpos length:".length($contents[3])." !\n";
 	last;
       }
 
