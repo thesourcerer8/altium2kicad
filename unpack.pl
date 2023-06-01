@@ -23,6 +23,8 @@ push @files,<*.CMPcbLib>;
 
 my $debug=$ARGV[0] || 0;
 
+our $nCircularReferences=0;
+
 # This function converts a binary string to its hex representation for debugging
 sub bin2hex($)
 {
@@ -206,6 +208,11 @@ foreach my $file (@files)
       if(defined($seen{$nextsec}))
       {
         print "Circular reference in file $file, starting with sector $_[0]!\n";
+        $nCircularReferences++;
+	if($nCircularReferences>10)
+	{
+          die "Too many circular references in the file, this file seems to be damaged, we give up now.\n";
+	}
       }
       $seen{$nextsec}=1;
       #print "nextsec: $nextsec\n";
@@ -241,6 +248,11 @@ foreach my $file (@files)
       if(defined($seen{$nextsec}))
       {
         print "Circular reference in short file in $file, starting with short sector $_[0]!\n";
+        $nCircularReferences++;
+	if($nCircularReferences>10)
+	{
+          die "Too many circular references in the file, this file seems to be damaged, we give up now.\n";
+	}
       }
       $seen{$nextsec}=1;
       #print "nextsec: $nextsec\n" if($debug);
