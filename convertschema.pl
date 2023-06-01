@@ -864,10 +864,22 @@ EOF
 	  elsif($d{'RECORD'} eq '13') # Line
 	  {
 	    #|RECORD=13|ISNOTACCESIBLE=T|LINEWIDTH=1|LOCATION.X=581|CORNER.Y=1103|OWNERPARTID=1|OWNERINDEX=168|CORNER.X=599|COLOR=16711680|LOCATION.Y=1103
-	    $dat.="Wire Wire Line\n	".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'CORNER.Y'}*$f)."\n";
-	    $dat.="Wire Wire Line\n	".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." ".($d{'CORNER.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)."\n";
-	    $dat.="Wire Wire Line\n	".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'CORNER.Y'}*$f)." ".($d{'CORNER.X'}*$f)." ".($sheety-$d{'CORNER.Y'}*$f)."\n";
-	    $dat.="Wire Wire Line\n	".($d{'CORNER.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." ".($d{'CORNER.X'}*$f)." ".($sheety-$d{'CORNER.Y'}*$f)."\n";
+	    if(defined($d{'LOCATION.X'}) && defined($d{'LOCATION.Y'}) && defined($d{'CORNER.Y'}))
+	    {
+              $dat.="Wire Wire Line\n	".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." ".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'CORNER.Y'}*$f)."\n";
+              $dat.="Wire Wire Line\n	".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." ".($d{'CORNER.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)."\n";
+              $dat.="Wire Wire Line\n	".($d{'LOCATION.X'}*$f)." ".($sheety-$d{'CORNER.Y'}*$f)." ".($d{'CORNER.X'}*$f)." ".($sheety-$d{'CORNER.Y'}*$f)."\n";
+              $dat.="Wire Wire Line\n	".($d{'CORNER.X'}*$f)." ".($sheety-$d{'LOCATION.Y'}*$f)." ".($d{'CORNER.X'}*$f)." ".($sheety-$d{'CORNER.Y'}*$f)."\n";
+            }
+	    else
+	    {
+	      print STDERR "ERROR: LOCATION.X/Y undefined in a RECORD 13 Line! Dumping all parameters we got:\n";
+	      foreach(sort keys %d)
+	      {
+                print STDERR "d: $_:$d{$_}\n";
+	      }
+	      print STDERR "If you can make sense of how these should be drawn in the schematic please let me know\n";
+	    }
 	  }
 	  elsif($d{'RECORD'} eq '17') # Power Object
 	  {
