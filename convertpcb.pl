@@ -2966,6 +2966,7 @@ EOF
 
     #my $layer=mapLayer(unpack("C",substr($content,0,1))) || "Cmts.User";
     my $layer=defined($d{'V7_LAYER'})?mapLayer($d{'V7_LAYER'}):"Eco1.User";
+    $layer="Eco1.User" if(!defined($layer));
 
     print OUT <<EOF
 (zone $nettext (layer $layer) (tstamp 547BA6E6) (hatch edge 0.508)
