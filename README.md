@@ -3,6 +3,9 @@ altium2kicad
 
 Altium to KiCad converter for PCB and schematics
 
+The project has been superseeded by the new Altium importer that was developed into KiCad itself.
+
+
 ![Altium2KiCad](Altium2KiCad.png)
 
 System requirements: Perl
